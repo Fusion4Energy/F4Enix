@@ -7,8 +7,8 @@ import copy
 import sys
 import os
 from contextlib import contextmanager
-from mcparser.constants import PAT_COMMENT, PAT_MAT, PAT_MX
-from mcparser.input.libmanager import LibManager
+from f4eparser.constants import PAT_COMMENT, PAT_MAT, PAT_MX
+from f4eparser.input.libmanager import LibManager
 
 
 # -------------------------------------

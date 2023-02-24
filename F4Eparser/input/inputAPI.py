@@ -3,8 +3,8 @@ import logging
 import json
 from numjuggler import parser
 
-from mcparser.input.materials import MatCardsList, Material
-from mcparser.input.libmanager import LibManager
+from f4eparser.input.materials import MatCardsList, Material
+from f4eparser.input.libmanager import LibManager
 
 
 class Input:

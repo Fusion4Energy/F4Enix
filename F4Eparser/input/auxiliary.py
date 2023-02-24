@@ -1,5 +1,5 @@
 from numjuggler.parser import Card
-from mcparser.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
+from f4eparser.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
 
 
 def get_comments(card: Card) -> str:

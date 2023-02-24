@@ -1,9 +1,9 @@
 import os
 from importlib.resources import files, as_file
 
-from mcparser.input.libmanager import LibManager
-from mcparser.input.materials import Zaid
-import mcparser.resources as pkg_res
+from f4eparser.input.libmanager import LibManager
+from f4eparser.input.materials import Zaid
+import f4eparser.resources as pkg_res
 import tests.resources.libmanager as lib_res
 
 

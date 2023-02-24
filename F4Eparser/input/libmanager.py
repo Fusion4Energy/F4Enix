@@ -3,7 +3,7 @@ import re
 import warnings
 import pandas as pd
 
-from mcparser.input.xsdirpyne import Xsdir
+from f4eparser.input.xsdirpyne import Xsdir
 
 # colors
 CRED = '\033[91m'
