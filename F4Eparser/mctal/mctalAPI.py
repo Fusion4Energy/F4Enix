@@ -978,7 +978,11 @@ class Mctal:
                 # Then we can collapse this in a single geometrical binning
                 values = []
                 for cell, segment in zip(df.Cells, df.Segments):
-                    val = str(int(cell))+'-'+str(int(segment))
+                    try:
+                        val = str(int(cell))+'-'+str(int(segment))
+                    except ValueError:
+                         # the cell or segment may not be a number
+                         val = '{}-{}'.format(cell, segment)
                     values.append(val)
                 df['Cells-Segments'] = values
                 # delete the collapsed columns
