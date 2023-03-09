@@ -7,6 +7,7 @@ import shutil
 
 from f4eparser.input.materials import MatCardsList, Material
 from f4eparser.input.libmanager import LibManager
+from f4eparser.input.auxiliary import debug_file_unicode
 from copy import deepcopy
 
 
@@ -51,7 +52,14 @@ class Input:
         # Get the blocks using numjuggler parser
         logging.info('Reading file: {}'.format(name))
         jug_cards = parser.get_cards_from_input(inputfile)
-        jug_cardsDic = parser.get_blocks(jug_cards)
+        try:
+            jug_cardsDic = parser.get_blocks(jug_cards)
+        except UnicodeDecodeError as e:
+            logging.error('The file contains unicode errors, scan initiated')
+            txt = debug_file_unicode(inputfile)
+            logging.error('The following error where encountered: \n'+txt)
+            raise e
+
         logging.debug('Reading has finished')
 
         # Parse the different sections
