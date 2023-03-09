@@ -1,10 +1,13 @@
 import os
 import logging
 import json
+import re
 from numjuggler import parser
+import shutil
 
 from f4eparser.input.materials import MatCardsList, Material
 from f4eparser.input.libmanager import LibManager
+from copy import deepcopy
 
 
 class Input:
@@ -17,8 +20,16 @@ class Input:
 
         self.cells = self._to_dict(cells)
         self.surfs = self._to_dict(surfs)
-        self.materials, self.other_data = self._parse_data_section(data)
+
+        (self.materials, self.transformations,
+         self.other_data) = self._parse_data_section(data)
+
         self.header = header
+
+        # store also all the original cards for compatibility
+        # with some numjuggler modes
+        cells.extend(surfs)
+        cells.extend(data)
 
     @classmethod
     def from_input(cls, inputfile: os.PathLike):
@@ -77,7 +88,10 @@ class Input:
             # Add the material section
             outfile.write(self.materials.to_text())
             # Add the rest of the data cards
+            self._write_cards(self.transformations, outfile)
             self._write_cards(self.other_data, outfile)
+            # Add a break
+            outfile.write('\n')
 
         logging.info('File was written correctly')
 
@@ -159,19 +173,81 @@ class Input:
 
         return new_cards
 
+    @staticmethod
+    def _get_cards_by_id(ids: list, cards: dict) -> dict:
+        selected_cards = {}
+        for id_card in ids:
+            selected_cards[id_card] = cards[id_card]
+
+        return selected_cards
+
+    def get_cells_by_id(self, ids: list[int]) -> dict:
+        """given a list of cells id return a dictionary of such cells
+
+        Parameters
+        ----------
+        ids : list[int]
+            cells id to be extracted
+
+        Returns
+        -------
+        dict
+            extracted cells
+        """
+        return self._get_cards_by_id(ids, self.cells)
+
+    def get_surfs_by_id(self, ids: list[int]) -> dict:
+        """given a list of surfaces id return a dictionary of such surfaces
+
+        Parameters
+        ----------
+        ids : list[int]
+            cells id to be extracted
+
+        Returns
+        -------
+        dict
+            extracted surfaces
+        """
+        return self._get_cards_by_id(ids, self.surfs)
+
+    def get_materials_subset(self, ids: list[str]) -> MatCardsList:
+        """given a list of material ids generate a new MatCardsList with
+        the requested subset
+
+        Parameters
+        ----------
+        ids : list[str]
+            ids of the materials to put into the subset
+
+        Returns
+        -------
+        MatCardsList
+            new materials subset
+        """
+        materials = []
+        for id_mat in ids:
+            materials.append(self.materials[id_mat.upper()])
+        return MatCardsList(materials)
+
     def _parse_data_section(self, cards: list[parser.Card]
-                            ) -> tuple[MatCardsList, list[parser.Card]]:
+                            ) -> tuple[MatCardsList,
+                                       list[parser.Card],
+                                       list[parser.Card]]:
 
         # first of all correct numjuggler parser
         cards = self._to_dict(cards)
 
         materials = []  # store here the materials
+        transformations = {}  # store translations
         other_data = {}  # store here the other data cards
 
         for key, card in cards.items():
             try:
                 if card.values[0][1] == 'mat':
                     materials.append(Material.from_text(card.lines))
+                elif card.dtype == 'TRn':
+                    transformations[key] = card
                 else:
                     other_data[key] = card
 
@@ -179,4 +255,75 @@ class Input:
                 # this means that there were no values
                 other_data[key] = card
 
-        return MatCardsList(materials), other_data
+        return MatCardsList(materials), transformations, other_data
+
+    def extract_cells(self, cells: list[int], outfile: os.PathLike):
+        """given a list of cells, dumps a minimum MCNP working file that
+        includes all the requested cells, defined surfaces, materials and
+        translations.
+
+        Parameters
+        ----------
+        cells : list[int]
+            desired list of cells
+        outfile : os.PathLike
+            path to the file where the MCNP input needs to be dumped
+        """
+        cset = set(cells)
+
+        # first, get all surfaces needed to represent the cn cell.
+        sset = set()  # surfaces
+        mset = set()  # material
+        # tset = set()  # transformations
+
+        # next runs: find all other cells:
+        again = True
+        while again:
+            again = False
+            for key, c in self.cells.items():
+                if key in cset:
+                    cref = c.get_refcells()
+                    if cref.difference(cset):
+                        again = True
+                        cset = cset.union(cref)
+
+        # Get all surfaces and materials
+        cells = self.get_cells_by_id(cset)
+        for _, cell in cells.items():
+            for v, t in cell.values:
+                if t == 'sur':
+                    sset.add(v)
+                elif t == 'mat':
+                    mset.add('M'+str(v))
+
+        # Do not bother for the moment in selecting also the transformations
+
+        #                     elif t == 'tr':
+        #                         tset.add(v)
+
+        # # final run: for all cells find surfaces, materials, etc.
+        # for key, surf in self.surfs.items():
+        #     if key in sset:
+        #         # surface card can refer to tr
+        #         for v, t in surf.values:
+        #             if t == 'tr':
+        #                 tset.add(v)
+        with open(outfile, 'w') as outfile:
+            # Add the header lines
+            for line in self.header:
+                outfile.write(line)
+            # Add the cells
+            self._write_cards(cells, outfile)
+            # Add a break
+            outfile.write('\n')
+            # Add the surfaces
+            surfs = self.get_surfs_by_id(sset)
+            self._write_cards(surfs, outfile)
+            # Add a break
+            outfile.write('\n')
+            # Add materials
+            materials = self.get_materials_subset(mset)
+            outfile.write(materials.to_text())
+            self._write_cards(self.transformations, outfile)
+            # Add a break
+            outfile.write('\n')
