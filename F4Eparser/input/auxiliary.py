@@ -27,7 +27,7 @@ def get_comments(card: Card) -> str:
 
         for match in [c_comm, d_comm]:
             if match is not None:
-                comments = comments+match
+                comments = comments+match.group()
 
     return comments
 

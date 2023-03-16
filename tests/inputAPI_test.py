@@ -38,6 +38,27 @@ class TestInput:
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
 
+    # def test_jt60_bug(self, tmpdir):
+    #     with as_file(resources_inp.joinpath('jt60.i')) as file:
+    #         # MT AND MX CARDS
+    #         jt60_input = Input.from_input(file)
+    #     # check that writing and re-reading does not change anything
+    #     outfile = tmpdir.mkdir('sub').join('jt_tmp.i')
+    #     jt60_input.write(outfile)
+
+    #     inp1 = Input.from_input(outfile)
+    #     inp1.write(outfile)
+    #     print(inp1.materials.matdic)
+    #     print(inp1.get_materials_subset('m14').to_text())
+    #     inp2 = Input.from_input(outfile)
+    #     print(inp2.get_materials_subset('m14').to_text())
+    #     outfile2 = tmpdir.mkdir('sub2').join('jt_tmp2.i')
+    #     inp2.write(outfile2)
+
+    #     with open(outfile, 'r') as infile1, open(outfile2, 'r') as infile2:
+    #         for line1, line2 in zip(infile1, infile2):
+    #             assert line1 == line2
+
     def test_write(self, tmpdir):
         # read
         inp = deepcopy(self.testInput)

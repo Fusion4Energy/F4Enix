@@ -11,6 +11,9 @@ from f4eparser.input.auxiliary import debug_file_unicode
 from copy import deepcopy
 
 
+PAT_MT = re.compile(r'm[tx]\d+', re.IGNORECASE)
+
+
 class Input:
     def __init__(
             self,
@@ -97,6 +100,8 @@ class Input:
             outfile.write(self.materials.to_text())
             # Add the rest of the data cards
             self._write_cards(self.transformations, outfile)
+            # Add a break
+            outfile.write('\n')
             self._write_cards(self.other_data, outfile)
             # Add a break
             outfile.write('\n')
@@ -152,7 +157,7 @@ class Input:
     @staticmethod
     def _write_cards(cards: dict[str, parser.Card], outfile) -> None:
         for _, card in cards.items():
-            for line in card.card():
+            for line in card.card(wrap=True):
                 outfile.write(line)
 
     @staticmethod
@@ -219,13 +224,13 @@ class Input:
         """
         return self._get_cards_by_id(ids, self.surfs)
 
-    def get_materials_subset(self, ids: list[str]) -> MatCardsList:
+    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList:
         """given a list of material ids generate a new MatCardsList with
         the requested subset
 
         Parameters
         ----------
-        ids : list[str]
+        ids : Union(list[str]), str)
             ids of the materials to put into the subset
 
         Returns
@@ -233,10 +238,13 @@ class Input:
         MatCardsList
             new materials subset
         """
-        materials = []
-        for id_mat in ids:
-            materials.append(self.materials[id_mat.upper()])
-        return MatCardsList(materials)
+        if type(ids) is str:
+            return self.materials[ids.upper()]
+        else:
+            materials = []
+            for id_mat in ids:
+                materials.append(self.materials[id_mat.upper()])
+            return MatCardsList(materials)
 
     def _parse_data_section(self, cards: list[parser.Card]
                             ) -> tuple[MatCardsList,
@@ -253,9 +261,20 @@ class Input:
         for key, card in cards.items():
             try:
                 if card.values[0][1] == 'mat':
-                    materials.append(Material.from_text(card.lines))
+                    if (PAT_MT.match(card.lines[0]) or
+                            PAT_MT.match(card.lines[-1])):
+                        # mt or mx cards should be added to the previous
+                        # material
+                        print(card.lines[0])
+                        print(card.lines[-1])
+                        materials[-1].add_mx(card)
+                    else:
+                        print(card.values)
+                        materials.append(Material.from_text(card.lines))
+
                 elif card.dtype == 'TRn':
                     transformations[key] = card
+
                 else:
                     other_data[key] = card
 
@@ -277,6 +296,7 @@ class Input:
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
         """
+        logging.info('Collecting the cells, surfaces, materials and transf.')
         cset = set(cells)
 
         # first, get all surfaces needed to represent the cn cell.
@@ -316,6 +336,7 @@ class Input:
         #         for v, t in surf.values:
         #             if t == 'tr':
         #                 tset.add(v)
+        logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:
             # Add the header lines
             for line in self.header:
@@ -332,6 +353,7 @@ class Input:
             # Add materials
             materials = self.get_materials_subset(mset)
             outfile.write(materials.to_text())
-            self._write_cards(self.transformations, outfile)
-            # Add a break
             outfile.write('\n')
+            self._write_cards(self.transformations, outfile)
+
+        logging.info('input written correctly')
