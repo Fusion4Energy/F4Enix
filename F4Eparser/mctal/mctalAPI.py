@@ -853,7 +853,8 @@ class Mctal:
                         return False
    
 
-    def _get_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _get_dfs(self, collapse: bool=False
+                 ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Retrieve and organize mctal data into a DataFrame.
 
@@ -863,6 +864,9 @@ class Mctal:
             organized tally data.
         totalbin : pd.DataFrame
             organized tally data (only total bins).
+        collapse : bool
+            collapse the Cell and segments binning in a single Cell-Segment
+            one
 
         """
         tallydata = {}
@@ -892,7 +896,8 @@ class Mctal:
                     cells.append(newval)
                 # Everything is fine, nothing to modify
                 else:
-                    cells.append(cell)
+                    # force it to be an int
+                    cells.append(int(cell))
             binnings['cells'] = cells
 
             for name, binning in binnings.items():
@@ -974,7 +979,10 @@ class Mctal:
             # the additional segmentation can be quite useful and this can be
             # collapsed de facto in a single geometrical binning
 
-            if 'Cells' in df.columns and 'Segments' in df.columns and len(df) > 1:
+            if ('Cells' in df.columns and
+                'Segments' in df.columns and
+                collapse and
+                len(df)) > 1:
                 # Then we can collapse this in a single geometrical binning
                 values = []
                 for cell, segment in zip(df.Cells, df.Segments):

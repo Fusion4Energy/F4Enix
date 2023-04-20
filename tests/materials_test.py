@@ -2,7 +2,7 @@ import os
 from copy import deepcopy
 from importlib.resources import files, as_file
 
-from f4eparser.input.materials import (Element, Zaid, MatCardsList)
+from f4eparser.input.materials import (Element, Zaid, MatCardsList, Material)
 from f4eparser.input.libmanager import LibManager
 from f4eparser.input.inputAPI import Input
 import f4eparser.resources as pkg_res

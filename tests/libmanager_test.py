@@ -192,3 +192,20 @@ class TestLibManger:
         zaid = Zaid.from_string(zaid)
         mass = self.lm.get_zaid_mass(zaid)
         assert mass == 15.99937442590581
+
+    def test_default_file_generation(self):
+        # both default files
+        lm = LibManager()
+
+        # these need to be reinitialized because they have already been
+        # "consumed"
+        resources2 = files(pkg_res)
+        XSDIR_FILE2 = as_file(resources2.joinpath('xsdir.txt'))
+        ISOTOPES_FILE2 = as_file(resources2.joinpath('Isotopes.txt'))
+
+        # only xsdir default
+        with ISOTOPES_FILE2 as isotopes_file:
+            lm = LibManager(isotopes_file=isotopes_file)
+        # only isotopes default
+        with XSDIR_FILE2 as xsdir_file:
+            lm = LibManager(xsdir_file=xsdir_file)

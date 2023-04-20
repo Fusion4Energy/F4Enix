@@ -624,7 +624,7 @@ def readLine(string):
 
 class Material:
 
-    def __init__(self, zaids, elem, name, submaterials=None, mx_cards=[],
+    def __init__(self, zaids, elem, name, submaterials=None, mx_cards=None,
                  header=None):
         """
         Object representing an MCNP material
@@ -640,7 +640,7 @@ class Material:
         submaterials : list[Submaterials], optional
             list of submaterials composing the material. The default is None.
         mx_cards : list, optional
-            list of mx_cards in the material if present. The default is [].
+            list of mx_cards in the material if present. The default is None.
         header : str, optional
             material header. The default is None.
 
@@ -654,7 +654,10 @@ class Material:
         self.elem = elem
         self.submaterials = submaterials
         self.name = name.strip()
-        self.mx_cards = mx_cards
+        if mx_cards is None:
+            self.mx_cards = []
+        else:
+            self.mx_cards = mx_cards
         self.header = header
 
         # Adjust the submaterial and headers reading
@@ -740,7 +743,7 @@ class Material:
                 text = text+'\n'+submaterial.to_text()
             # Add mx cards
             for mx in self.mx_cards:
-                for line in mx:
+                for line in mx.lines:
                     line = line.strip('\n')
                     text = text+'\n'+line.upper()
         else:
@@ -796,7 +799,7 @@ class Material:
         """
         Add a list of mx_cards to the material
         """
-        self.mx_cards = mx_cards
+        self.mx_cards.append(mx_cards)
 
     def update_info(self, lib_manager):
         """

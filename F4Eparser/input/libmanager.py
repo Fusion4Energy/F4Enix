@@ -2,8 +2,10 @@ import json
 import re
 import warnings
 import pandas as pd
+from importlib.resources import files, as_file
 
 from f4eparser.input.xsdirpyne import Xsdir
+import f4eparser.resources as pkg_res
 
 # colors
 CRED = '\033[91m'
@@ -15,7 +17,7 @@ MSG_DEFLIB = ' The Default library {} was used for zaid {}'
 
 class LibManager:
 
-    def __init__(self, xsdir_file, defaultlib='81c', activationfile=None,
+    def __init__(self, xsdir_file=None, defaultlib='81c', activationfile=None,
                  isotopes_file=None):
         """
         Object dealing with all complex operations that involves nuclear data
@@ -23,7 +25,8 @@ class LibManager:
         Parameters
         ----------
         xsdir_file : str or path
-            path to the MCNP xsdir reference file.
+            path to the MCNP xsdir reference file. If None (default) the
+            default file shipped with the package is used.
         defaultlib : str, optional
             lib suffix to be used as default in translation operations.
             The default is '81c'.
@@ -31,26 +34,52 @@ class LibManager:
             path to the config file containing the reactions data for
             activation libraries. The default is None.
         isotopes_file : str or path, optional
-            path to the isotopes files. If None (default) the file is searched
-            in the current directory.
+            path to the isotopes files. If None (default) the default file
+            shipped with the package is used.
 
         Returns
         -------
         None.
 
         """
-        # load the natural abundance file
-        if isotopes_file is None:
-            isotopes_file = 'Isotopes.txt'
-        abundances = pd.read_csv(isotopes_file, skiprows=2)
+        # use both default files
+        if xsdir_file is None and isotopes_file is None:
+            # get the handlers for the default data files
+            resources = files(pkg_res)
+            XSDIR_FILE = as_file(resources.joinpath('xsdir.txt'))
+            ISOTOPES_FILE = as_file(resources.joinpath('Isotopes.txt'))
+            with XSDIR_FILE as xsdir, ISOTOPES_FILE as isotopes:
+                abundances = pd.read_csv(isotopes, skiprows=2)
+                self.XS = Xsdir(xsdir)
+
+        # use only the default xsdir file
+        elif xsdir_file is None:
+            # get the handlers for the default data files
+            resources = files(pkg_res)
+            XSDIR_FILE = as_file(resources.joinpath('xsdir.txt'))
+            with XSDIR_FILE as xsdir:
+                self.XS = Xsdir(xsdir)
+            abundances = pd.read_csv(isotopes_file, skiprows=2)
+
+        # use only the default isotopes file
+        elif isotopes_file is None:
+            # get the handlers for the default data files
+            resources = files(pkg_res)
+            ISOTOPES_FILE = as_file(resources.joinpath('Isotopes.txt'))
+            with ISOTOPES_FILE as isotopes:
+                abundances = pd.read_csv(isotopes, skiprows=2)
+            self.XS = Xsdir(xsdir_file)
+
+        # no defaults
+        else:
+            self.XS = Xsdir(xsdir_file)
+            abundances = pd.read_csv(isotopes_file, skiprows=2)
+
         abundances['idx'] = abundances['idx'].astype(str)
         abundances.set_index('idx', inplace=True)
         self.isotopes = abundances
 
         self.defaultlib = defaultlib
-
-        # Initilize the Xsdir object
-        self.XS = Xsdir(xsdir_file)
 
         # Identify different libraries installed. This is done checking H
         # libraries = self.check4zaid('1001')
