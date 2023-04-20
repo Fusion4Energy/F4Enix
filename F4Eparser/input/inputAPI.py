@@ -265,11 +265,8 @@ class Input:
                             PAT_MT.match(card.lines[-1])):
                         # mt or mx cards should be added to the previous
                         # material
-                        print(card.lines[0])
-                        print(card.lines[-1])
                         materials[-1].add_mx(card)
                     else:
-                        print(card.values)
                         materials.append(Material.from_text(card.lines))
 
                 elif card.dtype == 'TRn':
