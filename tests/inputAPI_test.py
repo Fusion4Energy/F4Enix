@@ -102,6 +102,13 @@ class TestInput:
         cards = self.testInput.get_surfs_by_id(['1', '2'])
         assert True
 
+    def test_get_materials_subset(self):
+        materials = 'm23'
+        _ = self.testInput.get_materials_subset(materials)
+        materials = ['m22', 'M30']
+        _ = self.testInput.get_materials_subset(materials)
+        assert True
+
     def test_extract_cells(self, tmpdir):
         newinput = deepcopy(self.testInput)
         cells = [24, 25, 31]
