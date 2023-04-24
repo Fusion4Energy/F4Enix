@@ -30,10 +30,10 @@ class Input:
 
         self.header = header
 
-        # store also all the original cards for compatibility
-        # with some numjuggler modes
-        cells.extend(surfs)
-        cells.extend(data)
+        # # store also all the original cards for compatibility
+        # # with some numjuggler modes
+        # cells.extend(surfs)
+        # cells.extend(data)
 
     @classmethod
     def from_input(cls, inputfile: os.PathLike):
@@ -165,9 +165,14 @@ class Input:
         new_cards = {}
         flag_add = False
         for card in cards:
+
             card.get_values()
             try:
                 key = card.name
+                key = card.card().split()[0].upper()
+                if key in new_cards.keys():
+                    raise KeyError('Duplicated card entry: '+key)
+
             except AttributeError:
                 # This means that this is a fake card just made by comments
                 # it should be merged with the following card
@@ -187,10 +192,14 @@ class Input:
         return new_cards
 
     @staticmethod
-    def _get_cards_by_id(ids: list, cards: dict) -> dict:
+    def _get_cards_by_id(ids: list[str], cards: dict) -> dict:
         selected_cards = {}
         for id_card in ids:
-            selected_cards[id_card] = cards[id_card]
+            try:
+                selected_cards[id_card] = cards[id_card]
+            except KeyError:
+                # sometimes it may be with an asterisk
+                selected_cards['*'+id_card] = cards['*'+id_card]
 
         return selected_cards
 
@@ -207,7 +216,10 @@ class Input:
         dict
             extracted cells
         """
-        return self._get_cards_by_id(ids, self.cells)
+        str_ids = []
+        for id in ids:
+            str_ids.append(str(id))
+        return self._get_cards_by_id(str_ids, self.cells)
 
     def get_surfs_by_id(self, ids: list[int]) -> dict:
         """given a list of surfaces id return a dictionary of such surfaces
@@ -222,7 +234,10 @@ class Input:
         dict
             extracted surfaces
         """
-        return self._get_cards_by_id(ids, self.surfs)
+        str_ids = []
+        for id in ids:
+            str_ids.append(str(id))
+        return self._get_cards_by_id(str_ids, self.surfs)
 
     def get_materials_subset(self, ids: list[str] | str) -> MatCardsList:
         """given a list of material ids generate a new MatCardsList with
@@ -294,7 +309,11 @@ class Input:
             path to the file where the MCNP input needs to be dumped
         """
         logging.info('Collecting the cells, surfaces, materials and transf.')
-        cset = set(cells)
+        # make sure these are str
+        cset = []
+        for cell in cells:
+            cset.append(str(cell))
+        cset = set(cset)
 
         # first, get all surfaces needed to represent the cn cell.
         sset = set()  # surfaces

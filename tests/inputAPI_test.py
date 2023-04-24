@@ -2,6 +2,7 @@ import os
 import numpy as np
 from copy import deepcopy
 from importlib.resources import files, as_file
+from numjuggler import parser
 import f4eparser.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
@@ -26,6 +27,7 @@ resources_pkg = files(pkg_res)
 class TestInput:
     with as_file(resources_inp.joinpath('test.i')) as FILE1:
         testInput = Input.from_input(FILE1)
+
     # exceptInput = InputFile.from_text(INP_EX_PATH)
     with (as_file(resources_lib.joinpath('Activation libs.xlsx')) as ACTIVATION_FILE,
           as_file(resources_lib.joinpath('xsdir')) as XSDIR_FILE,
@@ -90,6 +92,16 @@ class TestInput:
         newinput.translate('{"31c": "00c", "70c": "81c"}', self.lm)
         assert True
 
+    def test_get_cells_by_id(self):
+        cards = self.testInput.get_cells_by_id([1, 2])
+        cards = self.testInput.get_cells_by_id(['1', '2'])
+        assert True
+
+    def test_get_surfs_by_id(self):
+        cards = self.testInput.get_surfs_by_id([1, 2])
+        cards = self.testInput.get_surfs_by_id(['1', '2'])
+        assert True
+
     def test_extract_cells(self, tmpdir):
         newinput = deepcopy(self.testInput)
         cells = [24, 25, 31]
@@ -100,3 +112,10 @@ class TestInput:
         assert len(inp2.cells) == 4
         assert len(inp2.surfs) == 9
         assert len(inp2.materials) == 3
+
+    def test_duplicated_nums(self):
+        with as_file(resources_inp.joinpath('various_bugs.i')) as file:
+            bugInput = Input.from_input(file)
+        # There was a bug reading material 101
+        bugInput.get_materials_subset(['m101'])
+        assert True
