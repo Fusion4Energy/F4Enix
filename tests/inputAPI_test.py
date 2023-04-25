@@ -73,6 +73,15 @@ class TestInput:
         inp2 = Input.from_input(outfile)
         self._check_macro_properties(inp2)
 
+        # test if translations are rewritten correctly
+        inp = deepcopy(self.bugInput)
+        outfile = tmpdir.mkdir('sub2').join('tempfile2.i')
+        inp.write(outfile)
+        inp2 = Input.from_input(outfile)
+        _ = inp2.transformations['*TR1']
+
+        assert True
+
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
         assert inp.header[0].strip('\n') == 'This is the header'
@@ -129,4 +138,6 @@ class TestInput:
 
     def test_missing_data_cards(self):
         _ = self.bugInput.other_data['SP2']
+        _ = self.bugInput.transformations['*TR1']
+
         assert True

@@ -100,6 +100,7 @@ class Input:
             # Add the material section
             outfile.write(self.materials.to_text())
             # Add the rest of the data cards
+            outfile.write('\n')
             self._write_cards(self.transformations, outfile)
             # Add a break
             outfile.write('\n')
