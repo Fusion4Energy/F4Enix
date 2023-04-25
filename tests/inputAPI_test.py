@@ -28,6 +28,8 @@ class TestInput:
     with as_file(resources_inp.joinpath('test.i')) as FILE1:
         testInput = Input.from_input(FILE1)
 
+    with as_file(resources_inp.joinpath('various_bugs.i')) as file:
+        bugInput = Input.from_input(file)
     # exceptInput = InputFile.from_text(INP_EX_PATH)
     with (as_file(resources_lib.joinpath('Activation libs.xlsx')) as ACTIVATION_FILE,
           as_file(resources_lib.joinpath('xsdir')) as XSDIR_FILE,
@@ -121,8 +123,10 @@ class TestInput:
         assert len(inp2.materials) == 3
 
     def test_duplicated_nums(self):
-        with as_file(resources_inp.joinpath('various_bugs.i')) as file:
-            bugInput = Input.from_input(file)
         # There was a bug reading material 101
-        bugInput.get_materials_subset(['m101'])
+        self.bugInput.get_materials_subset(['m101'])
+        assert True
+
+    def test_missing_data_cards(self):
+        _ = self.bugInput.other_data['SP2']
         assert True

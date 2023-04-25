@@ -8,6 +8,7 @@ import shutil
 from f4eparser.input.materials import MatCardsList, Material
 from f4eparser.input.libmanager import LibManager
 from f4eparser.input.auxiliary import debug_file_unicode
+from f4eparser.constants import PAT_COMMENT
 from copy import deepcopy
 
 
@@ -176,9 +177,20 @@ class Input:
             except AttributeError:
                 # This means that this is a fake card just made by comments
                 # it should be merged with the following card
-                comment = card.lines
-                flag_add = True
-                continue
+
+                # this is true for comments, but sometimes it happens also
+                # with real cards due to bugs in numjuggler
+
+                # let's first check if it is a comment
+                if PAT_COMMENT.match(card.lines[0]) is not None:
+                    comment = card.lines
+                    flag_add = True
+                    continue
+                # and then if it is a proper card
+                else:
+                    key = card.card().split()[0].upper()
+                    if key in new_cards.keys():
+                        raise KeyError('Duplicated card entry: '+key)
 
             if flag_add:
                 comment.extend(card.lines)
