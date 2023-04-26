@@ -205,20 +205,22 @@ def test_reading(input_meshtal):
                          ['meshtal_rect_VV',
                           'meshtal_cyl',
                           'meshtal_d1s_CSimpactStudy'])
-def test_mesh_vtkwrite(input_meshtal):
+def test_mesh_vtkwrite(input_meshtal, tmpdir):
     filetype = 'MCNP'
     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
         meshtally = Meshtal(inp, filetype)
 
-    for i in meshtally.mesh.items():
-        meshtally.mesh[i[0]].print_info()
-        meshtally.readMesh([i[0]])
+    for i, fmesh in meshtally.mesh.items():
+        fmesh.print_info()
+        meshtally.readMesh(i)
 
-        meshobj = meshtally.mesh[i[0]]
+        meshobj = meshtally.mesh[i]
         if meshobj.cart:
             name = 'test_.vtr'
         else:
             name = 'test_.vts'
 
-        meshobj.writeVTK(name)
+        outfile = tmpdir.mkdir('sub'+str(i)).join(name)
+
+        meshobj.writeVTK(outfile)
         assert True

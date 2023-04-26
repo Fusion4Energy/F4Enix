@@ -1127,13 +1127,13 @@ class Meshtal:
                 mesh[ntally] = t
         return mesh
 
-    def readMesh(self, mesh: list[int] = None,
+    def readMesh(self, mesh: int | list[int] = None,
                  cell_filters: list[int] = None) -> None:
         """Parse a list of FMESHes
 
         Parameters
         ----------
-        mesh : list[int], optional
+        mesh : int | list[int], optional
             list of FMESH to be read, by default None means that all meshes
             will be parsed
         cell_filters : list[int], optional
@@ -1145,11 +1145,12 @@ class Meshtal:
         KeyError
             if the filetype is is not implemented
         """
-
         if self.filetype == "MCNP":
             # cycle on all meshes to be read
             if mesh is None:
                 mesh = self.mesh.keys()
+            elif type(mesh) is int:
+                mesh = [mesh]
 
             for meshid in mesh:
                 m = self.mesh[meshid]
