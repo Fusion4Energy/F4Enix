@@ -3,9 +3,9 @@
 
 # Apply override to all files in the directory
 # Exclude from stats
-docs linguist-documentation
+docs/** linguist-documentation
 
 # Apply override to all files in the directory
 # Exclude from stats
 # technically this is not doc but files needed for testing or other stuff
-tests/resources linguist-documentation
+tests/resources linguist-documentation/**
