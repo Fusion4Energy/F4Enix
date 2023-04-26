@@ -1,0 +1,1646 @@
+d1sune version 3.1.4 ld=05152019  probid =  07/24/20 18:38:25 
+ C                                                                               
+ Number of histories used for normalizing tallies =    2000000000.00
+
+ Mesh Tally Number    427004
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 1.50449E+09
+
+     Relative Errors
+              1127.50
+         0.00 0.03997
+
+
+
+ Mesh Tally Number    427014
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 2.41163E-03
+
+     Relative Errors
+              1127.50
+         0.00 0.10439
+
+
+
+ Mesh Tally Number    427024
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 2.00887E+08
+
+     Relative Errors
+              1235.00
+      -114.00 0.01735
+
+
+
+ Mesh Tally Number    427034
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 2.29129E-04
+
+     Relative Errors
+              1235.00
+      -114.00 0.03614
+
+
+
+ Mesh Tally Number    427044
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 3.84637E+08
+
+     Relative Errors
+              1235.00
+       114.00 0.01046
+
+
+
+ Mesh Tally Number    427054
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.71721E-04
+
+     Relative Errors
+              1235.00
+       114.00 0.02516
+
+
+
+ Mesh Tally Number    427064
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.45192E+08
+
+     Relative Errors
+              1235.00
+      -114.00 0.02250
+
+
+
+ Mesh Tally Number    427074
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.75166E-04
+
+     Relative Errors
+              1235.00
+      -114.00 0.05111
+
+
+
+ Mesh Tally Number    427084
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 6.70460E+09
+
+     Relative Errors
+              1235.00
+       114.00 0.00501
+
+
+
+ Mesh Tally Number    427094
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.62779E-03
+
+     Relative Errors
+              1235.00
+       114.00 0.01790
+
+
+
+ Mesh Tally Number    427104
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 3.25379E+08
+
+     Relative Errors
+              1220.00
+       -91.00 0.01238
+
+
+
+ Mesh Tally Number    427114
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 4.68823E-04
+
+     Relative Errors
+              1220.00
+       -91.00 0.03297
+
+
+
+ Mesh Tally Number    427124
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 3.76209E+08
+
+     Relative Errors
+              1220.00
+        91.00 0.01061
+
+
+
+ Mesh Tally Number    427134
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 5.24423E-04
+
+     Relative Errors
+              1220.00
+        91.00 0.02622
+
+
+
+ Mesh Tally Number    427144
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.49723E+08
+
+     Relative Errors
+              1220.00
+       -91.00 0.01405
+
+
+
+ Mesh Tally Number    427154
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 3.27679E-04
+
+     Relative Errors
+              1220.00
+       -91.00 0.03531
+
+
+
+ Mesh Tally Number    427164
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 1.05153E+09
+
+     Relative Errors
+              1220.00
+        91.00 0.00689
+
+
+
+ Mesh Tally Number    427174
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 1.27420E-03
+
+     Relative Errors
+              1220.00
+        91.00 0.02202
+
+
+
+ Mesh Tally Number    435004
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 2.22142E+12
+
+     Relative Errors
+              1127.50
+         0.00 0.00146
+
+
+
+ Mesh Tally Number    435014
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 5.57989E+00
+
+     Relative Errors
+              1127.50
+         0.00 0.00559
+
+
+
+ Mesh Tally Number    435024
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 3.29869E+10
+
+     Relative Errors
+              1235.00
+      -114.00 0.00376
+
+
+
+ Mesh Tally Number    435034
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 2.84587E-02
+
+     Relative Errors
+              1235.00
+      -114.00 0.01775
+
+
+
+ Mesh Tally Number    435044
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 1.91793E+12
+
+     Relative Errors
+              1235.00
+       114.00 0.00182
+
+
+
+ Mesh Tally Number    435054
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.78186E+00
+
+     Relative Errors
+              1235.00
+       114.00 0.00690
+
+
+
+ Mesh Tally Number    435064
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.08783E+09
+
+     Relative Errors
+              1235.00
+      -114.00 0.00729
+
+
+
+ Mesh Tally Number    435074
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.15080E-03
+
+     Relative Errors
+              1235.00
+      -114.00 0.02094
+
+
+
+ Mesh Tally Number    435084
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 1.92468E+12
+
+     Relative Errors
+              1235.00
+       114.00 0.00183
+
+
+
+ Mesh Tally Number    435094
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.82249E+00
+
+     Relative Errors
+              1235.00
+       114.00 0.00679
+
+
+
+ Mesh Tally Number    435104
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.35851E+09
+
+     Relative Errors
+              1220.00
+       -91.00 0.00572
+
+
+
+ Mesh Tally Number    435114
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.89795E-03
+
+     Relative Errors
+              1220.00
+       -91.00 0.01780
+
+
+
+ Mesh Tally Number    435124
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 2.56518E+09
+
+     Relative Errors
+              1220.00
+        91.00 0.00544
+
+
+
+ Mesh Tally Number    435134
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 3.23626E-03
+
+     Relative Errors
+              1220.00
+        91.00 0.02077
+
+
+
+ Mesh Tally Number    435144
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 5.75310E+08
+
+     Relative Errors
+              1220.00
+       -91.00 0.00828
+
+
+
+ Mesh Tally Number    435154
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 7.97633E-04
+
+     Relative Errors
+              1220.00
+       -91.00 0.02722
+
+
+
+ Mesh Tally Number    435164
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 2.48325E+09
+
+     Relative Errors
+              1220.00
+        91.00 0.00517
+
+
+
+ Mesh Tally Number    435174
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 3.05525E-03
+
+     Relative Errors
+              1220.00
+        91.00 0.01810
+
+
+
+ Mesh Tally Number    443004
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 2.02906E+12
+
+     Relative Errors
+              1127.50
+         0.00 0.00155
+
+
+
+ Mesh Tally Number    443014
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 5.05440E+00
+
+     Relative Errors
+              1127.50
+         0.00 0.00590
+
+
+
+ Mesh Tally Number    443024
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 3.35495E+10
+
+     Relative Errors
+              1235.00
+      -114.00 0.00356
+
+
+
+ Mesh Tally Number    443034
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 3.03246E-02
+
+     Relative Errors
+              1235.00
+      -114.00 0.01726
+
+
+
+ Mesh Tally Number    443044
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 1.94337E+12
+
+     Relative Errors
+              1235.00
+       114.00 0.00182
+
+
+
+ Mesh Tally Number    443054
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.85797E+00
+
+     Relative Errors
+              1235.00
+       114.00 0.00689
+
+
+
+ Mesh Tally Number    443064
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 3.77159E+10
+
+     Relative Errors
+              1235.00
+      -114.00 0.00337
+
+
+
+ Mesh Tally Number    443074
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 3.44702E-02
+
+     Relative Errors
+              1235.00
+      -114.00 0.01491
+
+
+
+ Mesh Tally Number    443084
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 4.49919E+09
+
+     Relative Errors
+              1235.00
+       114.00 0.00501
+
+
+
+ Mesh Tally Number    443094
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 5.00296E-03
+
+     Relative Errors
+              1235.00
+       114.00 0.02499
+
+
+
+ Mesh Tally Number    443104
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.00408E+09
+
+     Relative Errors
+              1220.00
+       -91.00 0.00565
+
+
+
+ Mesh Tally Number    443114
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.49367E-03
+
+     Relative Errors
+              1220.00
+       -91.00 0.01736
+
+
+
+ Mesh Tally Number    443124
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 1.73527E+09
+
+     Relative Errors
+              1220.00
+        91.00 0.00572
+
+
+
+ Mesh Tally Number    443134
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 2.16897E-03
+
+     Relative Errors
+              1220.00
+        91.00 0.01771
+
+
+
+ Mesh Tally Number    443144
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 2.60863E+09
+
+     Relative Errors
+              1220.00
+       -91.00 0.00521
+
+
+
+ Mesh Tally Number    443154
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 3.21291E-03
+
+     Relative Errors
+              1220.00
+       -91.00 0.01750
+
+
+
+ Mesh Tally Number    443164
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 7.87151E+08
+
+     Relative Errors
+              1220.00
+        91.00 0.00725
+
+
+
+ Mesh Tally Number    443174
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 1.02745E-03
+
+     Relative Errors
+              1220.00
+        91.00 0.02423
+
+
+
+ Mesh Tally Number    451004
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 4.83401E+09
+
+     Relative Errors
+              1127.50
+         0.00 0.01687
+
+
+
+ Mesh Tally Number    451014
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1125.00   1130.00
+    Y direction:    -65.00     65.00
+    Z direction:    -20.00    144.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.00   -   144.00
+
+     Tally Results:  X (across) by Y (down)
+              1127.50
+         0.00 4.85731E-03
+
+     Relative Errors
+              1127.50
+         0.00 0.05968
+
+
+
+ Mesh Tally Number    451024
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.63488E+09
+
+     Relative Errors
+              1235.00
+      -114.00 0.00822
+
+
+
+ Mesh Tally Number    451034
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 1.61388E-03
+
+     Relative Errors
+              1235.00
+      -114.00 0.02296
+
+
+
+ Mesh Tally Number    451044
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 1.11887E+09
+
+     Relative Errors
+              1235.00
+       114.00 0.01024
+
+
+
+ Mesh Tally Number    451054
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 1.16995E-03
+
+     Relative Errors
+              1235.00
+       114.00 0.02868
+
+
+
+ Mesh Tally Number    451064
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 8.76050E+09
+
+     Relative Errors
+              1235.00
+      -114.00 0.00482
+
+
+
+ Mesh Tally Number    451074
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:   -134.00    -94.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+      -114.00 9.21610E-03
+
+     Relative Errors
+              1235.00
+      -114.00 0.02155
+
+
+
+ Mesh Tally Number    451084
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 0.00000E+00
+
+     Relative Errors
+              1235.00
+       114.00 0.00000
+
+
+
+ Mesh Tally Number    451094
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1205.00   1265.00
+    Y direction:     94.00    134.00
+    Z direction:    -20.50    172.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     -20.50   -   172.00
+
+     Tally Results:  X (across) by Y (down)
+              1235.00
+       114.00 0.00000E+00
+
+     Relative Errors
+              1235.00
+       114.00 0.00000
+
+
+
+ Mesh Tally Number    451104
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 3.91450E+08
+
+     Relative Errors
+              1220.00
+       -91.00 0.01119
+
+
+
+ Mesh Tally Number    451114
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 5.18185E-04
+
+     Relative Errors
+              1220.00
+       -91.00 0.02763
+
+
+
+ Mesh Tally Number    451124
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 3.05286E+08
+
+     Relative Errors
+              1220.00
+        91.00 0.01288
+
+
+
+ Mesh Tally Number    451134
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:     69.00    113.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+        91.00 3.86883E-04
+
+     Relative Errors
+              1220.00
+        91.00 0.02882
+
+
+
+ Mesh Tally Number    451144
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 9.64674E+08
+
+     Relative Errors
+              1220.00
+       -91.00 0.00678
+
+
+
+ Mesh Tally Number    451154
+ This is a decay photon mesh tally.
+ This mesh tally is modified by a dose response function.
+
+ Tally bin boundaries:
+    X direction:   1190.00   1250.00
+    Y direction:   -113.00    -69.00
+    Z direction:    517.00    707.00
+    Energy bin boundaries: 1.00E-03 1.00E+36
+
+Total Energy Bin
+
+  Z bin:     517.00   -   707.00
+
+     Tally Results:  X (across) by Y (down)
+              1220.00
+       -91.00 1.23181E-03
+
+     Relative Errors
+              1220.00
+       -91.00 0.02009

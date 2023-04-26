@@ -1,0 +1,97 @@
+d1sune version 3.1.4 ld=05152019  probid =  11/12/21 18:25:06 
+ C                                                                               
+ Number of histories used for normalizing tallies =   10000000000.00
+
+ Mesh Tally Number      5004
+     4 Neutron flux BSP B1-5                                                    
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   -104.00    104.00
+    Y direction:   1707.00   1717.00
+    Z direction:   -400.00   -107.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:    -400.00   -  -107.00
+
+     Tally Results:  X (across) by Y (down)
+                 0.00
+      1712.00 9.37426E+06
+
+     Relative Errors
+                 0.00
+      1712.00 0.10304
+
+
+
+ Mesh Tally Number      5014
+     4 Neutron flux PC Door B1-5                                                
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   -210.00    210.00
+    Y direction:   2500.00   2510.00
+    Z direction:   -670.00   -275.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:    -670.00   -  -275.00
+
+     Tally Results:  X (across) by Y (down)
+                 0.00
+      2505.00 2.79691E+06
+
+     Relative Errors
+                 0.00
+      2505.00 0.18702
+
+
+
+ Mesh Tally Number      5024
+     4 Neutron flux BSP B1-17                                                   
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   -104.00    104.00
+    Y direction:   1707.00   1717.00
+    Z direction:   -400.00   -107.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:    -400.00   -  -107.00
+
+     Tally Results:  X (across) by Y (down)
+                 0.00
+      1712.00 7.82628E+06
+
+     Relative Errors
+                 0.00
+      1712.00 0.05864
+
+
+
+ Mesh Tally Number      5034
+     4 Neutron flux PC Door B1-17                                               
+ This is a neutron mesh tally.
+
+ Tally bin boundaries:
+    X direction:   -210.00    210.00
+    Y direction:   2500.00   2510.00
+    Z direction:   -670.00   -275.00
+    Energy bin boundaries: 1.00E-11 5.00E+01
+
+Total Energy Bin
+
+  Z bin:    -670.00   -  -275.00
+
+     Tally Results:  X (across) by Y (down)
+                 0.00
+      2505.00 1.95584E+06
+
+     Relative Errors
+                 0.00
+      2505.00 0.19991

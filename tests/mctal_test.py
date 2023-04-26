@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 from importlib.resources import files, as_file
 
-from f4eparser.mctal.mctalAPI import Mctal
+from f4eparser.output.mctal import Mctal
 import tests.resources.mctal as mctal_res
 
 mctal_resources = files(mctal_res)

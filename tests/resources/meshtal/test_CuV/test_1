@@ -1,0 +1,46 @@
+TEST FMESH AND f4/f6 CONVERSION
+1  0 -1 +2          IMP:n=1 IMP:p=1 IMP:E=1
+10 400 -0.946 -2    IMP:n=1 IMP:p=1 IMP:E=1
+2  0        +1      IMP:n=0 IMP:p=0 IMP:E=0
+
+1 RPP -10 10 -10 10 -5 5
+2 S 0 0 0 4
+
+C ***********************************
+C *  WATER
+C *  MASS DENSITY [G/CC] - 0.946
+C *  VOLUME FRACTION [%] - 100
+C *
+C ***********************************
+C
+C
+M401     1001.21C 6.33910E-002 $ H  1 AMOUNT(%)  2.0000 AB(%) 99.99
+         1002.21C 7.29080E-006 $ H  2 AMOUNT(%)  2.0000 AB(%)  0.01
+         8016.21C 3.16221E-002 $ O 16 AMOUNT(%)  1.0000 AB(%) 99.76
+C
+M400     1001.21C 6.33910E-002 $ H  1 AMOUNT(%)  2.0000 AB(%) 99.99
+         1002.21C 7.29080E-006 $ H  2 AMOUNT(%)  2.0000 AB(%)  0.01
+         8016.21C 3.16221E-002 $ O 16 AMOUNT(%)  1.0000 AB(%) 99.76
+C *
+C *  T.A.D. = 9.50204E-002
+C *  EFF.DENSITY = 9.46000E-001
+C
+sdef pos=0 0 0 erg=1
+MODE N
+C
+FMESH44:n origin=-10 -10 -5  out=cuv
+       imesh=  +10 iints= 4
+       jmesh=  +10 jints= 4
+       kmesh=  +5  kints= 1
+       sppts=1000 spmode=qmc
+FM44   -1 0 1 -4
+C 
+C
+nps 1e5
+c
+F16:N 1
+SD16 1
+F26:N 10
+SD26 1
+c stop NPS 1e4 ctme 1e2 F14 0.1 F24 0.2
+C
