@@ -8,7 +8,7 @@ import shutil
 from f4eparser.input.materials import MatCardsList, Material
 from f4eparser.input.libmanager import LibManager
 from f4eparser.input.auxiliary import debug_file_unicode
-from f4eparser.constants import PAT_COMMENT
+from f4eparser.constants import PAT_COMMENT, PAT_CARD_KEY
 from copy import deepcopy
 
 
@@ -287,6 +287,7 @@ class Input:
         other_data = {}  # store here the other data cards
 
         for key, card in cards.items():
+            key = self._clean_card_name(key)
             try:
                 if card.values[0][1] == 'mat':
                     if (PAT_MT.match(card.lines[0]) or
@@ -386,3 +387,16 @@ class Input:
             self._write_cards(self.transformations, outfile)
 
         logging.info('input written correctly')
+
+    @staticmethod
+    def _clean_card_name(key: str) -> str:
+        # this is to clean cases like:
+        # *TR1 -> TR1
+        # F6:N,P -> F6
+        try:
+            newkey = PAT_CARD_KEY.search(key).group()
+        except AttributeError:
+            logging.debug('the following key was not cleaned: '+key)
+            newkey = key
+
+        return newkey

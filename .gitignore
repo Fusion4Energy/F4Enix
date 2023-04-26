@@ -3,3 +3,4 @@
 f4eparser/f4eparser.egg-info
 f4eparser.egg-info
 .coverage
+htmlcov/*

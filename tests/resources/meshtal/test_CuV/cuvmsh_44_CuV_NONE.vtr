@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<VTKFile type="RectilinearGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <RectilinearGrid WholeExtent="0 4 0 4 0 1">
+    <FieldData>
+      <Array type="String" Name="creationTime" NumberOfTuples="1" format="ascii">
+        87 101 100 32 77 97 114 32 32 51 32 49 48 58 52 52 58 50 57 32 50 48 50 49 0
+      </Array>
+      <Array type="String" Name="author" NumberOfTuples="1" format="ascii">
+        102 97 98 98 114 109 97 0
+      </Array>
+      <Array type="String" Name="host" NumberOfTuples="1" format="ascii">
+        45 76 45 49 57 53 54 57 0
+      </Array>
+      <Array type="String" Name="path" NumberOfTuples="1" format="ascii">
+        68 58 92 68 65 84 65 92 102 97 98 98 114 109 97 92 68 101 115 107 116 111 112 92 85 78 69 68 45 69 88 84 82 65 95 65 67 84 73 86 73 84 73 69 83 92 67 117 86 0
+      </Array>
+    </FieldData>
+  <Piece Extent="0 4 0 4 0 1">
+    <PointData>
+    </PointData>
+    <CellData>
+      <DataArray type="Float64" Name="Value - Total" format="ascii" RangeMin="0" RangeMax="0.00057756604">
+        0 0 0 0 0 0.00057273036
+        0.00057756604 0 0 0.00057611461 0.00057575346 0
+        0 0 0 0
+      </DataArray>
+      <DataArray type="Float64" Name="Error - Total" format="ascii" RangeMin="0" RangeMax="0.00514911">
+        0 0 0 0 0 0.00514911
+        0.00511607 0 0 0.0051256 0.00511344 0
+        0 0 0 0
+      </DataArray>
+    </CellData>
+    <Coordinates>
+      <DataArray type="Float64" Name="X (cm)" format="ascii" RangeMin="-10" RangeMax="10">
+        -10 -5 0 5 10
+      </DataArray>
+      <DataArray type="Float64" Name="Y (cm)" format="ascii" RangeMin="-10" RangeMax="10">
+        -10 -5 0 5 10
+      </DataArray>
+      <DataArray type="Float64" Name="Z (cm)" format="ascii" RangeMin="-5" RangeMax="5">
+        -5 5
+      </DataArray>
+    </Coordinates>
+  </Piece>
+  </RectilinearGrid>
+</VTKFile>
