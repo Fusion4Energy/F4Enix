@@ -1,0 +1,11 @@
+# Auto detect text files and perform LF normalization
+ text=auto
+
+# Apply override to all files in the directory
+# Exclude from stats
+docs linguist-documentation
+
+# Apply override to all files in the directory
+# Exclude from stats
+# technically this is not doc but files needed for testing or other stuff
+tests/resources linguist-documentation

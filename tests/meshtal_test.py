@@ -74,7 +74,7 @@ def test_mesh_print_info(input_meshtal):
 
 
 @pytest.mark.parametrize("input_meshtal", ["meshtal_CUBE_SQUARE"])
-def test_mesh_VTKwrite(input_meshtal):
+def test_mesh_VTKwrite(input_meshtal, tmpdir):
     filetype = "MCNP"
     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
         meshtally = Meshtal(inp, filetype)
@@ -85,7 +85,9 @@ def test_mesh_VTKwrite(input_meshtal):
 
     name = "test_VTK_CUBE_SQUARE.vtr"
 
-    meshobj.writeVTK(name)
+    outfile = tmpdir.mkdir('sub_cube').join(name)
+
+    meshobj.writeVTK(outfile)
     assert True
 
 

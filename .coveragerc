@@ -1,0 +1,5 @@
+# .coveragerc to control coverage.py
+[run]
+omit =
+    # No need to cover the test files
+    tests/*
