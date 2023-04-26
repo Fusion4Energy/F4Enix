@@ -1,5 +1,5 @@
 from numjuggler.parser import Card
-from f4eparser.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
+from f4enix.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
 import re
 import os
 

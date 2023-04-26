@@ -1,4 +1,4 @@
-[![Testing](https://github.com/Radiation-Transport/F4Eparser/actions/workflows/AutomatedTests.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Eparser/actions/workflows/AutomatedTests.yml)
+[![Testing](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml)
 
 # mcparser
 Parser for MCNP input file

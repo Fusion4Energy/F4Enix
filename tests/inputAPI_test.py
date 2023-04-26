@@ -3,12 +3,12 @@ import numpy as np
 from copy import deepcopy
 from importlib.resources import files, as_file
 from numjuggler import parser
-import f4eparser.resources as pkg_res
+import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
 
-from f4eparser.input.inputAPI import Input
-from f4eparser.input.libmanager import LibManager
+from f4enix.input.inputAPI import Input
+from f4enix.input.libmanager import LibManager
 
 
 resources_inp = files(input_res)

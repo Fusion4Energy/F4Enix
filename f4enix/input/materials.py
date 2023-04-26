@@ -7,8 +7,8 @@ import copy
 import sys
 import os
 from contextlib import contextmanager
-from f4eparser.constants import PAT_COMMENT, PAT_MAT, PAT_MX
-from f4eparser.input.libmanager import LibManager
+from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
+from f4enix.input.libmanager import LibManager
 
 
 # -------------------------------------

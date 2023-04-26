@@ -5,10 +5,10 @@ import re
 from numjuggler import parser
 import shutil
 
-from f4eparser.input.materials import MatCardsList, Material
-from f4eparser.input.libmanager import LibManager
-from f4eparser.input.auxiliary import debug_file_unicode
-from f4eparser.constants import PAT_COMMENT, PAT_CARD_KEY
+from f4enix.input.materials import MatCardsList, Material
+from f4enix.input.libmanager import LibManager
+from f4enix.input.auxiliary import debug_file_unicode
+from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY
 from copy import deepcopy
 
 

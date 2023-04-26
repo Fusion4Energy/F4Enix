@@ -1,4 +1,4 @@
-from f4eparser.output.outputAPI import Output
+from f4enix.output.outputAPI import Output
 import logging
 
 # you can use loggining to have a more detailed output

@@ -4,8 +4,8 @@ import warnings
 import pandas as pd
 from importlib.resources import files, as_file
 
-from f4eparser.input.xsdirpyne import Xsdir
-import f4eparser.resources as pkg_res
+from f4enix.input.xsdirpyne import Xsdir
+import f4enix.resources as pkg_res
 
 # colors
 CRED = '\033[91m'

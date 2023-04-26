@@ -1,9 +1,9 @@
 import os
 from importlib.resources import files, as_file
 
-from f4eparser.input.libmanager import LibManager
-from f4eparser.input.materials import Zaid
-import f4eparser.resources as pkg_res
+from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import Zaid
+import f4enix.resources as pkg_res
 import tests.resources.libmanager as lib_res
 
 
