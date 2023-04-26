@@ -29,7 +29,7 @@ jobs:
       - name: Set up Python
         uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: 3.10
+          python-version: '3.10'
 
       # Install the package
       - name: Install the package
