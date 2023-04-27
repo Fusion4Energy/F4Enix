@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pytest
 from copy import deepcopy
 from importlib.resources import files, as_file
 from numjuggler import parser
@@ -153,3 +154,10 @@ class TestInput:
 
         for name, exp in zip(cardnames, expected):
             assert Input._clean_card_name(name) == exp
+
+    @pytest.mark.parametrize('flag', [True, False])
+    def test_get_cells_by_matID(self, flag):
+        newinput = deepcopy(self.testInput)
+        cells = newinput.get_cells_by_matID(13, deepcopy_flag=flag)
+        for filtered, expected in zip(cells.keys(), range(2, 22)):
+            assert filtered == str(expected)

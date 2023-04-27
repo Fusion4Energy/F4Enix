@@ -402,3 +402,32 @@ class Input:
             newkey = key
 
         return newkey
+
+    def get_cells_by_matID(self, matID: int,
+                           deepcopy_flag: bool = True
+                           ) -> dict[str, parser.Card]:
+        """Given a material ID return a dictionary {key, card} of all
+        the cells to which that material is assigned to.
+
+        The cells that are returned are deepcopies of the original ones.
+
+        Parameters
+        ----------
+        matID : int
+            material ID to filter the cells
+        deepcopy_flag: bool
+            if False, the cells are not copied. Default is True
+
+        Returns
+        -------
+        dict[int, parser.Card]
+            cells to which the material is assigned to
+        """
+        filtered_cells = {}
+        for key, cell in self.cells.items():
+            if cell._get_value_by_type('mat') == int(matID):
+                if deepcopy_flag:
+                    filtered_cells[key] = deepcopy(cell)
+                else:
+                    filtered_cells[key] = cell
+        return filtered_cells
