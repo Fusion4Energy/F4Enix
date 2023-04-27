@@ -74,13 +74,15 @@ class Input:
 
         return cls(cells, surfaces, data, header=header)
 
-    def write(self, outfilepath: os.PathLike) -> None:
+    def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
         """write the input to a file
 
         Parameters
         ----------
         outfilepath : os.PathLike
             path to the output file
+        wrap : bool
+            if true the text is wrapped at 80 char. May cause slowdowns
         """
         logging.info('Writing to {}'.format(outfilepath))
 
@@ -90,19 +92,20 @@ class Input:
             for line in self.header:
                 outfile.write(line)
             # Add the cells
-            outfile.write(self._print_cards(self.cells))
+            outfile.writelines(self._print_cards(self.cells, wrap=wrap))
             # Add a break
             outfile.write('\n')
             # Add the surfaces
-            outfile.write(self._print_cards(self.surfs))
+            outfile.writelines(self._print_cards(self.surfs, wrap=wrap))
             # Add a break
             outfile.write('\n')
             # Add the material section (they exit without the \n)
             outfile.write(self.materials.to_text()+'\n')
             # Add the translations
-            outfile.write(self._print_cards(self.transformations))
+            outfile.writelines(self._print_cards(self.transformations,
+                                                 wrap=wrap))
             # Add the rest of the datacards
-            outfile.write(self._print_cards(self.other_data))
+            outfile.writelines(self._print_cards(self.other_data, wrap=wrap))
             # Add a break
             outfile.write('\n')
 
@@ -155,11 +158,12 @@ class Input:
         self.materials.update_info(lib_manager)
 
     @staticmethod
-    def _print_cards(cards: dict[str, parser.Card]) -> str:
-        text = ''
+    def _print_cards(cards: dict[str, parser.Card],
+                     wrap: bool = False) -> list[str]:
+        text = []
         for _, card in cards.items():
-            text = text + '\n' + card.card(wrap=True).strip('\n')
-        return text.strip('\n')+'\n'
+            text.append(card.card(wrap=wrap).strip('\n')+'\n')
+        return text
 
     @staticmethod
     def _to_dict(cards: list[parser.Card]) -> dict[str, parser.Card]:
@@ -371,18 +375,18 @@ class Input:
             for line in self.header:
                 outfile.write(line)
             # Add the cells
-            outfile.write(self._print_cards(cells))
+            outfile.writelines(self._print_cards(cells))
             # Add a break
             outfile.write('\n')
             # Add the surfaces
             surfs = self.get_surfs_by_id(sset)
-            outfile.write(self._print_cards(surfs))
+            outfile.writelines(self._print_cards(surfs))
             # Add a break
             outfile.write('\n')
             # Add materials
             materials = self.get_materials_subset(mset)
             outfile.write(materials.to_text()+'\n')
-            outfile.write(self._print_cards(self.transformations))
+            outfile.writelines(self._print_cards(self.transformations))
 
         logging.info('input written correctly')
 
