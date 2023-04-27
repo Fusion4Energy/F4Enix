@@ -90,21 +90,19 @@ class Input:
             for line in self.header:
                 outfile.write(line)
             # Add the cells
-            self._write_cards(self.cells, outfile)
+            outfile.write(self._print_cards(self.cells))
             # Add a break
             outfile.write('\n')
             # Add the surfaces
-            self._write_cards(self.surfs, outfile)
+            outfile.write(self._print_cards(self.surfs))
             # Add a break
             outfile.write('\n')
-            # Add the material section
-            outfile.write(self.materials.to_text())
-            # Add the rest of the data cards
-            outfile.write('\n')
-            self._write_cards(self.transformations, outfile)
-            # Add a break
-            outfile.write('\n')
-            self._write_cards(self.other_data, outfile)
+            # Add the material section (they exit without the \n)
+            outfile.write(self.materials.to_text()+'\n')
+            # Add the translations
+            outfile.write(self._print_cards(self.transformations))
+            # Add the rest of the datacards
+            outfile.write(self._print_cards(self.other_data))
             # Add a break
             outfile.write('\n')
 
@@ -157,10 +155,11 @@ class Input:
         self.materials.update_info(lib_manager)
 
     @staticmethod
-    def _write_cards(cards: dict[str, parser.Card], outfile) -> None:
+    def _print_cards(cards: dict[str, parser.Card]) -> str:
+        text = ''
         for _, card in cards.items():
-            for line in card.card(wrap=True):
-                outfile.write(line)
+            text = text + '\n' + card.card(wrap=True).strip('\n')
+        return text.strip('\n')+'\n'
 
     @staticmethod
     def _to_dict(cards: list[parser.Card]) -> dict[str, parser.Card]:
@@ -372,19 +371,18 @@ class Input:
             for line in self.header:
                 outfile.write(line)
             # Add the cells
-            self._write_cards(cells, outfile)
+            outfile.write(self._print_cards(cells))
             # Add a break
             outfile.write('\n')
             # Add the surfaces
             surfs = self.get_surfs_by_id(sset)
-            self._write_cards(surfs, outfile)
+            outfile.write(self._print_cards(surfs))
             # Add a break
             outfile.write('\n')
             # Add materials
             materials = self.get_materials_subset(mset)
-            outfile.write(materials.to_text())
-            outfile.write('\n')
-            self._write_cards(self.transformations, outfile)
+            outfile.write(materials.to_text()+'\n')
+            outfile.write(self._print_cards(self.transformations))
 
         logging.info('input written correctly')
 

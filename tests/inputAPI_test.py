@@ -120,6 +120,11 @@ class TestInput:
         _ = self.testInput.get_materials_subset(materials)
         assert True
 
+    # def test_print_cards(self):
+    #     newinput = deepcopy(self.testInput)
+    #     print(newinput._print_cards(newinput.cells))
+    #     assert False
+
     def test_extract_cells(self, tmpdir):
         newinput = deepcopy(self.testInput)
         cells = [24, 25, 31]
