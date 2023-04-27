@@ -4,8 +4,8 @@ import pytest
 import pyvista as pv
 from importlib.resources import files, as_file
 
-from f4enix.output.meshtal import (Meshtal, Fmesh, scalemesh, addmesh,
-                                      diffmesh, identical_mesh)
+from f4enix.output.meshtal import (Meshtal, scalemesh, addmesh,
+                                   diffmesh, identical_mesh)
 import tests.resources.meshtal as resources
 
 RESOURCES = files(resources)

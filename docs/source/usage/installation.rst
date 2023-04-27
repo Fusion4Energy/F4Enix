@@ -1,13 +1,12 @@
-[![Testing](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml)
+.. _install:
 
-# F4Enix
-Parser for Monte Carlo simulations input and output files
+############
+Installation
+############
 
-**Pyhton >3.10!**
-
-## Install
-### Disclaimer
-Currently the package can be installed only in developer mode.
+.. warning::
+    Currently the package can be installed only in developer mode.
+    Please remeber that python versions lower than 3.10 are not supported.
 
 The step 0 of this procedure, that is, if you are encountering any
 sort of trouble, would be to create a new fresh virtual environment.
@@ -15,7 +14,6 @@ In conda this would be done with:
 ```
 conda create -n <env_name> python=3.10
 ```
-Please remeber that python versions lower than 3.10 are not supported.
 
 ### Proper installation
 Since the wheels of the package are not being built, the package can be
