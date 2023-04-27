@@ -423,6 +423,7 @@ class Input:
         dict[int, parser.Card]
             cells to which the material is assigned to
         """
+        logging.debug('get cells for material {} requested'.format(matID))
         filtered_cells = {}
         for key, cell in self.cells.items():
             if cell._get_value_by_type('mat') == int(matID):

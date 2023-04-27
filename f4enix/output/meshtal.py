@@ -4,11 +4,12 @@ import os
 import time
 from scipy.spatial.transform import Rotation as R
 from io import open
+import logging
 
 
 # convert character to float
 # able to convert no standard fortran exponent type 1.234-123
-def dfloat(c: str) -> float:
+def _dfloat(c: str) -> float:
     try:
         x = float(c)
     except:
@@ -20,12 +21,12 @@ def dfloat(c: str) -> float:
 
 
 # return a list of each nth charaters of a string
-def splitn(string: str, n: int) -> list[str]:
+def _splitn(string: str, n: int) -> list[str]:
     return [string[i: i + n].strip() for i in range(0, len(string), n)]
 
 
 # Salta lineas (definida en cien sitios)
-def skipLines(f, n):
+def _skipLines(f, n):
     for iskip in range(n):
         f.readline()
     return
@@ -204,7 +205,7 @@ class Fmesh:
                     binlen = 12
                 else:
                     binlen = 10
-                binlist = splitn(line[i + 1:], binlen)[:-1]
+                binlist = _splitn(line[i + 1:], binlen)[:-1]
                 lastbin = binlist[-1]
                 ib = lastbin.index(".")
                 nbin = int(lastbin[ib + 1:])
@@ -232,8 +233,8 @@ class Fmesh:
                         nline += 1
                     nblck = 2 * ((12 * ne) + nline)
                     pos = f.tell()
-                    skipLines(f, 5)
-                    onef = checkonef(f, nblck)
+                    _skipLines(f, 5)
+                    onef = _checkonef(f, nblck)
                     f.seek(pos)
                     if onef:
                         self.__format__ = "onef"
@@ -251,7 +252,7 @@ class Fmesh:
             self.__format__ = "mcnp"
         self.startm = f.tell()
 
-    def readMCNP(self, f) -> None:
+    def _readMCNP(self, f) -> None:
         """Read the MCNP file.
 
         Parameters
@@ -309,7 +310,7 @@ class Fmesh:
 
         # Matrix format, what order?
         if matFormat:
-            skipLines(f, 1)
+            _skipLines(f, 1)
             if self.etag == "tally":
                 self.tallyscore = [float(f.readline().split()[-1])]
             c = f.readline().split()[0]
@@ -347,25 +348,25 @@ class Fmesh:
 
             for ie in range(self.ldims[0]):
                 if ie > 0:
-                    skipLines(f, 3)
+                    _skipLines(f, 3)
                     if self.etag == "tally":
                         self.tallyscore.append(float(f.readline().split()[-1]))
 
                 for ix1 in range(rshape[0]):
-                    skipLines(f, hlines)
+                    _skipLines(f, hlines)
                     hlines = hlinesNext  # subsequent reads
                     for ix0 in range(rshape[1]):
                         xdat[ix1, ix0, :] = list(
-                            map(dfloat, f.readline().split()[1:])
+                            map(_dfloat, f.readline().split()[1:])
                         )
                     # use dfloat conversion in case of no standar fortan
                     # exponent
-                    skipLines(f, 3)
+                    _skipLines(f, 3)
                     for ix0 in range(rshape[1]):
                         xerr[ix1, ix0, :] = f.readline().split()[
                             1:
                         ]  # automatic conversion
-                    skipLines(f, 2)
+                    _skipLines(f, 2)
                 # Copy of temp data
                 self.dat[ie, :, :, :] = np.transpose(xdat, itrn)
                 self.err[ie, :, :, :] = np.transpose(xerr, itrn)
@@ -383,10 +384,10 @@ class Fmesh:
                 for ix in range(n):
                     line = f.readline()
                     try:
-                        xdat[ix] = dfloat(line[colDat: colDat + 12])
+                        xdat[ix] = _dfloat(line[colDat: colDat + 12])
                         xerr[ix] = line[colErr: colErr + 12]
                     except:
-                        xdat[ix] = dfloat(line[colDat + 1: colDat + 13])
+                        xdat[ix] = _dfloat(line[colDat + 1: colDat + 13])
                         xerr[ix] = line[colErr + 1: colErr + 13]
                 self.dat[ie, :, :, :] = np.transpose(xdat.reshape(rshape),
                                                      itrn)
@@ -425,7 +426,7 @@ class Fmesh:
         self.filled = True
 
     # Read photonfile format of SRCIMP mesh (D1SUNED)
-    def readSRCTYPE(self, f, cfilter=None):
+    def _readSRCTYPE(self, f, cfilter=None):
         mcnp5_Cyl = "  Cylinder origin at"
         mcnp6_Cyl = "               origin at"
         self.etag = "energy"
@@ -453,11 +454,11 @@ class Fmesh:
         # Memory storage for cell data
         # Reversed indeces to keep ordering in memory
         if self.type == "cuv":
-            skipLines(f, 2)
+            _skipLines(f, 2)
         else:
             if self.type == "srcimp":
                 self.tallyscore = np.float(f.readline().split()[-1])
-            skipLines(f, 5)
+            _skipLines(f, 5)
 
         nelemts = self.ldims[1] * self.ldims[2] * self.ldims[3]
         nbin = int(self.ldims[0])
@@ -479,7 +480,7 @@ class Fmesh:
         if self.__format__ == "undef":
             nblck = 2 * ((12 * ne) + nline)
             pos = f.tell()
-            onef = checkonef(f, nblck)
+            onef = _checkonef(f, nblck)
             f.seek(pos)
             if onef:
                 self.__format__ = "onef"
@@ -501,10 +502,10 @@ class Fmesh:
                     errs.extend(f.readline().split())
 
                 if nbin > 1:
-                    xdat[nbin - 1, k] = dfloat(tot)
+                    xdat[nbin - 1, k] = _dfloat(tot)
                     xerr[nbin - 1, k] = 0.0
                 for i in range(ne):
-                    xdat[i, k] = dfloat(vals[i])
+                    xdat[i, k] = _dfloat(vals[i])
                     xerr[i, k] = float(errs[i])
 
         elif self.type == "cuv":
@@ -553,8 +554,8 @@ class Fmesh:
                         for i in range(nline):
                             errc.extend(f.readline().split())
 
-                        vals = np.array([dfloat(x) for x in valc], self.dtype)
-                        errs = np.array([dfloat(x) for x in errc], self.dtype)
+                        vals = np.array([_dfloat(x) for x in valc], self.dtype)
+                        errs = np.array([_dfloat(x) for x in errc], self.dtype)
 
                         if nbin > 1:
                             vals = np.append(vals, celdata[2][ind][0])
@@ -563,14 +564,14 @@ class Fmesh:
                         voxvals.append(vals)
                         voxerrs.append(errs)
                     else:
-                        skipLines(f, 2 * nline)
+                        _skipLines(f, 2 * nline)
 
                 if len(voxvals) == 0:
                     vals = [0] * nbin
                     errs = [0] * nbin
                 else:
                     # sum all bin if not total bin
-                    vals, errs = sumCellInVox(
+                    vals, errs = _sumCellInVox(
                         voxvals, voxerrs, celdata, Vmult=self.__mltopt__
                     )
 
@@ -613,7 +614,7 @@ class Fmesh:
                     for i in range(nline):
                         errc.extend(f.readline().split())
 
-                    vals = np.array([dfloat(x) for x in valc], self.dtype)
+                    vals = np.array([_dfloat(x) for x in valc], self.dtype)
                     errs = np.array(errc, self.dtype)
                     voxvals.append(vals)
                     voxerrs.append(errs)
@@ -631,13 +632,13 @@ class Fmesh:
                             for i in range(nline):
                                 errc.extend(f.readline().split())
 
-                            vals = np.array([dfloat(x) for x in valc],
+                            vals = np.array([_dfloat(x) for x in valc],
                                             self.dtype)
                             errs = np.array(errc, self.dtype)
                             voxvals.append(vals)
                             voxerrs.append(errs)
                         else:
-                            skipLines(f, 2 * nline)
+                            _skipLines(f, 2 * nline)
 
                 if len(voxvals) == 0:
                     vals = [0] * nbin
@@ -645,7 +646,7 @@ class Fmesh:
                     tot = 0
                 else:
                     # sum all bin if not total bin
-                    vals, errs = sumElements(
+                    vals, errs = _sumElements(
                         voxvals,
                         voxerrs,
                         celfrac,
@@ -739,7 +740,7 @@ class Fmesh:
             xtab.append([i, x2])
 
             if not interfound:
-                return format_XYZ_Dim_long(vec)
+                return _format_XYZ_Dim_long(vec)
             line = ""
             newline = "  {:10.3e}".format(xtab[0][1])
 
@@ -755,7 +756,7 @@ class Fmesh:
                 line = line[:-1]
             return line
 
-        def format_XYZ_Dim_long(vec: list, nval: int = 8) -> str:
+        def _format_XYZ_Dim_long(vec: list, nval: int = 8) -> str:
             line = ""
             newline = ""
             for i, v in enumerate(vec):
@@ -771,7 +772,7 @@ class Fmesh:
             return line
 
         if len(vec) <= nval:
-            return format_XYZ_Dim_long(vec)
+            return _format_XYZ_Dim_long(vec)
         else:
             return format_XYZ_Dim_inter(vec)
 
@@ -946,18 +947,18 @@ class Fmesh:
             # Dataset energia total
             it = 1
             sgcd.AddArray(
-                makeVTKarray(self.dat[-1, :, :, :], "Value - Total", self.scaleFac)
+                _makeVTKarray(self.dat[-1, :, :, :], "Value - Total", self.scaleFac)
             )
-            sgcd.AddArray(makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
+            sgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
         # Dataset other bins
         for ie in range(self.ldims[0] - it):
             sgcd.AddArray(
-                makeVTKarray(
+                _makeVTKarray(
                     self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie), self.scaleFac
                 )
             )
             sgcd.AddArray(
-                makeVTKarray(self.err[ie, :, :, :], "ErrorBin-{0:03d}".format(ie))
+                _makeVTKarray(self.err[ie, :, :, :], "ErrorBin-{0:03d}".format(ie))
             )
         # Include weight windows in VTK file (now only one group)
         return sg
@@ -980,7 +981,7 @@ class Fmesh:
         # off.SetCompressorTypeToZLib()
         # Esto cambia con la version de VTK
         t = self.getVTKsg()
-        self.meshtal.setVTKparams(t)
+        self.meshtal._setVTKparams(t)
         if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
             off.SetInputData(t)
         else:
@@ -1005,9 +1006,9 @@ class Fmesh:
             print("Rotated meshtal cannot be plotted to RectangularGrid")
             print("... but plotting anyway (no rotation)")
 
-        xa = makeVTKarray(self.dims[3] + self.origin[3], "X (cm)")
-        ya = makeVTKarray(self.dims[2] + self.origin[2], "Y (cm)")
-        za = makeVTKarray(self.dims[1] + self.origin[1], "Z (cm)")
+        xa = _makeVTKarray(self.dims[3] + self.origin[3], "X (cm)")
+        ya = _makeVTKarray(self.dims[2] + self.origin[2], "Y (cm)")
+        za = _makeVTKarray(self.dims[1] + self.origin[1], "Z (cm)")
 
         rg = vtk.vtkRectilinearGrid()
         rg.SetDimensions(self.ldims[3] + 1, self.ldims[2] + 1,
@@ -1021,20 +1022,20 @@ class Fmesh:
             # Dataset energia total
             it = 1
             rgcd.AddArray(
-                makeVTKarray(self.dat[-1, :, :, :], "Value - Total",
+                _makeVTKarray(self.dat[-1, :, :, :], "Value - Total",
                              self.scaleFac)
             )
-            rgcd.AddArray(makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
+            rgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
         # Dataset other bins
         for ie in range(self.ldims[0] - it):
             rgcd.AddArray(
-                makeVTKarray(
+                _makeVTKarray(
                     self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie),
                     self.scaleFac
                 )
             )
             rgcd.AddArray(
-                makeVTKarray(self.err[ie, :, :, :],
+                _makeVTKarray(self.err[ie, :, :, :],
                              "ErrorBin-{0:03d}".format(ie))
             )
         return rg
@@ -1053,7 +1054,7 @@ class Fmesh:
         off.SetDataModeToAscii()
         # Esto cambia con la version de VTK
         t = self.getVTKrg()
-        self.meshtal.setVTKparams(t)
+        self.meshtal._setVTKparams(t)
         if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
             off.SetInputData(t)
         else:
@@ -1086,6 +1087,7 @@ class Meshtal:
             type of file, by default "MCNP" which is the only file type
             implemented at the moment.
         """
+        logging.info('Loading Meshtal: {}'.format(fn))
         self.filename = fn
         # Parametros para VTK
         self.filetype = filetype
@@ -1145,6 +1147,7 @@ class Meshtal:
         KeyError
             if the filetype is is not implemented
         """
+        logging.info('Reading fmesh: {}'.format(mesh))
         if self.filetype == "MCNP":
             # cycle on all meshes to be read
             if mesh is None:
@@ -1157,13 +1160,13 @@ class Meshtal:
                 # move to the mesh location in the file
                 self.f.seek(m.pos)
                 if m.__format__ == "mcnp":
-                    m.readMCNP(self.f)
+                    m._readMCNP(self.f)
                 else:
                     # if m.__mltflt__ is not None:
                     #     flist = get_clist(m.__mltflt__)
                     # else:
                     #     flist = None
-                    m.readSRCTYPE(self.f, cfilter=cell_filters)
+                    m._readSRCTYPE(self.f, cfilter=cell_filters)
         else:
             raise KeyError("This file type is not implemented: " +
                            str(self.filetype))
@@ -1198,12 +1201,12 @@ class Meshtal:
             i += 1
         # A escribir
         off = vtk.vtkXMLMultiBlockDataWriter()
-        self.setVTKparams(mb)
+        self._setVTKparams(mb)
         off.SetInputData(mb)
         off.SetFileName(ofn)
         off.Write()
 
-    def addVTKparams(self, xdict: dict) -> None:
+    def _addVTKparams(self, xdict: dict) -> None:
         """Add more parameters to include in VTK
 
         Parameters
@@ -1213,7 +1216,7 @@ class Meshtal:
         """
         self.params.update(xdict)
 
-    def setVTKparams(self, xdat: vtk.vtkDataSet) -> None:
+    def _setVTKparams(self, xdat: vtk.vtkDataSet) -> None:
         """Modify VTK structure for including parameters
 
         Parameters
@@ -1265,7 +1268,7 @@ class Meshtal:
 
 
 # This should be the same as above
-def makeVTKarray(nArr, aName, sc=1.0):
+def _makeVTKarray(nArr, aName, sc=1.0):
     from vtk.util import numpy_support
 
     if sc == 1.0:
@@ -1279,7 +1282,7 @@ def makeVTKarray(nArr, aName, sc=1.0):
 
 
 # check if flux mesh from mcnpacab is onef or mltf format
-def checkonef(f, lblck):
+def _checkonef(f, lblck):
     ncel = 0
     while True:
         vals = f.readline().split()
@@ -1299,7 +1302,7 @@ def checkonef(f, lblck):
                 return False
 
 
-def sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
+def _sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
                  nulcount=True):
     # sum the value in the voxel multiplied by the volume fraction
     valf = list(map(lambda x, y: x * y, voxvals, celfrac[1]))
@@ -1336,7 +1339,8 @@ def sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
     return vals, errs
 
 
-def sumElements(voxvals, voxerrs, celfrac, Vsum="onef", Vmult="none", corr=False):
+def _sumElements(voxvals, voxerrs, celfrac, Vsum="onef", Vmult="none",
+                 corr=False):
     if Vsum == "onef":
         # sum all value in the voxel
         vals = voxvals[0]
