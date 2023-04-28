@@ -7,6 +7,9 @@ from io import open
 import logging
 
 
+ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
+
+
 # convert character to float
 # able to convert no standard fortran exponent type 1.234-123
 def _dfloat(c: str) -> float:
@@ -426,10 +429,22 @@ class Fmesh:
         self.filled = True
 
     # Read photonfile format of SRCIMP mesh (D1SUNED)
-    def _readSRCTYPE(self, f, cfilter=None):
+    def _readSRCTYPE(self, f, cfilter=None, norm=None):
         mcnp5_Cyl = "  Cylinder origin at"
         mcnp6_Cyl = "               origin at"
         self.etag = "energy"
+        if norm is None:
+            tag = '[/cc]'
+        elif norm == 'vtot':
+            tag = 'integral value'
+        elif norm == 'celf':
+            tag = '[/cc-cell]'
+        else:
+            tag = ''
+
+        self.tag = tag  # to be used to clarify output array
+
+        self.normalization = norm
 
         if self.readHead:
             f.seek(self.startm)
@@ -572,7 +587,7 @@ class Fmesh:
                 else:
                     # sum all bin if not total bin
                     vals, errs = _sumCellInVox(
-                        voxvals, voxerrs, celdata, Vmult=self.__mltopt__
+                        voxvals, voxerrs, celdata, Vmult=norm
                     )
 
                 xdat[:, k] = vals[:]
@@ -651,7 +666,7 @@ class Fmesh:
                         voxerrs,
                         celfrac,
                         Vsum=self.__format__,
-                        Vmult=self.__mltopt__,
+                        Vmult=norm,
                         corr=True,
                     )
 
@@ -690,9 +705,7 @@ class Fmesh:
             print(" Mesh type      : {}".format(meshtype))
         else:
             print(
-                " Mesh type      : {}, normalization {}".format(
-                    meshtype, self.__mltopt__
-                )
+                " Mesh type      : {}".format(meshtype)
             )
         print(" Dose modif     : {}".format(self.dosecom))
         print(" Mesh geometry  : {}".format(geom))
@@ -941,24 +954,31 @@ class Fmesh:
         sgcd = sg.GetCellData()
         # These slicing operations do not copy data
         # mySlice = [slice(-1,-2,-1),slice(None),slice(None),slice(None)]
+        if self.__format__ == 'cuv':
+            value_tag = 'Value '+self.tag
+        else:
+            value_tag = 'Value - Total'
 
         it = 0
         if self.etag not in ["times", "tally"]:
             # Dataset energia total
             it = 1
             sgcd.AddArray(
-                _makeVTKarray(self.dat[-1, :, :, :], "Value - Total", self.scaleFac)
+                _makeVTKarray(self.dat[-1, :, :, :], value_tag, self.scaleFac)
             )
-            sgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
+            sgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :],
+                                        "Error - Total"))
         # Dataset other bins
         for ie in range(self.ldims[0] - it):
             sgcd.AddArray(
                 _makeVTKarray(
-                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie), self.scaleFac
+                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie),
+                    self.scaleFac
                 )
             )
             sgcd.AddArray(
-                _makeVTKarray(self.err[ie, :, :, :], "ErrorBin-{0:03d}".format(ie))
+                _makeVTKarray(self.err[ie, :, :, :],
+                              "ErrorBin-{0:03d}".format(ie))
             )
         # Include weight windows in VTK file (now only one group)
         return sg
@@ -971,10 +991,14 @@ class Fmesh:
         ofn : os.PathLike
             outpath for the file
         """
+        try:
+            name = 'tally_{}_{}.vts'.format(self.ntally, self.tag)
+        except AttributeError:
+            name = 'tally_{}.vts'.format(self.ntally)
 
         # Escritura en disco
         off = vtk.vtkXMLStructuredGridWriter()
-        off.SetFileName(ofn)
+        off.SetFileName(os.path.join(ofn, name))
         # ASCII o binario (con o sin compresion)
         off.SetDataModeToAscii()
         # off.SetDataModeToBinary()
@@ -1018,12 +1042,17 @@ class Fmesh:
         rg.SetZCoordinates(za)
         rgcd = rg.GetCellData()
         it = 0
+        if self.__format__ == 'cuv':
+            value_tag = 'Value '+self.tag
+        else:
+            value_tag = 'Value - Total'
+
         if self.etag not in ["times", "tally"]:
             # Dataset energia total
             it = 1
             rgcd.AddArray(
-                _makeVTKarray(self.dat[-1, :, :, :], "Value - Total",
-                             self.scaleFac)
+                _makeVTKarray(self.dat[-1, :, :, :], value_tag,
+                              self.scaleFac)
             )
             rgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
         # Dataset other bins
@@ -1036,7 +1065,7 @@ class Fmesh:
             )
             rgcd.AddArray(
                 _makeVTKarray(self.err[ie, :, :, :],
-                             "ErrorBin-{0:03d}".format(ie))
+                              "ErrorBin-{0:03d}".format(ie))
             )
         return rg
 
@@ -1048,9 +1077,13 @@ class Fmesh:
         ofn : os.PathLike
             output vtk file path
         """
+        try:
+            name = 'tally_{}_{}.vtr'.format(self.ntally, self.tag)
+        except AttributeError:
+            name = 'tally_{}.vtr'.format(self.ntally)
         # Escritura en disco
         off = vtk.vtkXMLRectilinearGridWriter()
-        off.SetFileName(ofn)
+        off.SetFileName(os.path.join(ofn, name))
         off.SetDataModeToAscii()
         # Esto cambia con la version de VTK
         t = self.getVTKrg()
@@ -1067,8 +1100,11 @@ class Fmesh:
         Parameters
         ----------
         ofn : os.PathLike
-            path to the vtk outfile
+            path to the vtk outfile folder
         """
+        if not os.path.exists(ofn):
+            raise IsADirectoryError('Directory does not exists {}'.format(ofn))
+
         if self.cart:
             self._writeVTKrg(ofn)
         else:
@@ -1130,7 +1166,8 @@ class Meshtal:
         return mesh
 
     def readMesh(self, mesh: int | list[int] = None,
-                 cell_filters: list[int] = None) -> None:
+                 cell_filters: list[int] = None,
+                 norm: str = None) -> None:
         """Parse a list of FMESHes
 
         Parameters
@@ -1141,6 +1178,9 @@ class Meshtal:
         cell_filters : list[int], optional
             list of cells to be used as filters for the CuV approach,
             by default None
+        norm : str
+            to be used only on CuV. Can be set either to "vtot" or "celf".
+            Default is None
 
         Raises
         ------
@@ -1148,6 +1188,9 @@ class Meshtal:
             if the filetype is is not implemented
         """
         logging.info('Reading fmesh: {}'.format(mesh))
+        if norm not in ALLOWED_NORMALIZATIONS:
+            raise NameError(
+                '{} is not an allowed normalization keyword'.format(norm))
         if self.filetype == "MCNP":
             # cycle on all meshes to be read
             if mesh is None:
@@ -1166,7 +1209,7 @@ class Meshtal:
                     #     flist = get_clist(m.__mltflt__)
                     # else:
                     #     flist = None
-                    m._readSRCTYPE(self.f, cfilter=cell_filters)
+                    m._readSRCTYPE(self.f, cfilter=cell_filters, norm=norm)
         else:
             raise KeyError("This file type is not implemented: " +
                            str(self.filetype))
@@ -1232,7 +1275,7 @@ class Meshtal:
             xdat.GetFieldData().AddArray(t)
 
     def __repr__(self) -> str:
-        print(self)
+        return self.__str__()
 
     def __str__(self) -> str:
         out = ''
@@ -1303,7 +1346,7 @@ def _checkonef(f, lblck):
 
 
 def _sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
-                 nulcount=True):
+                  nulcount=True):
     # sum the value in the voxel multiplied by the volume fraction
     valf = list(map(lambda x, y: x * y, voxvals, celfrac[1]))
 

@@ -1,7 +1,7 @@
 .vscode
 **/__pycache__
-f4eparser/f4eparser.egg-info
-f4eparser.egg-info
+f4enix/f4enix.egg-info
+f4enix.egg-info
 .coverage
 htmlcov/*
 docs/source/_build/**

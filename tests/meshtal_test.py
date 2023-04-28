@@ -35,6 +35,48 @@ def test_mesh_print_tally_info(input_meshtal):
 
 @pytest.mark.parametrize(
     "input_meshtal",
+    [
+        "meshtal_cuv",
+        "meshtal_cyl",
+        "meshtal_d1s_CSimpactStudy",
+        "meshtal_CUBE_SQUARE",
+        "meshtal_CUBE_ONES",
+    ],
+)
+def test_read_mesh(input_meshtal):
+    # To check if the meshtal can be read without any problem"
+    filetype = "MCNP"
+    with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+        meshtally = Meshtal(inp, filetype)
+
+    for i in meshtally.mesh.items():
+        meshtally.readMesh()
+
+    assert True
+
+
+@pytest.mark.parametrize(
+    "norm",
+    [
+        "vtot",
+        "celf",
+    ],
+)
+def test_read_mesh_cuv(norm):
+    # To check if the meshtal can be read without any problem"
+    filetype = "MCNP"
+    with as_file(RESOURCES.joinpath('meshtal_cuv')) as inp:
+        meshtally = Meshtal(inp, filetype)
+
+    for i in meshtally.mesh.items():
+        meshtally.readMesh(norm=norm)
+        meshtally.readMesh(cell_filters=[1, 2], norm=norm)
+
+    assert True
+
+
+@pytest.mark.parametrize(
+    "input_meshtal",
     ["meshtal_cuv", "meshtal_cyl", "meshtal_d1s_CSimpactStudy"]
 )
 def test_mesh_print_info(input_meshtal):
@@ -73,21 +115,25 @@ def test_mesh_print_info(input_meshtal):
 #     X --->
 
 
-@pytest.mark.parametrize("input_meshtal", ["meshtal_CUBE_SQUARE"])
+@pytest.mark.parametrize("input_meshtal",
+                         ["meshtal_CUBE_SQUARE",
+                          'meshtal_rect_VV',
+                          'meshtal_cyl',
+                          'meshtal_d1s_CSimpactStudy'])
 def test_mesh_VTKwrite(input_meshtal, tmpdir):
     filetype = "MCNP"
     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
         meshtally = Meshtal(inp, filetype)
 
-    meshtally.mesh[124].print_info()
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
+    # get the first mesh
+    mesh_key = list(meshtally.mesh.keys())[0]
+    meshtally.mesh[mesh_key].print_info()
+    meshtally.readMesh([mesh_key])
+    meshobj = meshtally.mesh[mesh_key]
 
-    name = "test_VTK_CUBE_SQUARE.vtr"
+    outpath = tmpdir.mkdir('sub_cube')
 
-    outfile = tmpdir.mkdir('sub_cube').join(name)
-
-    meshobj.writeVTK(outfile)
+    meshobj.writeVTK(outpath)
     assert True
 
 
@@ -201,28 +247,3 @@ def test_reading(input_meshtal):
         Meshtal(inp, filetype)
 
     assert True
-
-
-@pytest.mark.parametrize("input_meshtal",
-                         ['meshtal_rect_VV',
-                          'meshtal_cyl',
-                          'meshtal_d1s_CSimpactStudy'])
-def test_mesh_vtkwrite(input_meshtal, tmpdir):
-    filetype = 'MCNP'
-    with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-        meshtally = Meshtal(inp, filetype)
-
-    for i, fmesh in meshtally.mesh.items():
-        fmesh.print_info()
-        meshtally.readMesh(i)
-
-        meshobj = meshtally.mesh[i]
-        if meshobj.cart:
-            name = 'test_.vtr'
-        else:
-            name = 'test_.vts'
-
-        outfile = tmpdir.mkdir('sub'+str(i)).join(name)
-
-        meshobj.writeVTK(outfile)
-        assert True
