@@ -355,7 +355,8 @@ class Input:
                 if t == 'sur':
                     sset.add(v)
                 elif t == 'mat':
-                    mset.add('M'+str(v))
+                    if int(v) != 0:  # void material is not defined in a card
+                        mset.add('M'+str(v))
 
         # Do not bother for the moment in selecting also the transformations
 

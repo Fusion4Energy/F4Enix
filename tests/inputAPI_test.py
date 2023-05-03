@@ -128,13 +128,13 @@ class TestInput:
 
     def test_extract_cells(self, tmpdir):
         newinput = deepcopy(self.testInput)
-        cells = [24, 25, 31]
+        cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir('sub').join('extract.i')
         newinput.extract_cells(cells, outfile)
         # re-read
         inp2 = Input.from_input(outfile)
-        assert len(inp2.cells) == 4
-        assert len(inp2.surfs) == 9
+        assert len(inp2.cells) == 5
+        assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
 
     def test_duplicated_nums(self):
