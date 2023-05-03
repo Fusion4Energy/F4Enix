@@ -1512,199 +1512,199 @@ def identical_mesh(m1, m2):
     return part, mesh, mtype
 
 
-def scalemesh(m1, f1):
-    mscal = Fmesh(m1.meshtal)
-    mscal.filled = True
-    mscal.dims = m1.dims
-    mscal.ldims = m1.ldims
-    mscal.cart = m1.cart
-    mscal.part = m1.part
-    mscal.etag = m1.etag
-    mscal.type = m1.type
-    mscal.origin = m1.origin
-    mscal.rotation = m1.rotation
-    if not m1.cart:
-        mscal.axis = m1.axis
-        mscal.vec = m1.vec
+# def scalemesh(m1, f1):
+#     mscal = Fmesh(m1.meshtal)
+#     mscal.filled = True
+#     mscal.dims = m1.dims
+#     mscal.ldims = m1.ldims
+#     mscal.cart = m1.cart
+#     mscal.part = m1.part
+#     mscal.etag = m1.etag
+#     mscal.type = m1.type
+#     mscal.origin = m1.origin
+#     mscal.rotation = m1.rotation
+#     if not m1.cart:
+#         mscal.axis = m1.axis
+#         mscal.vec = m1.vec
 
-    mscal.dat = m1.dat * f1
-    mscal.err = m1.err
-    return mscal
-
-
-# sum two meshes with the same dimemsions
-def addmesh(m1, m2, f1=1.0, f2=1.0, corr=False):
-    if m1.part != m2.part:
-        print("Warning: particle type are different")
-
-    if not m1.sameMesh(m2):
-        print("mesh dimensions are not equal")
-        return None
-
-    if m1.type != m2.type:
-        print("mesh type are different")
-        return None
-
-    msum = Fmesh(m1.meshtal)
-
-    msum.filled = True
-    msum.dims = m1.dims[:]
-    msum.ldims = m1.ldims[:]
-    msum.cart = m1.cart
-    msum.part = m1.part
-    msum.etag = m1.etag
-    msum.type = m1.type
-    msum.origin = m1.origin
-    msum.rotation = m1.rotation
-    if not m1.cart:
-        msum.axis = m1.axis
-        msum.vec = m1.vec
-
-    msum.dat = m1.dat * f1 + m2.dat * f2
-
-    if not corr:
-        sf1 = f1 * f1
-        sf2 = f2 * f2
-        numerator = np.sqrt(sf1 * (m1.dat * m1.err) ** 2 + sf2 * (m2.dat * m2.err) ** 2)
-        msum.err = np.divide(
-            numerator, msum.dat, out=np.zeros_like(numerator), where=(msum.dat != 0)
-        )
-    else:
-        numerator = abs(f1 * m1.dat * m1.err) + abs(f2 * m2.dat * m2.err)
-        msum.err = np.divide(
-            numerator, msum.dat, out=np.zeros_like(numerator), where=(msum.dat != 0)
-        )
-
-    return msum
+#     mscal.dat = m1.dat * f1
+#     mscal.err = m1.err
+#     return mscal
 
 
-# provide difference between two meshes
-def diffmesh(m1, m2, absvalue=False, relative=False):
-    if m1.part != m2.part:
-        print("Warning: particle type are different")
+# # sum two meshes with the same dimemsions
+# def addmesh(m1, m2, f1=1.0, f2=1.0, corr=False):
+#     if m1.part != m2.part:
+#         print("Warning: particle type are different")
 
-    if not m1.sameMesh(m2):
-        print("mesh dimensions are not equal")
-        return None
+#     if not m1.sameMesh(m2):
+#         print("mesh dimensions are not equal")
+#         return None
 
-    if m1.type != m2.type:
-        print("mesh type are different")
-        return None
+#     if m1.type != m2.type:
+#         print("mesh type are different")
+#         return None
 
-    msum = Fmesh(m1.meshtal)
+#     msum = Fmesh(m1.meshtal)
 
-    msum.filled = True
-    msum.dims = m1.dims[:]
-    msum.ldims = m1.ldims[:]
-    msum.cart = m1.cart
-    msum.part = m1.part
-    msum.etag = m1.etag
-    msum.type = m1.type
-    msum.origin = m1.origin
-    msum.rotation = m1.rotation
-    if not m1.cart:
-        msum.axis = m1.axis
-        msum.vec = m1.vec
+#     msum.filled = True
+#     msum.dims = m1.dims[:]
+#     msum.ldims = m1.ldims[:]
+#     msum.cart = m1.cart
+#     msum.part = m1.part
+#     msum.etag = m1.etag
+#     msum.type = m1.type
+#     msum.origin = m1.origin
+#     msum.rotation = m1.rotation
+#     if not m1.cart:
+#         msum.axis = m1.axis
+#         msum.vec = m1.vec
 
-    if absvalue:
-        msum.dat = abs(m1.dat) - abs(m2.dat)
-    else:
-        msum.dat = m1.dat - m2.dat
+#     msum.dat = m1.dat * f1 + m2.dat * f2
 
-    denominator = np.sqrt((m1.dat * m1.err) ** 2 + (m2.dat * m2.err) ** 2)
-    msum.err = np.divide(
-        msum.dat, denominator, out=np.zeros_like(msum.dat),
-        where=(denominator != 0)
-    )
+#     if not corr:
+#         sf1 = f1 * f1
+#         sf2 = f2 * f2
+#         numerator = np.sqrt(sf1 * (m1.dat * m1.err) ** 2 + sf2 * (m2.dat * m2.err) ** 2)
+#         msum.err = np.divide(
+#             numerator, msum.dat, out=np.zeros_like(numerator), where=(msum.dat != 0)
+#         )
+#     else:
+#         numerator = abs(f1 * m1.dat * m1.err) + abs(f2 * m2.dat * m2.err)
+#         msum.err = np.divide(
+#             numerator, msum.dat, out=np.zeros_like(numerator), where=(msum.dat != 0)
+#         )
 
-    if relative:
-        denominator = m1.dat + m2.dat
-        msum.err = np.divide(
-            2 * msum.dat,
-            denominator,
-            out=np.zeros_like(msum.dat),
-            where=(denominator != 0),
-        )
-
-    return msum
+#     return msum
 
 
-# sum two meshes with the same dimemsions
-def addbin(m1, binlist, flist=[], corr=False):
-    nbins = len(binlist)
-    if flist != []:
-        if len(flist) != nbins:
-            print("bin length and factor lenght is different")
-            return None
+# # provide difference between two meshes
+# def diffmesh(m1, m2, absvalue=False, relative=False):
+#     if m1.part != m2.part:
+#         print("Warning: particle type are different")
 
-    if m1.etag == "times":
-        print("Times bin cannot be added")
-        return None
+#     if not m1.sameMesh(m2):
+#         print("mesh dimensions are not equal")
+#         return None
 
-    if nbins >= m1.ldims[0]:
-        print("too many bin numbers")
-        return None
+#     if m1.type != m2.type:
+#         print("mesh type are different")
+#         return None
 
-    for b in binlist:
-        if b >= m1.ldims[0] - 1:
-            print("at least one bin index exceed mesh bin length")
-            return None
+#     msum = Fmesh(m1.meshtal)
 
-    msum = Fmesh(m1.meshtal)
-    msum.dtype = m1.dtype
+#     msum.filled = True
+#     msum.dims = m1.dims[:]
+#     msum.ldims = m1.ldims[:]
+#     msum.cart = m1.cart
+#     msum.part = m1.part
+#     msum.etag = m1.etag
+#     msum.type = m1.type
+#     msum.origin = m1.origin
+#     msum.rotation = m1.rotation
+#     if not m1.cart:
+#         msum.axis = m1.axis
+#         msum.vec = m1.vec
 
-    msum.filled = True
-    msum.dims = m1.dims[:]
-    msum.ldims = m1.ldims[:]
-    msum.part = m1.part
-    msum.etag = m1.etag
-    msum.type = m1.type
-    msum.origin = m1.origin
-    msum.rotation = m1.rotation
-    if not m1.cart:
-        msum.axis = m1.axis
-        msum.vec = m1.vec
-    msum.cart = m1.cart
+#     if absvalue:
+#         msum.dat = abs(m1.dat) - abs(m2.dat)
+#     else:
+#         msum.dat = m1.dat - m2.dat
 
-    msum.ldims[0] = 1
-    msum.dims[0] = np.array([0], m1.dtype)
+#     denominator = np.sqrt((m1.dat * m1.err) ** 2 + (m2.dat * m2.err) ** 2)
+#     msum.err = np.divide(
+#         msum.dat, denominator, out=np.zeros_like(msum.dat),
+#         where=(denominator != 0)
+#     )
 
-    msum.dat = np.zeros(msum.ldims, m1.dtype)
-    msum.err = np.zeros(msum.ldims, m1.dtype)
+#     if relative:
+#         denominator = m1.dat + m2.dat
+#         msum.err = np.divide(
+#             2 * msum.dat,
+#             denominator,
+#             out=np.zeros_like(msum.dat),
+#             where=(denominator != 0),
+#         )
 
-    if flist == []:
-        for b in binlist:
-            msum.dat[0, :, :, :] += m1.dat[b, :, :, :]
-            if not corr:
-                msum.err[0, :, :, :] += (m1.err[b, :, :, :] * m1.dat[b, :, :, :]) ** 2
-            else:
-                msum.err[0, :, :, :] += abs(m1.err[b, :, :, :] * m1.dat[b, :, :, :])
-    else:
-        for i, b in enumerate(binlist):
-            msum.dat[0, :, :, :] += m1.dat[b, :, :, :] * flist[i]
-            if not corr:
-                msum.err[0, :, :, :] += (
-                    m1.err[b, :, :, :] * m1.dat[b, :, :, :] * flist[i]
-                ) ** 2
-            else:
-                msum.err[0, :, :, :] += abs(
-                    m1.err[b, :, :, :] * m1.dat[b, :, :, :] * flist[i]
-                )
+#     return msum
 
-    if not corr:
-        msum.err = np.divide(
-            np.sqrt(msum.err),
-            msum.dat,
-            out=np.zeros_like(msum.err),
-            where=(msum.dat != 0),
-        )
-    else:
-        msum.err = np.divide(
-            msum.err, msum.dat, out=np.zeros_like(msum.err),
-            where=(msum.dat != 0)
-        )
 
-    return msum
+# # sum two meshes with the same dimemsions
+# def addbin(m1, binlist, flist=[], corr=False):
+#     nbins = len(binlist)
+#     if flist != []:
+#         if len(flist) != nbins:
+#             print("bin length and factor lenght is different")
+#             return None
+
+#     if m1.etag == "times":
+#         print("Times bin cannot be added")
+#         return None
+
+#     if nbins >= m1.ldims[0]:
+#         print("too many bin numbers")
+#         return None
+
+#     for b in binlist:
+#         if b >= m1.ldims[0] - 1:
+#             print("at least one bin index exceed mesh bin length")
+#             return None
+
+#     msum = Fmesh(m1.meshtal)
+#     msum.dtype = m1.dtype
+
+#     msum.filled = True
+#     msum.dims = m1.dims[:]
+#     msum.ldims = m1.ldims[:]
+#     msum.part = m1.part
+#     msum.etag = m1.etag
+#     msum.type = m1.type
+#     msum.origin = m1.origin
+#     msum.rotation = m1.rotation
+#     if not m1.cart:
+#         msum.axis = m1.axis
+#         msum.vec = m1.vec
+#     msum.cart = m1.cart
+
+#     msum.ldims[0] = 1
+#     msum.dims[0] = np.array([0], m1.dtype)
+
+#     msum.dat = np.zeros(msum.ldims, m1.dtype)
+#     msum.err = np.zeros(msum.ldims, m1.dtype)
+
+#     if flist == []:
+#         for b in binlist:
+#             msum.dat[0, :, :, :] += m1.dat[b, :, :, :]
+#             if not corr:
+#                 msum.err[0, :, :, :] += (m1.err[b, :, :, :] * m1.dat[b, :, :, :]) ** 2
+#             else:
+#                 msum.err[0, :, :, :] += abs(m1.err[b, :, :, :] * m1.dat[b, :, :, :])
+#     else:
+#         for i, b in enumerate(binlist):
+#             msum.dat[0, :, :, :] += m1.dat[b, :, :, :] * flist[i]
+#             if not corr:
+#                 msum.err[0, :, :, :] += (
+#                     m1.err[b, :, :, :] * m1.dat[b, :, :, :] * flist[i]
+#                 ) ** 2
+#             else:
+#                 msum.err[0, :, :, :] += abs(
+#                     m1.err[b, :, :, :] * m1.dat[b, :, :, :] * flist[i]
+#                 )
+
+#     if not corr:
+#         msum.err = np.divide(
+#             np.sqrt(msum.err),
+#             msum.dat,
+#             out=np.zeros_like(msum.err),
+#             where=(msum.dat != 0),
+#         )
+#     else:
+#         msum.err = np.divide(
+#             msum.err, msum.dat, out=np.zeros_like(msum.err),
+#             where=(msum.dat != 0)
+#         )
+
+#     return msum
 
 
 # ================== END OF FUNCTION DEFINITIONS =================
