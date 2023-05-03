@@ -115,26 +115,44 @@ def test_mesh_print_info(input_meshtal):
 #     X --->
 
 
-@pytest.mark.parametrize("input_meshtal",
-                         ["meshtal_CUBE_SQUARE",
-                          'meshtal_rect_VV',
-                          'meshtal_cyl',
-                          'meshtal_d1s_CSimpactStudy'])
-def test_mesh_VTKwrite(input_meshtal, tmpdir):
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-        meshtally = Meshtal(inp, filetype)
+# @pytest.mark.parametrize("input_meshtal",
+#                          ["meshtal_CUBE_SQUARE",
+#                           'meshtal_rect_VV',
+#                           'meshtal_cyl',
+#                           'meshtal_d1s_CSimpactStudy'])
+# def test_mesh_VTKwrite(input_meshtal, tmpdir):
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+#         meshtally = Meshtal(inp, filetype)
 
-    # get the first mesh
-    mesh_key = list(meshtally.mesh.keys())[0]
-    meshtally.mesh[mesh_key].print_info()
-    meshtally.readMesh([mesh_key])
-    meshobj = meshtally.mesh[mesh_key]
+#     # get the first mesh
+#     mesh_key = list(meshtally.mesh.keys())[0]
+#     meshtally.mesh[mesh_key].print_info()
+#     meshtally.readMesh([mesh_key])
+#     meshobj = meshtally.mesh[mesh_key]
 
-    outpath = tmpdir.mkdir('sub_cube')
+#     outpath = tmpdir.mkdir('sub_cube')
 
-    meshobj.writeVTK(outpath)
-    assert True
+#     meshobj.writeVTK(outpath)
+#     assert True
+
+
+# @pytest.mark.parametrize("input_meshtal",
+#                          ["meshtal_CUBE_SQUARE",
+#                           'meshtal_rect_VV',
+#                           'meshtal_cyl',
+#                           'meshtal_d1s_CSimpactStudy'])
+# def test_mesh_VTKwrite(input_meshtal, tmpdir):
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+#         meshtally = Meshtal(inp, filetype)
+
+#     # read all meshes
+#     meshtally.readMesh()
+#     outpath = tmpdir.mkdir('sub_write_all')
+#     meshtally.writeVTK(outpath)
+
+#     assert True
 
 
 @pytest.mark.parametrize("filename", ["test_VTK_CUBE_SQUARE.vtr"])

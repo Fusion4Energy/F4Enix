@@ -1,10 +1,12 @@
 import numpy as np
 import vtk
+import pyvista as pv
 import os
 import time
 from scipy.spatial.transform import Rotation as R
 from io import open
 import logging
+from f4enix.output.pyvistawrap import PyVistaWrapper
 
 
 ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
@@ -100,6 +102,9 @@ class Fmesh:
         self.usrbin = False
         self.readHead = False
         self.vec = None
+
+        # here is stored the vtk object once the Fmesh is read
+        self.vtk = None
 
         # Rotation matrix
         self.rotation = np.identity(3, self.dtype)
@@ -427,6 +432,12 @@ class Fmesh:
                     break
 
         self.filled = True
+        # if it is filled it means that the vtk object can be created
+        name = '{}_{}'.format(self.meshtal.filename, self.ntally)
+        if self.cart:
+            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+        else:
+            self.vtk = PyVistaWrapper(name, self._getVTKrg())
 
     # Read photonfile format of SRCIMP mesh (D1SUNED)
     def _readSRCTYPE(self, f, cfilter=None, norm=None):
@@ -679,7 +690,12 @@ class Fmesh:
         self.err = xerr.reshape(rshape)
         self.err = self.err.transpose(0, 3, 2, 1)
         self.filled = True
-        return
+        # if it is filled it means that the vtk object can be created
+        name = '{}_{}'.format(self.meshtal.filename, self.ntally)
+        if self.cart:
+            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+        else:
+            self.vtk = PyVistaWrapper(name, self._getVTKrg())
 
     #  end modifs
 
@@ -872,25 +888,25 @@ class Fmesh:
 
         return True
 
-    # Translate the mesh
-    def translate(self, vec: list[float]) -> None:
-        """translate the fmesh using a vector x, y, z.
+    # # Translate the mesh
+    # def translate(self, vec: list[float]) -> None:
+    #     """translate the fmesh using a vector x, y, z.
 
-        Parameters
-        ----------
-        vec : list[float]
-            translation vector
-        """
-        self.origin += np.array(vec)
+    #     Parameters
+    #     ----------
+    #     vec : list[float]
+    #         translation vector
+    #     """
+    #     self.origin += np.array(vec)
 
     # Salida en formato VTK
     # Escribe structured grid
-    def getVTKsg(self) -> vtk.vtkStructuredGrid:
+    def _getVTKsg(self) -> pv.DataSet:
         """get the VTK structured grid format for the mesh
 
         Returns
         -------
-        vtk.vtkStructuredGrid
+        pv.DataSet
             generated vtk object
         """
         import math
@@ -981,54 +997,59 @@ class Fmesh:
                               "ErrorBin-{0:03d}".format(ie))
             )
         # Include weight windows in VTK file (now only one group)
-        return sg
 
-    def _writeVTKsg(self, ofn: os.PathLike) -> None:
-        """Write the mesh to a vtk file
+        # TODO use pyvista to create the object
+        # for the moment just wrap in a pyvista object
+        return pv.wrap(sg)
 
-        Parameters
-        ----------
-        ofn : os.PathLike
-            outpath for the file
-        """
-        try:
-            name = 'tally_{}_{}.vts'.format(self.ntally, self.tag)
-        except AttributeError:
-            name = 'tally_{}.vts'.format(self.ntally)
+    # def _writeVTKsg(self, ofn: os.PathLike) -> None:
+    #     """Write the mesh to a vtk file
 
-        # Escritura en disco
-        off = vtk.vtkXMLStructuredGridWriter()
-        off.SetFileName(os.path.join(ofn, name))
-        # ASCII o binario (con o sin compresion)
-        off.SetDataModeToAscii()
-        # off.SetDataModeToBinary()
-        # off.SetCompressorTypeToZLib()
-        # Esto cambia con la version de VTK
-        t = self.getVTKsg()
-        self.meshtal._setVTKparams(t)
-        if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
-            off.SetInputData(t)
-        else:
-            off.SetInput(t)
-        off.Write()
+    #     Parameters
+    #     ----------
+    #     ofn : os.PathLike
+    #         outpath for the file
+    #     """
+    #     try:
+    #         name = 'tally_{}_{}.vts'.format(self.ntally, self.tag)
+    #     except AttributeError:
+    #         name = 'tally_{}.vts'.format(self.ntally)
+
+    #     # Escritura en disco
+    #     off = vtk.vtkXMLStructuredGridWriter()
+    #     off.SetFileName(os.path.join(ofn, name))
+    #     # ASCII o binario (con o sin compresion)
+    #     off.SetDataModeToAscii()
+    #     # off.SetDataModeToBinary()
+    #     # off.SetCompressorTypeToZLib()
+    #     # Esto cambia con la version de VTK
+    #     t = self.getVTKsg()
+    #     self.meshtal._setVTKparams(t)
+    #     if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
+    #         off.SetInputData(t)
+    #     else:
+    #         off.SetInput(t)
+    #     off.Write()
 
     # Escribe rectilinear grid
     # No vale para cilindricas o rotadas
-    def getVTKrg(self) -> vtk.vtkRectilinearGrid:
+    def _getVTKrg(self) -> pv.DataSet:
         """Get a rectilinear grid. This cannot be used for cylindrical or
         rotated grids
 
         Returns
         -------
-        vtk.vtkRectilinearGrid
+        pv.DataSet
             generated rectilinear grid object
         """
         if not self.cart:
-            print("Cylindrical meshtal cannot be plotted to RectangularGrid")
+            logging.warning(
+                "Cylindrical meshtal cannot be plotted to RectangularGrid")
 
         if np.any(self.rotation != np.identity(3)):
-            print("Rotated meshtal cannot be plotted to RectangularGrid")
-            print("... but plotting anyway (no rotation)")
+            logging.warning(
+                "Rotated meshtal cannot be plotted to RectangularGrid")
+            logging.warning("... but plotting anyway (no rotation)")
 
         xa = _makeVTKarray(self.dims[3] + self.origin[3], "X (cm)")
         ya = _makeVTKarray(self.dims[2] + self.origin[2], "Y (cm)")
@@ -1067,48 +1088,56 @@ class Fmesh:
                 _makeVTKarray(self.err[ie, :, :, :],
                               "ErrorBin-{0:03d}".format(ie))
             )
-        return rg
 
-    def _writeVTKrg(self, ofn: os.PathLike) -> None:
-        """Write the rectilinear grid
+        # TODO use pyvista to create the object
+        # for the moment just wrap in a pyvista object
+        return pv.wrap(rg)
 
-        Parameters
-        ----------
-        ofn : os.PathLike
-            output vtk file path
-        """
-        try:
-            name = 'tally_{}_{}.vtr'.format(self.ntally, self.tag)
-        except AttributeError:
-            name = 'tally_{}.vtr'.format(self.ntally)
-        # Escritura en disco
-        off = vtk.vtkXMLRectilinearGridWriter()
-        off.SetFileName(os.path.join(ofn, name))
-        off.SetDataModeToAscii()
-        # Esto cambia con la version de VTK
-        t = self.getVTKrg()
-        self.meshtal._setVTKparams(t)
-        if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
-            off.SetInputData(t)
-        else:
-            off.SetInput(t)
-        off.Write()
+    # def _writeVTKrg(self, ofn: os.PathLike) -> None:
+    #     """Write the rectilinear grid
 
-    def writeVTK(self, ofn: os.PathLike) -> None:
-        """Write the fmesh to a vtk file
+    #     Parameters
+    #     ----------
+    #     ofn : os.PathLike
+    #         output vtk file path
+    #     """
+    #     try:
+    #         name = 'tally_{}_{}.vtr'.format(self.ntally, self.tag)
+    #     except AttributeError:
+    #         name = 'tally_{}.vtr'.format(self.ntally)
+    #     # Escritura en disco
+    #     off = vtk.vtkXMLRectilinearGridWriter()
+    #     off.SetFileName(os.path.join(ofn, name))
+    #     off.SetDataModeToAscii()
+    #     # Esto cambia con la version de VTK
+    #     t = self._getVTKrg()
+    #     self.meshtal._setVTKparams(t)
+    #     if vtk.vtkVersion().GetVTKMajorVersion() >= 6:
+    #         off.SetInputData(t)
+    #     else:
+    #         off.SetInput(t)
+    #     off.Write()
 
-        Parameters
-        ----------
-        ofn : os.PathLike
-            path to the vtk outfile folder
-        """
-        if not os.path.exists(ofn):
-            raise IsADirectoryError('Directory does not exists {}'.format(ofn))
+    # def writeVTK(self, ofn: os.PathLike) -> None:
+    #     """Write the fmesh to a vtk file
 
-        if self.cart:
-            self._writeVTKrg(ofn)
-        else:
-            self._writeVTKsg(ofn)
+    #     Parameters
+    #     ----------
+    #     ofn : os.PathLike
+    #         path to the vtk outfile folder
+    #     """
+    #     if not os.path.exists(ofn):
+    #         raise IsADirectoryError('Directory does not exists {}'.format(ofn))
+
+    #     try:
+    #         name = 'tally_{}_{}'.format(self.ntally, self.tag)
+    #     except AttributeError:
+    #         name = 'tally_{}'.format(self.ntally)
+
+    #     if self.cart:
+    #         dataset = self._getVTKrg()
+    #     else:
+    #         dataset = self._getVTKrg()
 
 
 class Meshtal:
@@ -1124,7 +1153,7 @@ class Meshtal:
             implemented at the moment.
         """
         logging.info('Loading Meshtal: {}'.format(fn))
-        self.filename = fn
+        self.filename = os.path.basename(fn)
         # Parametros para VTK
         self.filetype = filetype
         self.f = open(fn, "rt")
@@ -1224,30 +1253,34 @@ class Meshtal:
             float((self.f.readline().split()[-1]))
         )  # nps: int doesnt like decimals
 
-    def writeVTK(self, ofn: os.PathLike) -> None:
-        """write a .vtk file for all read fmeshes
+    # def writeVTK(self, ofn: os.PathLike) -> None:
+    #     """write a .vtk file for all read fmeshes
 
-        Parameters
-        ----------
-        ofn : os.PathLike
-            path to the outfile name
-        """
-        mb = vtk.vtkMultiBlockDataSet()
-        i = 0
-        for k, m in self.mesh.items():
-            if not m.filled:
-                continue
-            if m.cart:
-                mb.SetBlock(i, m.getVTKrg())
-            else:
-                mb.SetBlock(i, m.getVTKsg())
-            i += 1
-        # A escribir
-        off = vtk.vtkXMLMultiBlockDataWriter()
-        self._setVTKparams(mb)
-        off.SetInputData(mb)
-        off.SetFileName(ofn)
-        off.Write()
+    #     Parameters
+    #     ----------
+    #     ofn : os.PathLike
+    #         path to the output folder
+    #     """
+
+    #     mb = vtk.vtkMultiBlockDataSet()
+    #     i = 0
+    #     for k, m in self.mesh.items():
+    #         if not m.filled:
+    #             continue
+    #         if m.cart:
+    #             mb.SetBlock(i, m._getVTKrg())
+    #             extension = '.vtr'
+    #         else:
+    #             mb.SetBlock(i, m._getVTKsg())
+    #             extension = '.vts'
+    #         i += 1
+    #     # A escribir
+    #     outpath = os.path.join(ofn, self.filename+extension)
+    #     off = vtk.vtkXMLMultiBlockDataWriter()
+    #     self._setVTKparams(mb)
+    #     off.SetInputData(mb)
+    #     off.SetFileName(outpath)
+    #     off.Write()
 
     def _addVTKparams(self, xdict: dict) -> None:
         """Add more parameters to include in VTK

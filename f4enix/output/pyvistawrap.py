@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pyvista as pv
 import numpy as np
 import csv
@@ -12,20 +13,30 @@ ALLOWED_OUTPUT_FORMATS = ['point_cloud', 'ip_fluent', 'csv', 'vtk']
 
 
 class PyVistaWrapper:
-    def __init__(self, fn: os.PathLike) -> None:  # file name
+    def __init__(self, fn: os.PathLike, mesh: pv.DataSet) -> None:
         """This is a general wrapper for a pyvista object
 
         Parameters
         ----------
         fn : os.PathLike
             path to a .vtk file that will be read with pyvista and
-            wrapped.
+            wrapped. It can also be interpreted as the name of the mesh.
+
+        mesh : pv.DataSet
+            pyvista representation of a grid.
         """
-        self.filename = os.path.basename(fn)
-        self.mesh = pv.read(fn)
+        self.filename = fn
+        self.mesh = mesh
         # call this function to rewrite the mesh attributes after a change
         self._read_mesh_info()
+
+    @classmethod
+    def from_file(cls, fn: os.PathLike) -> PyVistaWrapper:
+        filename = os.path.basename(fn)
+        mesh = pv.read(fn)
         logging.info('{} read correctly'.format(fn))
+
+        return cls(filename, mesh)
 
     def _read_mesh_info(self) -> None:
         self.centers = self.mesh.cell_centers().points
@@ -248,40 +259,48 @@ class PyVistaWrapper:
             TypeError('Cannot translate type {}'.format(self.mesh_type))
 
         self.mesh = mesh
+        self._read_mesh_info()
 
     # WRITE A FILE IN A CHOSEN FORMAT
-    def write_mesh(self, list_array_names: list[str], out_format: str,
-                   outpath: os.PathLike) -> None:
+    def write_mesh(self, outpath: os.PathLike,
+                   list_array_names: list[str] = None,
+                   out_format: str = 'vtk') -> None:
         """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
         (txt) formats can be selected.
 
         Parameters
         ----------
-        list_array_names : list[str]
-            arrays to be exported
-        out_format : str
-            output format. The allowed ones are ['point_cloud', 'ip_fluent',
-            'csv', 'vtk'].
         outpath : os.PathLike
             path to the output folder.
+        list_array_names : list[str], optional
+            arrays to be exported. The default is None, meaning that all the 
+            available arrays will be used.
+        out_format : str, optional
+            output format. The allowed ones are ['point_cloud', 'ip_fluent',
+            'csv', 'vtk']. Default is .vtk
 
         Raises
         ------
         KeyError
             raises KeyError if the output format is not allowed.
         """
+        if list_array_names is None:
+            list_array_names = list(self.mesh.array_names)
 
-        str_array_name = str(array_name).replace(r"/", "-")
-        file_name = f"{self.filename[:-4]}_{str_array_name}_{out_format}"
+        file_name = f"{self.filename}_{out_format}"
         filepath = os.path.join(outpath, file_name)
 
-        if values_type == "cells":  # Take points or centers
-            f_points = self.centers
-        else:  # Points
-            f_points = self.points
-
         if out_format == 'vtk':
-            self.mesh.save(filepath)
+            if self.mesh_type == "StructuredGrid":
+                ext = '.vts'
+            elif self.mesh_type == "UnstructuredGrid":
+                ext = '.vtu'
+            elif self.mesh_type == "RectilinearGrid":
+                ext = '.vtr'
+            else:
+                ext = '.vtk'
+
+            self.mesh.save(filepath+ext)
             return
 
         # --- CSV writer ---
@@ -290,6 +309,14 @@ class PyVistaWrapper:
 
             with open(new_name, "w", newline="") as outfile:
                 writer = csv.writer(outfile)
+
+                # TODO This may create some issues...
+                values_type = self.get_array_type(list_array_names[0])
+                if values_type == "cells":  # Take points or centers
+                    f_points = self.centers
+                else:  # Points
+                    f_points = self.points
+
                 for i in tqdm(range(len(f_points)),
                               unit=" Points", desc="Writing"):
                     csv_points = [
@@ -306,7 +333,11 @@ class PyVistaWrapper:
             return
 
         for array_name in list_array_names:
-            values_type = self.get_array_type(array_name)
+            values_type = self.get_array_type(list_array_names[0])
+            if values_type == "cells":  # Take points or centers
+                f_points = self.centers
+            else:  # Points
+                f_points = self.points
             values = self.mesh[array_name]
 
             # write depending on format
