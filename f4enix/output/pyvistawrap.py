@@ -32,7 +32,19 @@ class PyVistaWrapper:
 
     @classmethod
     def from_file(cls, fn: os.PathLike) -> PyVistaWrapper:
-        filename = os.path.basename(fn)
+        """Generate the object from a .vtk file
+
+        Parameters
+        ----------
+        fn : os.PathLike
+            path to the .vtk file to be read
+
+        Returns
+        -------
+        PyVistaWrapper
+            initialized object
+        """
+        filename = os.path.basename(fn).split('.')[0]
         mesh = pv.read(fn)
         logging.info('{} read correctly'.format(fn))
 
@@ -242,6 +254,27 @@ class PyVistaWrapper:
 
         for name in array:
             self.mesh[name] = self.mesh[name] * factor
+
+    def linear_combination(self, field_name: str, arrays: list[str],
+                           coeff: list[int]) -> None:
+        """perform a linear combination of different arrays in the mesh.
+        The result is added to the mesh.
+
+        Parameters
+        ----------
+        field_name : str
+            name under which the new array should be stored
+        arrays : list[str]
+            list of arrays to be combined
+        coeff : list[int]
+            coefficients to be used for the linear combination
+        """
+
+        data = deepcopy(self.mesh[arrays[0]])*coeff[0]
+        for name, c in zip(arrays[1:], coeff[1:]):
+            data = data + c*deepcopy(self.mesh[name])
+
+        self.mesh.add_field_data(data, field_name)
 
     def _check_grid_type(self) -> None:
         if (self.mesh_type == "StructuredGrid" or

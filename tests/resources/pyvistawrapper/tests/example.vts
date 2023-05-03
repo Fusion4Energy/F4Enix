@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<VTKFile type="StructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <StructuredGrid WholeExtent="0 2 0 2 0 2">
+  <Piece Extent="0 2 0 2 0 2">
+    <PointData>
+    </PointData>
+    <CellData>
+      <DataArray type="Int32" Name="Values" format="binary" RangeMin="1" RangeMax="6">
+        AQAAAACAAAAgAAAAGAAAAA==eJxjZGBgYAJiZiBmAWJWIGZDwgAB8AAi
+      </DataArray>
+    </CellData>
+    <Points>
+      <DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary" RangeMin="0" RangeMax="4.898979485566356">
+        AQAAAACAAACIAgAAVwAAAA==eJyVj7sRACAIQx2Bjcz+0ziCFRYPgyeNR2I+jNHNmoZQKyu63Iuf/nLOP+bL4MbP9bC+Jr/cpTv/6uv09sUEfYBTF9hTRx/i7Euf5Esf4LwntAHRmx7f
+        <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+          <Value index="0">
+            0
+          </Value>
+          <Value index="1">
+            4.8989794856
+          </Value>
+        </InformationKey>
+      </DataArray>
+    </Points>
+  </Piece>
+  </StructuredGrid>
+</VTKFile>

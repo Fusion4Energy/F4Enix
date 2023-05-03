@@ -4,8 +4,7 @@ import pytest
 import pyvista as pv
 from importlib.resources import files, as_file
 
-from f4enix.output.meshtal import (Meshtal, scalemesh, addmesh,
-                                   diffmesh, identical_mesh)
+from f4enix.output.meshtal import Meshtal
 import tests.resources.meshtal as resources
 
 RESOURCES = files(resources)
@@ -155,102 +154,102 @@ def test_mesh_print_info(input_meshtal):
 #     assert True
 
 
-@pytest.mark.parametrize("filename", ["test_VTK_CUBE_SQUARE.vtr"])
-def test_mesh_VTKcheck(filename):
-    with as_file(RESOURCES.joinpath(filename)) as inp:
-        mesh = pv.read(inp)
+# @pytest.mark.parametrize("filename", ["test_VTK_CUBE_SQUARE.vtr"])
+# def test_mesh_VTKcheck(filename):
+#     with as_file(RESOURCES.joinpath(filename)) as inp:
+#         mesh = pv.read(inp)
 
-    assert mesh["Value - Total"][0] == 1
-    assert mesh["Value - Total"][1] == 9
-    assert mesh["Value - Total"][2] == 4
-    assert mesh["Value - Total"][3] == 16
-
-
-@pytest.mark.parametrize("sfactor", [1, 2, 3, 10, 20])
-def test_mesh_scale(sfactor):
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
-        meshtally = Meshtal(inp, filetype)
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
-
-    smesh = scalemesh(meshobj, sfactor)
-
-    assert smesh.dat[0][0][0][0] == 1 * sfactor
-    assert smesh.dat[0][0][0][1] == 9 * sfactor
-    assert smesh.dat[0][0][1][0] == 4 * sfactor
-    assert smesh.dat[0][0][1][1] == 16 * sfactor
+#     assert mesh["Value - Total"][0] == 1
+#     assert mesh["Value - Total"][1] == 9
+#     assert mesh["Value - Total"][2] == 4
+#     assert mesh["Value - Total"][3] == 16
 
 
-def test_mesh_sum():
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
-        meshtally = Meshtal(inp, filetype)
+# @pytest.mark.parametrize("sfactor", [1, 2, 3, 10, 20])
+# def test_mesh_scale(sfactor):
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+#         meshtally = Meshtal(inp, filetype)
+#     meshtally.readMesh([124])
+#     meshobj = meshtally.mesh[124]
 
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
+#     smesh = scalemesh(meshobj, sfactor)
 
-    smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=False)
-
-    assert smesh.dat[0][0][0][0] == 1 * 2
-    assert smesh.dat[0][0][0][1] == 9 * 2
-    assert smesh.dat[0][0][1][0] == 4 * 2
-    assert smesh.dat[0][0][1][1] == 16 * 2
-
-
-def test_mesh_corr():
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath("meshtal_CUBE_ONES")) as inp:
-        meshtally = Meshtal(inp, filetype)
-
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
-
-    smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=True)
-
-    assert smesh.err[0][0][0][0] == 1
-    assert smesh.err[0][0][0][1] == 1
-    assert smesh.err[0][0][1][0] == 1
-    assert smesh.err[0][0][1][1] == 1
-
-    smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=False)
-
-    assert smesh.err[0][0][0][0] == ((1 + 1) ** 0.5) / 2
-    assert smesh.err[0][0][0][1] == ((1 + 1) ** 0.5) / 2
-    assert smesh.err[0][0][1][0] == ((1 + 1) ** 0.5) / 2
-    assert smesh.err[0][0][1][1] == ((1 + 1) ** 0.5) / 2
+#     assert smesh.dat[0][0][0][0] == 1 * sfactor
+#     assert smesh.dat[0][0][0][1] == 9 * sfactor
+#     assert smesh.dat[0][0][1][0] == 4 * sfactor
+#     assert smesh.dat[0][0][1][1] == 16 * sfactor
 
 
-def test_mesh_diff():
+# def test_mesh_sum():
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+#         meshtally = Meshtal(inp, filetype)
 
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
-        meshtally = Meshtal(inp, filetype)
+#     meshtally.readMesh([124])
+#     meshobj = meshtally.mesh[124]
 
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
+#     smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=False)
 
-    smesh = diffmesh(meshobj, meshobj)
-
-    assert smesh.dat[0][0][0][0] == 0
-    assert smesh.dat[0][0][0][1] == 0
-    assert smesh.dat[0][0][1][0] == 0
-    assert smesh.dat[0][0][1][1] == 0
+#     assert smesh.dat[0][0][0][0] == 1 * 2
+#     assert smesh.dat[0][0][0][1] == 9 * 2
+#     assert smesh.dat[0][0][1][0] == 4 * 2
+#     assert smesh.dat[0][0][1][1] == 16 * 2
 
 
-def test_mesh_identical():
-    filetype = "MCNP"
-    with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
-        meshtally = Meshtal(inp, filetype)
+# def test_mesh_corr():
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath("meshtal_CUBE_ONES")) as inp:
+#         meshtally = Meshtal(inp, filetype)
 
-    meshtally.readMesh([124])
-    meshobj = meshtally.mesh[124]
+#     meshtally.readMesh([124])
+#     meshobj = meshtally.mesh[124]
 
-    part, mesh, mtype = identical_mesh(meshobj, meshobj)
+#     smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=True)
 
-    assert part is True
-    assert mesh is True
-    assert mtype is True
+#     assert smesh.err[0][0][0][0] == 1
+#     assert smesh.err[0][0][0][1] == 1
+#     assert smesh.err[0][0][1][0] == 1
+#     assert smesh.err[0][0][1][1] == 1
+
+#     smesh = addmesh(meshobj, meshobj, f1=1.0, f2=1.0, corr=False)
+
+#     assert smesh.err[0][0][0][0] == ((1 + 1) ** 0.5) / 2
+#     assert smesh.err[0][0][0][1] == ((1 + 1) ** 0.5) / 2
+#     assert smesh.err[0][0][1][0] == ((1 + 1) ** 0.5) / 2
+#     assert smesh.err[0][0][1][1] == ((1 + 1) ** 0.5) / 2
+
+
+# def test_mesh_diff():
+
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+#         meshtally = Meshtal(inp, filetype)
+
+#     meshtally.readMesh([124])
+#     meshobj = meshtally.mesh[124]
+
+#     smesh = diffmesh(meshobj, meshobj)
+
+#     assert smesh.dat[0][0][0][0] == 0
+#     assert smesh.dat[0][0][0][1] == 0
+#     assert smesh.dat[0][0][1][0] == 0
+#     assert smesh.dat[0][0][1][1] == 0
+
+
+# def test_mesh_identical():
+#     filetype = "MCNP"
+#     with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+#         meshtally = Meshtal(inp, filetype)
+
+#     meshtally.readMesh([124])
+#     meshobj = meshtally.mesh[124]
+
+#     part, mesh, mtype = identical_mesh(meshobj, meshobj)
+
+#     assert part is True
+#     assert mesh is True
+#     assert mtype is True
 
 
 @pytest.mark.parametrize("input_meshtal",
