@@ -1,3 +1,10 @@
+"""This module is related to the parsing of meshtal files output from MCNP.
+
+It includes parsing capabilities not only for classical MCNP fmesh, but also
+for its variations introduced by the D1SUNED code, such as the Cell Under
+Voxel (CuV) method.
+"""
+from __future__ import annotations
 import numpy as np
 import vtk
 import pyvista as pv
@@ -77,13 +84,41 @@ class Fmesh:
     IPT = ("neutron", "photon", "electron")
 
     # Reads from opened file
-    def __init__(self, mshtl) -> None:
-        """Fmesh object. It needs a Meshtal object to be initialized.
+    def __init__(self, mshtl: Meshtal) -> None:
+        """Object representing an Fmesh result.
+
+        It needs a Meshtal object to be initialized. Once read, a
+        PyVistaWrapper object will be assigned to it that can be used to 
+        manipulate and export the parsed data.
 
         Parameters
         ----------
         mshtl : Meshtal
             meshtal object where the Fmesh is located
+
+        Attributes
+        ----------
+        vtk: PyVistaWrapper
+            vtk-like dataset of the parsed data.
+        meshtal: Meshtal
+            the same meshtal object provided as parameter.
+        comment: str
+            comment string for the tally provided in MCNP input
+        part: Literal['neutron', 'photon', 'electron']
+            particle tallied in the fmesh.
+        type: str
+            type of fmesh, e.g. 'cuv', 'source', etc.
+        normalization: str
+            type of normalization used for the CuV approach
+        filled : bool
+            if True, the Fmesh has been populated with data.
+        cart: bool
+            if True the mesh is cartesian, otherwise cylindrical.
+
+        Examples
+        --------
+        For examples check out :py:class:`Meshtal` doc.
+
         """
         self.filled = False
         self.ntally = -1
@@ -1151,9 +1186,93 @@ class Meshtal:
         filetype : str, optional
             type of file, by default "MCNP" which is the only file type
             implemented at the moment.
+
+        Attributes
+        ----------
+        filename: str
+            name of the file which is extracted by the fn path
+        filetype: str
+            same as the parameter
+        mesh: dict[str, Fmesh]
+            a dictionary containing all the Fmesh objects that are read from
+            the meshtal file
+
+        Examples
+        --------
+        Examples of usage of the Meshtal object
+
+        >>> from f4enix.output.meshtal import Meshtal
+        ... # Initialize the meshtal file
+        ... file = 'cuvmsh'
+        ... meshtal = Meshtal(file)
+        ... print(meshtal)
+        Meshtally file : cuvmsh   Tally 24 : neutron  cuv mesh   'Test cell under voxel' 
+
+        and then read all meshes available and access their associated
+        PyVistaWrapper object
+
+        >>> # if no mesh are specified all mesh are read
+        ... meshtal.readMesh()
+        ... # Check available meshes
+        ... print(meshtal.mesh)
+        ... # Once the mesh is read, the vtk attribute gets filled
+        ... # dump all meshes
+        ... print(type(meshtal.mesh[24].vtk))
+        ... print(meshtal.mesh[24].vtk)
+        {24: <f4enix.output.meshtal.Fmesh at 0x1badb9d4310>}
+        ...
+        <class 'f4enix.output.pyvistawrap.PyVistaWrapper'>
+        ...
+        Name: cuvmsh_24
+        ...
+        Number of cells: 132651
+        Number of points: 140608
+        Cells arrays: ['Value [/cc]', 'Error - Total']
+        Points arrays: []
+        Number of coordinates: 3
+        Mesh bounds:  -51.00 51.00 -51.00 51.00 -51.00 51.00
+        Mesh dimensions:  102.00 102.00 102.00
+        Mesh type: RectilinearGrid
+
+        Cell Under Voxel (CuV) approach is supported where cell_filters and
+        different normalization can be chosen. Thanks to the PyVistaParser
+        object then the fmesh can be exported to different formats
+
+        >>> # Read a specific CuV fmesh filtering by a set of cells
+        ... # and changing the normalization to get the integral result
+        ... meshtal.readMesh(24, cell_filters=[1], norm='vtot')
+        ... fmesh = meshtal.mesh[24]
+        ... fmesh.print_info()
+        ... outpath = 'folderpath'
+        ... # it can be exported to different formats, extension will be
+        ... # inferred automatically
+        ... fmesh.vtk.write_mesh(outpath)
+        ... fmesh.vtk.write_mesh(outpath, out_format='ip_fluent')
+        Tally          : 24
+        Comments       : 
+            Test cell under voxel                                                      
+        Particle       : neutron
+        Mesh type      : cuv
+        Dose modif     : False
+        Mesh geometry  : rectangular
+        Mesh origin    : 0.0 0.0 0.0
+        X dimensions   :   0.000e+00   50I  1.020e+02
+        Y dimensions   :   0.000e+00   50I  1.020e+02
+        Z dimensions   :   0.000e+00   50I  1.020e+02
+        Energy bins    :
+                flag : energy
+            bin index : bin range  
+        Writing x: 100%|██████████| 132651/132651 [00:00<00:00, 204617.39 x points/s]
+        Writing y: 100%|██████████| 132651/132651 [00:00<00:00, 217292.19 y points/s]
+        Writing z: 100%|██████████| 132651/132651 [00:00<00:00, 227737.30 z points/s]
+        Writing values: 100%|██████████| 132651/132651 [00:00<00:00, 770635.26 values/s]
+
+        .. seealso::
+            :py:class:`f4enix.output.pyvistawrap.PyVistaWrapper`
+            documentation.
         """
         logging.info('Loading Meshtal: {}'.format(fn))
-        self.filename = os.path.basename(fn)
+        self.filename = os.path.basename(fn).split('.')[0]
         # Parametros para VTK
         self.filetype = filetype
         self.f = open(fn, "rt")
@@ -1209,7 +1328,11 @@ class Meshtal:
             by default None
         norm : str
             to be used only on CuV. Can be set either to "vtot" or "celf".
-            Default is None
+            Default is None which means that the normalzation will be done
+            by dividing by the Voxel volume. 'vtot' means that the default
+            (None) will be multiplied by the total voxel volume to obtain an
+            integral value, while "celf" normalizes dividing by the volume of
+            the cell fraction under the voxel.
 
         Raises
         ------

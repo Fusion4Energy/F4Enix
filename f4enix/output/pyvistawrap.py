@@ -24,6 +24,7 @@ class PyVistaWrapper:
 
         mesh : pv.DataSet
             pyvista representation of a grid.
+
         """
         self.filename = fn
         self.mesh = mesh
