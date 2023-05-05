@@ -7,12 +7,19 @@ Welcome to F4Enix's documentation!
 ==================================
 Version: |release|
 
+A python package for Monte Carlo simulations input and output files parsing.
+
+Brought to you by Fusion For Energy (F4E) neutronics team.
+
 .. toctree::
    :maxdepth: 2
    :caption: F4Enix user guide:
 
    usage/installation
 
+
+F4Enix API
+==========
 
 .. autosummary::
    :toctree: _autosummary

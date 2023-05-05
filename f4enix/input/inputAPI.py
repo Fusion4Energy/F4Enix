@@ -1,3 +1,9 @@
+"""
+This module is related to the parsing and manipulation of MCNP input files.
+
+The parser is built on the numjugller python module.
+
+"""
 import os
 import logging
 import json
@@ -22,6 +28,144 @@ class Input:
             surfs: list[parser.Card],
             data: list[parser.Card],
             header: list = None) -> None:
+        """Class representing an MCNP input file.
+
+        cells, surfaces, materials and transformations are handled explicitly.
+        All other datacards are treated generically for the moment being.
+        The parsing is built on the numjuggler python module.
+
+        Parameters
+        ----------
+        cells : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP cells.
+        surfs : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP surfaces.
+        data : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP data cards.
+        header : list, optional
+            list of strings that compose the MCNP header, by default None
+
+        Attributes
+        ----------
+        cells: dict[str, parser.Card]
+            cleaned numjuggler cards for each cells in the input. keys are the
+            number of the cells.
+        surfs: dict[str, parser.Card]
+            cleaned numjuggler cards for each surface in the input. keys are
+            the number of the surfaces.
+        materials: MatCardsList
+            material cards section of the input.
+        transformations: list[parser.Card]
+            list of transformation datacards (i.e. TRn)
+        other_data: list[parser.Card]
+            list of all remaining datacards that are treated in a generic way
+
+        Examples
+        --------
+        The most common way to initiliaze an Input object is from a MCNP input
+        file
+
+        >>> from f4enix.input.inputAPI import Input
+        ... # Read the input file
+        ... inp = Input.from_input(inpfile)
+
+        >>> inp.cells
+        ... # inp.surfs
+        {'1': <numjuggler.parser.Card at 0x26535f02a70>,
+         '2': <numjuggler.parser.Card at 0x26535f03130>,
+         ...
+         '128': <numjuggler.parser.Card at 0x26535f48f70>}
+
+        The input can be translated to another library and rewritten to a file
+
+        >>> from f4enix.input.libmanager import LibManager
+        ... # Initialize a default nuclear data libraries manager
+        ... libmanager = LibManager()
+        ... # Translate the input to another library
+        ... inp.translate('21c', libmanager)
+        ... inp.write(outfile_path)
+
+        Retrieve (and possibly modify) different cards in the input
+
+        >>> print('Cell number 1:')
+        ... print(inp.get_cells_by_id([1]))
+        ... print('Surfaces number 10 and 20:')
+        ... print(inp.get_surfs_by_id([10, 20]))
+        ... print('All cells with material M1')
+        ... print(inp.get_cells_by_matID(1))
+        ... # use this method only if the previous ones
+        ... # are not enough
+        ... print('Generic way to obtain cards')
+        ... print(inp._get_cards_by_id(['SDEF', 'IMP:N,P'], inp.other_data))
+        Cell number 1:
+        {'1': <numjuggler.parser.Card object at 0x0000026535F02A70>}
+        Surfaces number 10 and 20:
+        {'10': <numjuggler.parser.Card object at 0x0000026535F491B0>,
+        '20': <numjuggler.parser.Card object at 0x0000026535F49390>}
+        All cells with material M1
+        {'22': <numjuggler.parser.Card object at 0x00000265360E7850>}
+        Generic way to obtain cards
+        {'SDEF': <numjuggler.parser.Card object at 0x0000026535F4B190>,
+        'IMP:N,P': <numjuggler.parser.Card object at 0x0000026535F4A890>}
+
+        Extract a subset of cells depending on some condition and from that
+        dump out a minimal working MCNP input that includes all necessary
+        surfaces, transformations and materials.
+
+        >>> # --- Extract cells based on material ---
+        ... inp = Input.from_input(inpfile)
+        ... cells_ids = []  # store here the cells to be extracted
+        ... selected_mat = 11
+        ... for key, cell in inp.cells.items():
+        ...     # get the material of the cell using numjuggler API
+        ...     mat = cell._get_value_by_type('mat')
+        ...     if mat == selected_mat:
+        ...         cells_ids.append(key)
+        ... print(cells_ids)
+        ... # extract the cells subset to a file
+        ... inp.extract_cells(cells_ids, 'outfile.i')
+
+        Get useful summary of the material section of the input in a
+        pandas.DataFrame object.
+
+        >>> from f4enix.input.inputAPI import Input
+        ... from f4enix.input.libmanager import LibManager
+        ... # Initialize a default nuclear data libraries manager
+        ... libmanager = LibManager(xsdir_file='my_xsdir')
+        ... inp = Input.from_input(inpfile)
+        ... inp.materials.get_info(libmanager, complete=True)
+        (                              Atom Fraction  Mass Fraction
+        Material Submaterial Element
+        m1       1           H             0.021630      -0.019046
+                 2           C             0.018920      -0.198524
+                 3           N             0.002060      -0.025207
+                 4           O             0.027060      -0.378226
+                 5           Mg            0.001190      -0.025268
+        ...                                     ...            ...
+        M29      1           Nb            0.000005      -0.000100
+                             Co            0.000041      -0.000500
+                             Fe            0.055451      -0.648443
+        M30      1           H             0.063398      -0.112140
+                             O             0.031622      -0.887860
+        [333 rows x 2 columns],
+                                    Fraction  Sub-Material Fraction  \
+        Material Submaterial Element
+        M24      1           Ag       0.000016               0.000016
+                             Al       0.000631               0.000631
+                             As       0.000023               0.000023
+                             Au       0.000009               0.000009
+                             Bi       0.000163               0.000163
+        ...                                ...                    ...
+        m7       2           O        0.033428               1.000000
+        m8       1           Be       0.002970               0.034219
+        ...
+                             Cu                0.944769
+                             Ni                0.021012
+        m9       1           Be                1.000000
+        [333 rows x 3 columns])
+
+
+        """
 
         self.cells = self._to_dict(cells)
         self.surfs = self._to_dict(surfs)
@@ -214,8 +358,11 @@ class Input:
             try:
                 selected_cards[id_card] = cards[id_card]
             except KeyError:
-                # sometimes it may be with an asterisk
-                selected_cards['*'+id_card] = cards['*'+id_card]
+                try:
+                    # sometimes it may be with an asterisk
+                    selected_cards['*'+id_card] = cards['*'+id_card]
+                except KeyError:
+                    raise KeyError('The card is not available in the input')
 
         return selected_cards
 
