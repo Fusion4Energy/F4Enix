@@ -116,7 +116,7 @@ class TestMaterial:
         for matcard in [matcard1, matcard2]:
             # Fake translation in order to normalize the fractions
             material = matcard[0]
-            material.update_info(LIBMAN)
+            material._update_info(LIBMAN)
             original = material.to_text()
 
             # -- Switch back and forth --

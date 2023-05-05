@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Oct 28 17:21:15 2019
-
 @author: Pyne https://github.com/pyne/pyne
 
 Copyright 2011-2020, the PyNE Development Team. All rights reserved.
@@ -266,7 +263,7 @@ class Xsdir(object):
                          for table in self.tables if
                          nucname.isnuclide(table.name.split('.')[0]))
         return valid_nucs
-    
+
 
 class XsdirTable(object):
     """Stores all information that describes a xsdir table entry, which appears
