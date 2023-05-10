@@ -1,3 +1,8 @@
+"""
+Parsing of MCNP output file (.o)
+
+Only a few features are implemented for the moment being.
+"""
 import os
 import re
 import logging
@@ -22,13 +27,30 @@ SCIENTIFIC_PAT = re.compile(r'-*\d.\d+E[+|-]\d+')
 
 class Output:
     def __init__(self, filepath: os.PathLike) -> None:
+        """Object representing and MCNP output file
+
+        Parameters
+        ----------
+        filepath : os.PathLike
+            path to the output file to be parsed
+
+        Attributes
+        ----------
+        filepath: os.PathLike
+            path to the original output file
+        name: str
+            name of the original file
+        lines: list[str]
+            list of all the lines of the file
+
+        """
         self.filepath = filepath
         self.name = os.path.basename(filepath)
         logging.info('reading {} ...'.format(self.name))
         self.lines = self._read_lines()
         logging.info('reading completed')
 
-    def _read_lines(self):
+    def _read_lines(self) -> list[str]:
         lines = []
         with open(self.filepath, 'r', errors="surrogateescape") as infile:
             for line in infile:
@@ -36,7 +58,16 @@ class Output:
         return lines
 
     def print_lp_debug(self, outpath: os.PathLike,
-                       input_model: os.PathLike = None):
+                       input_model: os.PathLike = None) -> None:
+        """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
+        ['LPdebug_{}.vtp'] containing information about the lost particles
+        registered in an MCNP run.
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the folder where outputs will be dumped.
+        """
 
         # -- Variables --
         surfaces = []
@@ -111,14 +142,15 @@ class Output:
 
         logging.info('dump completed')
 
-    def get_statistical_checks(self):
+    def get_statistical_checks(self) -> dict[int, str]:
         """
         Retrieve the result of the 10 statistical checks for all tallies.
-        They are registered as either 'Missed', 'Passed' or 'All zeros'
+        They are registered as either 'Missed', 'Passed' or 'All zeros' in a
+        dictionary indicized using the tallies numbers.
 
         Returns
         -------
-        stat_checks : dic
+        stat_checks : dict[int, str]
             keys are the tally numbers, values the result of the statistical
             checks.
 

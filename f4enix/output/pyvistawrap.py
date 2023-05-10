@@ -1,3 +1,8 @@
+"""
+Module used to wrap the pyvista module
+
+Allows to perform high-level operation on structured grids.
+"""
 from __future__ import annotations
 import pyvista as pv
 import numpy as np
@@ -25,8 +30,21 @@ class PyVistaWrapper:
         mesh : pv.DataSet
             pyvista representation of a grid.
 
+        Attributes
+        ----------
+        filename: str
+            name of the mesh or of the original file it was read from
+        mesh: pv.DataSet
+            pyvista representation of a grid.
+        centers: np.ndarray
+            mesh cell centers
+        points: np.ndarray
+            mesh points
+        mesh_type: str
+            type of mesh (e.g. "StructuredGrid")
+
         """
-        self.filename = fn
+        self.filename = os.path.basename(fn).split('.')[0]
         self.mesh = mesh
         # call this function to rewrite the mesh attributes after a change
         self._read_mesh_info()
@@ -449,6 +467,6 @@ class PyVistaWrapper:
         # the resulted mesh is an UnstructuredGrid
         logging.warning('Merge will cause an UnstructuredGrid to be created')
         self._read_mesh_info()
-        new_name = self.filename[:-4] + "+" + grid.filename[:-4] + ".vtu"
+        new_name = self.filename + "+" + grid.filename + ".vtu"
         self.filename = new_name
         logging.info(f"Merge was successful'")

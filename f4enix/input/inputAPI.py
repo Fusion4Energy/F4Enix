@@ -1,7 +1,7 @@
 """
 This module is related to the parsing and manipulation of MCNP input files.
 
-The parser is built on the numjugller python module.
+The parser is built on the numjuggler python module.
 
 """
 import os

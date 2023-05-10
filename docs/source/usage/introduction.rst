@@ -53,6 +53,9 @@ supported by F4Enix:
 * MCNP output file (only some basic features) by :py:mod:`f4enix.output.outputAPI`
 * VTK files by :py:mod:`f4enix.output.pyvistawrap`
 
+All classes and methods of the F4Enix API are documented and usage examples
+are provided in all the most important classes documentations.
+
 Short/mid term goals for the project:
 
 * support for MCNP Weight-Windows files

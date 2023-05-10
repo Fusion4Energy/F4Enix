@@ -1,3 +1,7 @@
+"""
+Auxiliary functions used by different modules
+
+"""
 from numjuggler.parser import Card
 from f4enix.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
 import re

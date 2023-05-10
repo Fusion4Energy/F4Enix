@@ -2,6 +2,8 @@
 modified version of what could be found at:
 https://github.com/kbat/mc-tools
 
+This module deals with the parsing of MCNP MCTAL files
+
 GNU Lesser General Public License v3.0
 Permissions of this copyleft license are conditioned on making available
 complete source code of licensed works and modifications under the same license

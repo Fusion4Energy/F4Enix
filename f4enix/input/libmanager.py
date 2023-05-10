@@ -1,3 +1,10 @@
+"""
+This modules is related to handling nuclear data libraries.
+
+It provides support for zaid and elements data and it used for different
+operation such as the translation from a library to another of an MCNP input
+
+"""
 import json
 import re
 import warnings
