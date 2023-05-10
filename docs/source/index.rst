@@ -15,6 +15,7 @@ Brought to you by Fusion For Energy (F4E) neutronics team.
    :maxdepth: 2
    :caption: F4Enix user guide:
 
+   usage/introduction
    usage/installation
 
 

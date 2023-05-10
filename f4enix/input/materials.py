@@ -31,7 +31,7 @@ class Zaid:
 
     def __init__(self, fraction: str | float, element: str, isotope: str,
                  library: str, ab: str = '', fullname: str = '') -> None:
-        f"""
+        """
         Object representing a Zaid
 
         Parameters
@@ -59,7 +59,6 @@ class Zaid:
         ----------
         name: str
             AAZZZ[lib]
-
 
         """
         self.fraction = float(fraction)
@@ -960,6 +959,25 @@ class MatCardsList(Sequence):
         Returns
         -------
         None.
+
+        Attributes
+        ----------
+        materials: list[Material]
+            list of the material objects that compose the material section
+        matdic: dict[str, Material]
+            dictionary of the material objects that compose the material
+            section. This attribute is used mostly as internal object, the
+            recommended way to access materials is to use directly the
+            "dictionary" capabilities of the MatCardsList object.
+
+        Examples
+        --------
+
+        >>> from f4enix.input.inputAPI import MatCardsList
+        ... # initialize from file
+        ... materials = MatCardsList.from_input('inputfile.i')
+        ... # get a specific material
+        ... mat1 = materials['m1']
 
         """
         self.materials = materials
