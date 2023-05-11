@@ -7,7 +7,7 @@ operation such as the translation from a library to another of an MCNP input
 """
 import json
 import re
-import warnings
+import logging
 import pandas as pd
 import os
 from importlib.resources import files, as_file
@@ -151,7 +151,7 @@ class LibManager:
         return libraries
 
     def convertZaid(self, zaid: str, lib: str
-                    ) -> dict[str, tuple(str, float, float)]:
+                    ) -> dict[str, tuple[str, float, float]]:
         """
         This methods will convert a zaid into the requested library
 
@@ -176,7 +176,7 @@ class LibManager:
 
         Returns
         -------
-        translation : dict[str, tuple(str, float, float)]
+        translation : dict[str, tuple[str, float, float]]
             {zaidname:(lib,nat_abundance,Atomic mass)}.
 
         """
@@ -200,7 +200,8 @@ class LibManager:
                         newlib = lib
                     elif self.XS.find_table(idx+'.'+self.defaultlib,
                                             mode='exact'):
-                        warnings.warn(MSG_DEFLIB.format(self.defaultlib, zaid))
+                        logging.warning(
+                            MSG_DEFLIB.format(self.defaultlib, zaid))
                         newlib = self.defaultlib
                     else:
                         raise ValueError('No available translation for zaid :' +
@@ -220,7 +221,8 @@ class LibManager:
                 translation = {natzaid: (lib, 1, 1)}  # mass not important
             # Check if default lib is available
             elif self.XS.find_table(zaid+'.'+self.defaultlib, mode='exact'):
-                warnings.warn(MSG_DEFLIB.format(self.defaultlib, zaid))
+                logging.warning(
+                    MSG_DEFLIB.format(self.defaultlib, zaid))
                 translation = {zaid: (self.defaultlib, 1, 1)}  # mass not imp
             else:
                 # Check if any zaid cross section is available
@@ -264,7 +266,7 @@ class LibManager:
 
         return zaids
 
-    def get_zaidname(self, zaid: str) -> tuple(str, str):
+    def get_zaidname(self, zaid: str) -> tuple[str, str]:
         """
         Given a zaid, its element name and formula are returned. E.g.,
         hydrogen, H1

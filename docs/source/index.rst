@@ -29,6 +29,14 @@ F4Enix API
 
    f4enix
 
+Developers
+==========
+.. toctree:: 
+   :maxdepth: 2
+
+   developers/ci
+
+
 
 Indices and tables
 ==================
