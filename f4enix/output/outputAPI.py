@@ -43,6 +43,26 @@ class Output:
         lines: list[str]
             list of all the lines of the file
 
+        Examples
+        --------
+        >>> from f4enix.output.outputAPI import Output
+        ... # parse the output
+        ... outp = Output('test.o')
+        ... # print excel and .vtk file containing info on lost particles
+        ... outp.print_lp_debug('outfile_name')
+        ... # Get the results of the statistical checks
+        ... outp.get_statistical_checks()
+        {11: 'All zeros',
+         12: 'All zeros',
+         21: 'Passed',
+         22: 'Missed',
+         ...
+         66: 'Passed',
+         76: 'Missed',
+         86: 'Passed',
+         96: 'Passed',
+         106: 'Missed'}
+
         """
         self.filepath = filepath
         self.name = os.path.basename(filepath)

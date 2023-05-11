@@ -9,6 +9,7 @@ import json
 import re
 import warnings
 import pandas as pd
+import os
 from importlib.resources import files, as_file
 
 from f4enix.input.xsdirpyne import Xsdir
@@ -24,8 +25,9 @@ MSG_DEFLIB = ' The Default library {} was used for zaid {}'
 
 class LibManager:
 
-    def __init__(self, xsdir_file=None, defaultlib='81c', activationfile=None,
-                 isotopes_file=None):
+    def __init__(self, xsdir_file: os.PathLike = None,
+                 defaultlib: str = '81c', activationfile: os.PathLike = None,
+                 isotopes_file: os.PathLike = None) -> None:
         """
         Object dealing with all complex operations that involves nuclear data
 
@@ -47,6 +49,21 @@ class LibManager:
         Returns
         -------
         None.
+
+        Attributes
+        ----------
+        XS: Xsdir
+            xsdir file representation
+        isotopes: pd.DataFrame
+            table containing different data for each isotopes such as formula,
+            atomic number, natural abundance, atom mass, etc.
+        defaultlib: str
+            lib suffix to be used as default in translation operations.
+        libraries: list[str]
+            list of all the libraries present in the Xsdir file
+        reactions: dict[str, pd.DataFrame]
+            if an activation file was provided, this stores all the available
+            decay reactions in d1s libraries.
 
         """
         # use both default files
@@ -112,7 +129,7 @@ class LibManager:
 
         self.reactions = reactions
 
-    def check4zaid(self, zaid):
+    def check4zaid(self, zaid: str) -> list[str]:
         """
         Check which libraries are available for the selected zaid and return it
 
@@ -123,8 +140,8 @@ class LibManager:
 
         Returns
         -------
-        libraries : list
-            list of libraries available for the zaid.
+        libraries : list[str]
+            list of libraries (tags) available for the zaid.
 
         """
         libraries = []
@@ -133,7 +150,8 @@ class LibManager:
 
         return libraries
 
-    def convertZaid(self, zaid, lib):
+    def convertZaid(self, zaid: str, lib: str
+                    ) -> dict[str, tuple(str, float, float)]:
         """
         This methods will convert a zaid into the requested library
 
@@ -158,7 +176,7 @@ class LibManager:
 
         Returns
         -------
-        translation : dic
+        translation : dict[str, tuple(str, float, float)]
             {zaidname:(lib,nat_abundance,Atomic mass)}.
 
         """
@@ -222,7 +240,7 @@ class LibManager:
 
         return translation
 
-    def get_libzaids(self, lib):
+    def get_libzaids(self, lib: str) -> list[str]:
         """
         Given a library, returns all zaids available
 
@@ -233,7 +251,7 @@ class LibManager:
 
         Returns
         -------
-        zaids : list
+        zaids : list[str]
             list of zaid names available in the library.
 
         """
@@ -246,7 +264,7 @@ class LibManager:
 
         return zaids
 
-    def get_zaidname(self, zaid):
+    def get_zaidname(self, zaid: str) -> tuple(str, str):
         """
         Given a zaid, its element name and formula are returned. E.g.,
         hydrogen, H1
@@ -282,7 +300,7 @@ class LibManager:
 
         return name, formula
 
-    def get_zaidnum(self, zaidformula):
+    def get_zaidnum(self, zaidformula: str) -> str:
         """
         Given a zaid formula return the correct number
 
@@ -315,9 +333,9 @@ class LibManager:
 
         return zaidnum
 
-    def select_lib(self):
+    def select_lib(self) -> str:
         """
-        Prompt an library input selection with Xsdir availabilty check
+        Prompt a library input selection with Xsdir availabilty check
 
         Returns
         -------
@@ -367,7 +385,7 @@ class LibManager:
                 raise ValueError('Too many wrong inputs')
         return lib
 
-    def get_zaid_mass(self, zaid):
+    def get_zaid_mass(self, zaid: str) -> float:
         """
         Get the atomic mass of one zaid
 
@@ -393,7 +411,7 @@ class LibManager:
 
         return float(m)
 
-    def get_reactions(self, lib, parent):
+    def get_reactions(self, lib: str, parent: str) -> list[tuple[str, str]]:
         """
         get the reactions available for a specific zaid and parent nuclide
 
@@ -406,7 +424,7 @@ class LibManager:
 
         Returns
         -------
-        reactions : list
+        reactions : list[tuple[str, str]]
             contains tuple of (MT, daughter).
 
         """
