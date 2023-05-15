@@ -77,7 +77,7 @@ class Output:
                 lines.append(line)
         return lines
 
-    def print_lp_debug(self, outpath: os.PathLike,
+    def print_lp_debug(self, outpath: os.PathLike, print_video: bool = False,
                        input_model: os.PathLike = None) -> None:
         """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
         ['LPdebug_{}.vtp'] containing information about the lost particles
@@ -87,6 +87,8 @@ class Output:
         ----------
         outpath : os.PathLike
             path to the folder where outputs will be dumped.
+        print_video: bool
+            if True print the LP to video. deafult is False
         """
 
         # -- Variables --
@@ -125,6 +127,11 @@ class Output:
             #     except:
             #         globalpointList.append('NO')
 
+        # Don't do nothing if no particles are lost
+        if len(surfaces) == 0:
+            logging.info('No particles were lost, no dumps to be done')
+            return
+
         # Building the df
         df = pd.DataFrame()
         df['Surface'] = surfaces
@@ -156,7 +163,10 @@ class Output:
         # visualize the cloud point
         logging.info('building the cloud point')
         point_cloud = pv.PolyData(loc[['x', 'y', 'z']].values)
-        point_cloud.plot()
+
+        if print_video:
+            point_cloud.plot()
+
         outfile = os.path.join(outpath, 'LPdebug_{}.vtp'.format(self.name))
         point_cloud.save(outfile)
 

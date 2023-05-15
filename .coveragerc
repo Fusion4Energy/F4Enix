@@ -3,3 +3,6 @@
 omit =
     # No need to cover the test files
     tests/*
+    **/__init__.py
+    f4enix/__version__.py
+    f4enix/constants.py
