@@ -1,6 +1,7 @@
 import os
 from importlib.resources import files, as_file
 import pytest
+import numpy as np
 
 from f4enix.output.pyvistawrap import PyVistaWrapper
 import tests.resources.pyvistawrapper.tests as res
@@ -37,3 +38,52 @@ class TestPyVistaWrapper:
             with open(outfile, "r") as test, open(exp, 'r') as exp_file:
                 for line1, line2 in zip(test, exp_file):
                     assert line1 == line2
+
+    def test_print(self):
+        with as_file(resources.joinpath('example.vts')) as inp:
+            mesh = PyVistaWrapper.from_file(inp)
+        print(mesh)
+        print(mesh.__repr__())
+        assert True
+
+    @pytest.mark.parametrize(['file', 'array'],
+                             [['PS_NHD_DIV_RHC_INBOARD.vtk', 'NHD[W/cm3]'],
+                              ['cuvmsh_44_CuV_CELF10.vtr', 'Value - Total']])
+    def test_print_array_info(self, file, array):
+        with as_file(resources.joinpath(file)) as inp:
+            mesh = PyVistaWrapper.from_file(inp)
+        mesh.print_array_info(array)
+        assert True
+
+    def test_translate(self):
+        with as_file(resources.joinpath('PS_NHD_DIV_RHC_INBOARD.vtk')) as inp:
+            mesh1 = PyVistaWrapper.from_file(inp)
+        mesh1.translate(10, 15, 50)
+        with as_file(expected.joinpath('PS_NHD_translated.vtu')) as exp:
+            mesh2 = PyVistaWrapper.from_file(exp)
+
+        self._assert_equal_mesh(mesh1, mesh2)
+
+    def test_rotate(self):
+        with as_file(resources.joinpath('PS_NHD_DIV_RHC_INBOARD.vtk')) as inp:
+            mesh1 = PyVistaWrapper.from_file(inp)
+        mesh1.rotate(10, 20, 30)
+        with as_file(expected.joinpath('PS_NHD_rotated.vtu')) as exp:
+            mesh2 = PyVistaWrapper.from_file(exp)
+
+        self._assert_equal_mesh(mesh1, mesh2)
+
+    def test_scale(self):
+        with as_file(resources.joinpath('PS_NHD_DIV_RHC_INBOARD.vtk')) as inp:
+            mesh1 = PyVistaWrapper.from_file(inp)
+        mesh1.scale([10, 20, 10])
+        with as_file(expected.joinpath('PS_NHD_scaled.vtu')) as exp:
+            mesh2 = PyVistaWrapper.from_file(exp)
+
+        self._assert_equal_mesh(mesh1, mesh2)
+
+    def _assert_equal_mesh(self, mesh1: PyVistaWrapper, mesh2: PyVistaWrapper):
+        # assert mesh1.mesh.origin == mesh2.mesh.origin
+        # assert mesh1.mesh.dimensions == mesh2.mesh.dimensions
+        # assert mesh1.mesh.spacing == mesh2.mesh.spacing
+        assert np.allclose(mesh1.centers, mesh2.centers, rtol=1e-5)

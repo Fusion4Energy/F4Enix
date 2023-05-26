@@ -3,7 +3,7 @@ Auxiliary functions used by different modules
 
 """
 from numjuggler.parser import Card
-from f4enix.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT
+from f4enix.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT, PAT_COMMENT_TEXT
 import re
 import os
 
@@ -26,7 +26,7 @@ def get_comments(card: Card) -> str:
     comments = ''
     for line in card.lines:
         # check if either dollar or c comments are matched and store them
-        c_comm = PAT_COMMENT.match(line)
+        c_comm = PAT_COMMENT_TEXT.match(line)
         d_comm = PAT_DOLLAR_COMMENT.search(line)
 
         for match in [c_comm, d_comm]:

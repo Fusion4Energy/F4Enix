@@ -229,11 +229,11 @@ class PyVistaWrapper:
         Parameters
         ----------
         theta_x : float, optional
-            _description_, by default 0
+            degrees of rotation to be applied on x axis, by default 0
         theta_y : float, optional
-            _description_, by default 0
+            degrees of rotation to be applied on y axis, by default 0
         theta_z : float, optional
-            _description_, by default 0
+            degrees of rotation to be applied on z axis, by default 0
         """
         # convert the mesh to a suitable type if needed
         self._check_grid_type()
