@@ -257,6 +257,8 @@ class PyVistaWrapper:
         self.mesh.scale(xyz, inplace=True)
         self._read_mesh_info()
 
+        logging.info('The mesh was scaled successfully')
+
     def scalar_multiply(self, factor: float, array: str | list[str]) -> None:
         """scale a field or a list of field for a scalar factor. This
         modification is done inplace.
@@ -454,7 +456,7 @@ class PyVistaWrapper:
         raise KeyError(
             "Invalid format, these are the ones allowed: {}".format(ALLOWED_OUTPUT_FORMATS))
 
-    def merge(self, grid) -> None:
+    def merge(self, grid: PyVistaWrapper) -> None:
         """Merge the current wrapper with a second one.
 
         Parameters

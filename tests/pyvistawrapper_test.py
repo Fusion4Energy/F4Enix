@@ -39,6 +39,9 @@ class TestPyVistaWrapper:
                 for line1, line2 in zip(test, exp_file):
                     assert line1 == line2
 
+        # Also always test the .vtk writing
+        mesh.write_mesh(outpath)
+
     def test_print(self):
         with as_file(resources.joinpath('example.vts')) as inp:
             mesh = PyVistaWrapper.from_file(inp)
@@ -81,6 +84,30 @@ class TestPyVistaWrapper:
             mesh2 = PyVistaWrapper.from_file(exp)
 
         self._assert_equal_mesh(mesh1, mesh2)
+
+    def test_merge(self):
+        with as_file(resources.joinpath('test_VTK_CUBE_SQUARE.vtr')) as inp:
+            mesh1 = PyVistaWrapper.from_file(inp)
+        with as_file(resources.joinpath('test_VTK_CUBE_SQUARE.vtr')) as inp:
+            mesh2 = PyVistaWrapper.from_file(inp)
+
+        mesh1.merge(mesh2)
+
+        assert True
+
+    def test_scalar_multiply(self):
+        with as_file(resources.joinpath('PS_NHD_DIV_RHC_INBOARD.vtk')) as inp:
+            mesh = PyVistaWrapper.from_file(inp)
+
+        old_max = mesh.mesh['NHD[W/cm3]'].max()
+        mesh.scalar_multiply(100, 'NHD[W/cm3]')
+        assert mesh.mesh['NHD[W/cm3]'].max() == 100*old_max
+
+    def test_linear_combination(self):
+        with as_file(resources.joinpath('PS_NHD_DIV_RHC_INBOARD.vtk')) as inp:
+            mesh = PyVistaWrapper.from_file(inp)
+        mesh.linear_combination('new', ['NHD[W/cm3]', 'NHD[W/cm3]'], [1, 2])
+        assert mesh.mesh['new'].max() == mesh.mesh['NHD[W/cm3]'].max()*3
 
     def _assert_equal_mesh(self, mesh1: PyVistaWrapper, mesh2: PyVistaWrapper):
         # assert mesh1.mesh.origin == mesh2.mesh.origin
