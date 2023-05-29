@@ -36,7 +36,7 @@ def get_comments(card: Card) -> str:
     return comments
 
 
-def _detect_decoding_errors_line(l, _s=_surrogates.finditer):
+def _detect_decoding_errors_line(l, _s=_surrogates.finditer):  # pragma: no cover
     """Return decoding errors in a line of text
 
     Works with text lines decoded with the surrogateescape
@@ -50,7 +50,7 @@ def _detect_decoding_errors_line(l, _s=_surrogates.finditer):
             for m in _s(l)]
 
 
-def debug_file_unicode(file: os.PathLike) -> str:
+def debug_file_unicode(file: os.PathLike) -> str:  # pragma: no cover
     """given a file prints the unicode error that were found and at what
     line
 

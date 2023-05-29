@@ -9,13 +9,14 @@ import logging
 import pandas as pd
 import pyvista as pv
 
+from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
+
 # -- Identifiers --
 SURFACE_ID = 'currently being tracked has reached surface'
 CELL_ID = 'other side of the surface from cell'
 POINT_ID = 'x,y,z coordinates:'
 # -- Patterns --
-NUM_PAT = re.compile(r'\d+')
-SCIENTIFIC_PAT = re.compile(r'-*\d.\d+E[+|-]\d+')
+PAT_NPS_LINE = re.compile(r' source')
 # patComments = re.compile(r'(?i)C\s+')
 # patUniverse = re.compile(r'(?i)u=\d+')
 # patNPS = re.compile(r'(?i)nps')
@@ -77,6 +78,22 @@ class Output:
                 lines.append(line)
         return lines
 
+    def get_NPS(self) -> int:
+        """Get the number of particles simulated.
+
+        Returns
+        -------
+        int
+            number of particles simulated
+        """
+        for line in self.lines:
+            if PAT_NPS_LINE.match(line) is not None:
+                nps = int(PAT_DIGIT.search(line).group())
+                logging.info('NPS found: {}'.format(nps))
+                return nps
+
+        raise ValueError('No NPS could be read from file')
+
     def print_lp_debug(self, outpath: os.PathLike, print_video: bool = False,
                        input_model: os.PathLike = None) -> None:
         """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
@@ -104,10 +121,10 @@ class Output:
         for i, line in enumerate(self.lines):
 
             if line.find(SURFACE_ID) != -1:  # LP in surface
-                surfaces.append(NUM_PAT.search(line).group())
+                surfaces.append(PAT_DIGIT.search(line).group())
 
             if line.find(CELL_ID) != -1:  # LP in cell
-                cells.append(NUM_PAT.search(line).group())
+                cells.append(PAT_DIGIT.search(line).group())
 
             if line.find(POINT_ID) != -1:  # LP in cell
                 point = SCIENTIFIC_PAT.findall(line)  # [0:3]

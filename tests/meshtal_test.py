@@ -32,6 +32,13 @@ def test_mesh_print_tally_info(input_meshtal):
     assert True
 
 
+def test_same_mesh():
+    with as_file(RESOURCES.joinpath('meshtal_CUBE_SQUARE')) as inp:
+        meshtally = Meshtal(inp)
+    meshtally.readMesh()
+    assert meshtally.mesh[124].sameMesh(meshtally.mesh[124])
+
+
 @pytest.mark.parametrize(
     "input_meshtal",
     [
@@ -89,6 +96,13 @@ def test_mesh_print_info(input_meshtal):
 
     assert True
 
+
+def test_write_cyl(tmpdir):
+    with as_file(RESOURCES.joinpath('meshtal_cyl')) as inp:
+        meshtally = Meshtal(inp)
+    meshtally.readMesh()
+    outpath = tmpdir.mkdir('sub_cyl')
+    meshtally.mesh[124].vtk.write_mesh(outpath)
 
 # ************** STATUS OF TESTING *****************
 # Mesh scale               (scale)      ---> DONE

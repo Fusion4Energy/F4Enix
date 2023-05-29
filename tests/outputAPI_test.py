@@ -20,3 +20,8 @@ class TestOutput:
             outp = Output(file)
         # This has LP
         outp.print_lp_debug(tmpdir)
+
+    def test_get_NPS(self):
+        with as_file(RESOURCES.joinpath('test_o')) as file:
+            outp = Output(file)
+        assert outp.get_NPS() == int(1e4)
