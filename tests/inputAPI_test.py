@@ -161,3 +161,13 @@ class TestInput:
         cells = newinput.get_cells_by_matID(13, deepcopy_flag=flag)
         for filtered, expected in zip(cells.keys(), range(2, 22)):
             assert filtered == str(expected)
+
+    def test_scale_densities(self):
+        newinput = deepcopy(self.testInput)
+        d1 = newinput.cells['49'].get_d()
+        d2 = newinput.cells['52'].get_d()
+        d2 = newinput.cells['53'].get_d()
+        newinput.scale_densities(0.33333333333)
+        assert newinput.cells['49'].get_d() == 0.0412067
+        assert newinput.cells['52'].get_d() == 0
+        assert newinput.cells['53'].get_d() == -2.60000

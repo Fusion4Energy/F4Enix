@@ -580,3 +580,19 @@ class Input:
                 else:
                     filtered_cells[key] = cell
         return filtered_cells
+
+    def scale_densities(self, factor: float) -> None:
+        """Scale the density values of all cells by the same factor. Void
+        cells are ignored. Resulting density will be equal to
+        original_density*factor
+
+        Parameters
+        ----------
+        factor : float
+            scaling factors for the densities
+        """
+        for key, cell in self.cells.items():
+            if not cell._get_value_by_type('mat') == 0:
+                density = cell.get_d()
+                newdensity = float('{:.5e}'.format(density*factor))
+                cell.set_d(newdensity)
