@@ -319,7 +319,7 @@ class PyVistaWrapper:
     def write_mesh(self, outpath: os.PathLike,
                    list_array_names: list[str] = None,
                    out_format: str = 'vtk',
-                   outfile: os.PathLike = None) -> None:
+                   outfile: str = None) -> None:
         """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
         (txt) formats can be selected.
 
@@ -333,9 +333,9 @@ class PyVistaWrapper:
         out_format : str, optional
             output format. The allowed ones are ['point_cloud', 'ip_fluent',
             'csv', 'vtk']. Default is .vtk
-        outfile : os.PathLike, optional
-            path to the output file. If specified, overrides outpath. Do not 
-            include the extension of the file here. Default is None.
+        outfile : str, optional
+            name of the output file. If specified, overrides the default one.
+            Do not include the extension of the file here. Default is None.
 
         Raises
         ------
@@ -347,9 +347,10 @@ class PyVistaWrapper:
 
         if outfile is None:
             file_name = f"{self.filename}_{out_format}"
-            filepath = os.path.join(outpath, file_name)
         else:
-            filepath = outfile
+            file_name = outfile
+
+        filepath = os.path.join(outpath, file_name)
 
         if out_format == 'vtk':
             if self.mesh_type == "StructuredGrid":
