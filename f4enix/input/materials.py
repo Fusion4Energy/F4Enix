@@ -1153,7 +1153,7 @@ class MatCardsList(Sequence):
             mat._update_info(lib_manager)
 
     def get_info(self, lib_manager: LibManager, zaids: bool = False,
-                 complete: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+                 complete: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Get the material informations in terms of fraction and composition
         of the material card
@@ -1166,7 +1166,7 @@ class MatCardsList(Sequence):
             Consider or not the zaid level. The default is False.
         complete: bool, optional
             If True both the atom and mass fraction are given in the raw
-            table. The default is False.
+            table. The default is True.
 
         Returns
         -------
