@@ -4,6 +4,7 @@ This module is related to the parsing and manipulation of MCNP input files.
 The parser is built on the numjuggler python module.
 
 """
+from __future__ import annotations
 import os
 import logging
 import json
@@ -181,7 +182,7 @@ class Input:
         # cells.extend(data)
 
     @classmethod
-    def from_input(cls, inputfile: os.PathLike):
+    def from_input(cls, inputfile: os.PathLike) -> Input:
         """ Generate an Input object from an MCNP input text file using
         numjuggler as a parser
 
