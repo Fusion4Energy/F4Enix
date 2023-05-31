@@ -78,17 +78,26 @@ class Output:
                 lines.append(line)
         return lines
 
-    def get_NPS(self) -> int:
+    def get_NPS(self, particle: str = 'neutron') -> int:
         """Get the number of particles simulated.
+
+        Parameters
+        ----------
+        particle: str
+            source particle to be looked for. The trigger for founding
+        the correct table will be '{particle} creation'. The default is
+        'neutrosn'.
+
 
         Returns
         -------
         int
             number of particles simulated
         """
-        for line in self.lines:
-            if PAT_NPS_LINE.match(line) is not None:
-                nps = int(PAT_DIGIT.search(line).group())
+        PAT_NPS_TRIGGER = re.compile(particle+' creation')
+        for i, line in enumerate(self.lines):
+            if PAT_NPS_TRIGGER.search(line) is not None:
+                nps = int(PAT_DIGIT.search(self.lines[i+3]).group())
                 logging.info('NPS found: {}'.format(nps))
                 return nps
 
