@@ -132,14 +132,22 @@ class Output:
             if line.find(SURFACE_ID) != -1:  # LP in surface
                 surfaces.append(PAT_DIGIT.search(line).group())
 
-            if line.find(CELL_ID) != -1:  # LP in cell
-                cells.append(PAT_DIGIT.search(line).group())
+                cells.append(PAT_DIGIT.search(self.lines[i+1]).group())
 
-            if line.find(POINT_ID) != -1:  # LP in cell
-                point = SCIENTIFIC_PAT.findall(line)  # [0:3]
+                point = SCIENTIFIC_PAT.findall(self.lines[i+6])  # [0:3]
                 x.append(float(point[0]))
                 y.append(float(point[1]))
                 z.append(float(point[2]))
+
+            # if line.find(CELL_ID) != -1:  # LP in cell
+            #     cells.append(PAT_DIGIT.search(line).group())
+
+            # if line.find(POINT_ID) != -1:  # LP in cell
+            #     point = SCIENTIFIC_PAT.findall(line)  # [0:3]
+            #     x.append(float(point[0]))
+            #     y.append(float(point[1]))
+            #     z.append(float(point[2]))
+
             #     if '***' in self.lines[i-10]:
             #         gp = SCIENTIFIC_PAT.findall(self.lines[i-9])[0:3]
             #     else:
