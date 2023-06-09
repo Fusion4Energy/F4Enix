@@ -41,12 +41,16 @@ extensions = [
     'sphinx.ext.autodoc',
     'myst_parser',
     'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary'
+    'sphinx.ext.autosummary',
+    'sphinx.ext.todo'
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+
+# Display todos by setting to True
+todo_include_todos = True
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
