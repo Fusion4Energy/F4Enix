@@ -17,6 +17,7 @@ Brought to you by Fusion For Energy (F4E) neutronics team.
 
    usage/introduction
    usage/installation
+   usage/examples_index
 
 
 F4Enix API
