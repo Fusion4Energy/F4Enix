@@ -4,7 +4,7 @@ from importlib.resources import files, as_file
 
 from f4enix.input.materials import (Element, Zaid, MatCardsList, Material)
 from f4enix.input.libmanager import LibManager
-from f4enix.input.inputAPI import Input
+from f4enix.input.MCNPinput import Input
 import f4enix.resources as pkg_res
 import tests.resources.materials as mat_res
 
