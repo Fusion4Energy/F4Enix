@@ -46,7 +46,7 @@ class Output:
 
         Examples
         --------
-        >>> from f4enix.output.outputAPI import Output
+        >>> from f4enix.output.MCNPoutput import Output
         ... # parse the output
         ... outp = Output('test.o')
         ... # print excel and .vtk file containing info on lost particles
@@ -94,7 +94,7 @@ class Output:
         particle: str
             source particle to be looked for. The trigger for founding
         the correct table will be '{particle} creation'. The default is
-        'neutrosn'.
+        'neutron'.
 
 
         Returns

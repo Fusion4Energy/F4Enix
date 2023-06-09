@@ -1,6 +1,6 @@
 from importlib.resources import files, as_file
 
-from f4enix.output.outputAPI import Output
+from f4enix.output.MCNPoutput import Output
 import tests.resources.output as resources
 import pytest
 

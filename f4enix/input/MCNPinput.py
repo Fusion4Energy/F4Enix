@@ -66,7 +66,7 @@ class Input:
         The most common way to initiliaze an Input object is from a MCNP input
         file
 
-        >>> from f4enix.input.inputAPI import Input
+        >>> from f4enix.input.MCNPinput import Input
         ... # Read the input file
         ... inp = Input.from_input(inpfile)
 
@@ -129,7 +129,7 @@ class Input:
         Get useful summary of the material section of the input in a
         pandas.DataFrame object.
 
-        >>> from f4enix.input.inputAPI import Input
+        >>> from f4enix.input.MCNPinput import Input
         ... from f4enix.input.libmanager import LibManager
         ... # Initialize a default nuclear data libraries manager
         ... libmanager = LibManager(xsdir_file='my_xsdir')

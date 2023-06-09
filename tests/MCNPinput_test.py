@@ -8,7 +8,7 @@ import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
 
-from f4enix.input.inputAPI import Input
+from f4enix.input.MCNPinput import Input
 from f4enix.input.libmanager import LibManager
 
 
