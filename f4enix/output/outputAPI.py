@@ -64,6 +64,14 @@ class Output:
          96: 'Passed',
          106: 'Missed'}
 
+        Get an MCNP table from the output file in a pandas DataFrame format:
+
+        >>> outp.get_table(60)
+        		 cell	mat	  ... photon wt generation
+        2	1.0	  1	     0	  ... 	-1.000E+00
+        3	2.0	  2	     1	  ...	-1.000E+00
+        4	3.0	  3	     0	  ...	-1.000E+00
+        5	4.0	  4	     0	  ...	-1.000E+00
         """
         self.filepath = filepath
         self.name = os.path.basename(filepath)
@@ -256,3 +264,86 @@ class Output:
                     break
 
         return stat_checks
+
+    def get_table(self, table_num: int) -> pd.DataFrame:
+        pat_table = re.compile('table '+str(table_num))
+
+        skip = None
+        look_total = False
+        nrows = None
+
+        # look for the trigger
+        for i, line in enumerate(self.lines):
+            if look_total:
+                if line.find('total') != -1:
+                    # help inferring the columns width using the data,
+                    # it is more reliable
+                    infer_line = self.lines[i-2]
+                    widths = self._get_fwf_format_from_string(infer_line)
+                    nrows = i-skip-2
+                    break
+
+            if pat_table.search(line) is not None:
+                skip = i+1
+                look_total = True
+
+        if skip is None or nrows is None:
+            raise ValueError(
+                'Table {} not found or does not exists'.format(table_num))
+
+        df = pd.read_fwf(self.filepath, skiprows=skip, nrows=nrows,
+                         widths=widths, header=None)
+        # the first n rows will actually be the title of the columns.
+        # Check the first column to understand where the data starts
+        columns = []
+        for i in range(10):
+            if not pd.isna(df.iloc[i, 0]):
+                break
+
+            for j in range(df.shape[1]):
+                current_val = df.iloc[i, j]
+                try:
+                    if pd.isna(current_val):
+                        current_val = ''
+                except TypeError:
+                    current_val = ''
+
+                if i == 0:
+                    # append the first part of string
+                    columns.append(current_val)
+                else:
+                    # concat to previous string
+                    columns[j] = columns[j]+' '+current_val
+
+        # delete the headers rows
+        df = df.iloc[i:, :]
+        # add proper column header
+        df.columns = columns
+        # delete empty columns if any
+        df.dropna(axis=1, how='all', inplace=True)
+
+        return df
+
+    @staticmethod
+    def _get_fwf_format_from_string(line: str) -> None:
+        # This works only with data that has no space
+        new_datum = False
+        widths = []
+        counter = 0
+
+        for i, char in enumerate(line):
+
+            if char == ' ' and new_datum is False:
+                new_datum = True
+                widths.append(counter)
+                counter = 1
+            else:
+                counter = counter+1
+                if char != ' ':
+                    new_datum = False
+
+        # At the end of the  cycle add last spec
+        widths.append(counter)
+
+        # exclude dummy at the beginning and \n bin created at end of line
+        return widths[1:]
