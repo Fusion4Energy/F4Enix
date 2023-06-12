@@ -145,6 +145,7 @@ class TestInput:
     def test_missing_data_cards(self):
         _ = self.bugInput.other_data['SP2']
         _ = self.bugInput.transformations['TR1']
+        _ = self.bugInput.other_data['CUT:N']
 
         assert True
 
