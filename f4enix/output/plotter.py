@@ -169,19 +169,26 @@ class Atlas:
             if stl_slice is not None:
                 pl.add_mesh(stl_slice, color=stl_rgb)
 
-            self._set_perpendicular_camera(mesh_slice, pl)
+            if i == 0:
+                # ensure that all pictures will have the same bounds
+                bounds = mesh_slice.bounds
+            self._set_perpendicular_camera(mesh_slice, pl, bounds=bounds)
             filename = os.path.join(outpath, '{}.jpg'.format(name))
             pl.screenshot(filename)
 
     @staticmethod
     def _set_perpendicular_camera(mesh_slice: pv.PolyData,
-                                  pl: pv.Plotter) -> None:
+                                  pl: pv.Plotter,
+                                  bounds: list = None) -> None:
         # align camera: focus on center, position at center + normal
         center = mesh_slice.center
         pl.camera.focal_point = center
         pl.camera.position = center + mesh_slice.cell_normals[0]
         # reset camera to put entire mesh in view
-        pl.reset_camera()
+        if bounds is None:
+            pl.reset_camera()
+        else:
+            pl.reset_camera(bounds=bounds)
 
     def _get_stl_slices(self, mesh_slices: list[pv.PolyData]
                         ) -> list[pv.PolyData] | None:
