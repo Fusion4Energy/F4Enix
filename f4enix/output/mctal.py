@@ -486,6 +486,37 @@ class Mctal:
         self.tallies = self._read()
         self.tallydata, self.totalbin = self._get_dfs()
 
+    def get_error_summary(self) -> pd.DataFrame:
+        """Return a dataframe containing a summary of the min and max errror
+        registered in each tally. If both value and error are equal to zero,
+        the errors will be set to NaN, since it means that nothing has been
+        scored in the tally.
+
+        Returns
+        -------
+        pd.DataFrame
+            error summary
+        """
+        rows = []
+        for tally, data in self.tallydata.items():
+
+            min_error = data['Error'].min()
+            min_idx = data['Error'].idxmin()
+            max_error = data["Error"].max()
+            max_idx = data['Error'].idxmax()
+
+            # put a NaN, since no particle was tallied in the cell
+            if min_error == 0 and data['Value'].iloc[min_idx] == 0:
+                min_error = np.nan
+            if max_error == 0 and data['Value'].iloc[max_idx] == 0:
+                max_error = np.nan
+
+            rows.append([tally, min_error, max_error])
+
+        df = pd.DataFrame(rows)
+        df.columns = ['tally num', 'min error', 'max error']
+        return df
+
     def _read(self) -> list[Tally]:
         """This function calls the functions getHeaders and parseTally in
         order to read the entier MCTAL file."""
@@ -856,19 +887,22 @@ class Mctal:
    
 
     def _get_dfs(self, collapse: bool=False
-                 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+                 ) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
         """
         Retrieve and organize mctal data into a DataFrame.
 
-        Returns
-        -------
-        tallydata : pd.DataFrame
-            organized tally data.
-        totalbin : pd.DataFrame
-            organized tally data (only total bins).
+        Parameters
+        ----------
         collapse : bool
             collapse the Cell and segments binning in a single Cell-Segment
             one
+
+        Returns
+        -------
+        tallydata : dict[str, pd.DataFrame]
+            organized tally data.
+        totalbin : dict[str, pd.DataFrame]
+            organized tally data (only total bins).
 
         """
         tallydata = {}

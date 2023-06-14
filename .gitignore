@@ -7,3 +7,4 @@ htmlcov/*
 docs/source/_build/**
 docs/build/**
 docs/source/_autosummary/*
+examples/**
