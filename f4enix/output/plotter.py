@@ -1,12 +1,26 @@
 import os
 import pyvista as pv
 import numpy as np
+import logging
+import docx
+import win32com.client
+
+from docx.shared import Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.section import WD_ORIENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.oxml.ns import nsdecls
+from docx.oxml import parse_xml
+
+from pathlib import Path
+
 from math import radians, degrees
 
 pv.set_plot_theme('document')
 
 
-class Atlas:
+class MeshPlotter:
     def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None
                  ) -> None:
         super().__init__()
@@ -126,7 +140,20 @@ class Atlas:
         for theta in angles:
             normal = np.array(
                 [np.cos(theta), np.sin(theta), 0.0]).dot(np.pi / 2.0)
-            mesh_slices.append(self.mesh.slice(origin=center, normal=normal))
+
+            mesh_slice = self.mesh.slice(origin=center, normal=normal)
+
+            # try to access its normal, if it has it, it is not empty
+            try:
+                mesh_slice.cell_normals[0]
+            except KeyError:
+                # it means that nothing can be sliced here because the
+                # the slice is empty
+                logging.warning(
+                    'No slice can be done at theta={} deg'.format(degrees(theta)))
+                continue
+
+            mesh_slices.append(mesh_slice)
 
         if self._has_stl:
             stl_slices = self._get_stl_slices(mesh_slices)
@@ -150,8 +177,36 @@ class Atlas:
                     outpath: os.PathLike,
                     min_max: tuple[float] = None,
                     log_scale: bool = True,
-                    stl_rgb: str = 'white',
+                    stl_color: str = 'white',
                     n_colors: int = 256) -> None:
+        """Plot a series of slices to an outpath folder. The slices names
+        are used as file names.
+
+        Parameters
+        ----------
+        slices : list[tuple[str, pv.PolyData, pv.PolyData  |  None]]
+            list of slices to be plotted. Usually produced with MeshPlotter
+            methods.
+        array_name : str
+            name of the scalar array to be plotted
+        outpath : os.PathLike
+            path to the directory that will contain all the plots. This folder
+            must be already created. Files with the same name will be
+            overridden.
+        min_max : tuple[float], optional
+            min and max values to be set for the scalars in all plots
+        log_scale : bool, optional
+            if true, activate logarithmic scale, by default True
+        stl_color : str, optional
+            color for the stl, by default 'white'
+        n_colors : int, optional
+            number of discrete colors to be used in the legend, by default 256
+
+        Raises
+        ------
+        ValueError
+            if the path do not exists
+        """
 
         # Check that outpath exists
         if not os.path.exists(outpath):
@@ -167,13 +222,14 @@ class Atlas:
                         clim=min_max, cmap='jet',
                         n_colors=n_colors)
             if stl_slice is not None:
-                pl.add_mesh(stl_slice, color=stl_rgb)
+                pl.add_mesh(stl_slice, color=stl_color)
 
             if i == 0:
                 # ensure that all pictures will have the same bounds
                 bounds = mesh_slice.bounds
+
             self._set_perpendicular_camera(mesh_slice, pl, bounds=bounds)
-            filename = os.path.join(outpath, '{}.jpg'.format(name))
+            filename = os.path.join(outpath, '{}.png'.format(name))
             pl.screenshot(filename)
 
     @staticmethod
@@ -213,3 +269,173 @@ class Atlas:
                 return np.cross(v, [0, 1, 0])
 
         return np.cross(v, [1, 0, 0])
+
+
+class Atlas:
+
+    def __init__(self, name: str = 'atlas',
+                 landscape: str = True) -> None:
+        """Class to handle the generation of the Atlas.
+
+        Parameters
+        ----------
+        name : str, optional
+            atlas name, by default 'atlas'
+        landscape : str, optional
+            if true the atlas will be produced in landscape orientation,
+            by default True
+        """
+
+        self.name = name
+        doc = docx.Document()
+        doc.add_heading(name, level=0)
+        self.doc = doc  # Word Document
+        if landscape:
+            self._change_orientation()
+
+    def _insert_img(self, img: os.PathLike, width=Inches(7.5)) -> None:
+        self.doc.add_picture(img, width=width)
+        last_paragraph = self.doc.paragraphs[-1]
+        last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    def build_from_root(self, root_path: os.PathLike) -> None:
+        """Given a root folder, build an atlas with all the pictures found
+        in the subfolders. Only one level of subfolders is supported at the
+        moment.
+
+        Parameters
+        ----------
+        root_path : os.PathLike
+            path to the root folder.
+        """
+
+        # TODO only one level of folders admitted for the moment
+        for folder in os.listdir(root_path):
+            folderpath = os.path.join(root_path, folder)
+
+            if not os.path.isdir(folderpath):
+                continue
+
+            self.doc.add_heading(folder, level=1)
+
+            # This ensures correct order of the pictures that will be the same
+            # of creation
+            files = os.listdir(folderpath)
+            paths = []
+            for file in files:
+                paths.append(os.path.join(folderpath, file))
+
+            for filepath in sorted(paths, key=os.path.getmtime):
+                heading = os.path.basename(filepath)[:-4]
+                ext = os.path.basename(filepath)[-3:]
+                if ext not in ['jpg', 'png', 'tif']:
+                    continue
+
+                self.doc.add_heading(heading, level=2)
+                self._insert_img(filepath)
+
+    def _change_orientation(self) -> docx.section.Section:
+        current_section = self.doc.sections[-1]
+        new_width, new_height = (current_section.page_height,
+                                 current_section.page_width)
+        new_section = self.doc.add_section()
+        new_section.orientation = WD_ORIENT.LANDSCAPE
+        new_section.page_width = new_width
+        new_section.page_height = new_height
+
+        return new_section
+
+    def save(self, outpath: os.PathLike, pdfprint: bool = True) -> None:
+        """
+        Save word atlas and possibly export PDF
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the folder where to save the atlas(es)
+        pdfprint : Boolean, optional
+            If True export also in PDF format
+
+        Returns
+        -------
+        None.
+
+        """
+        outpath_word = os.path.join(outpath, self.name+'.docx')
+        outpath_pdf = os.path.join(outpath, self.name+'.pdf')
+
+        try:
+            self.doc.save(outpath_word)
+        except FileNotFoundError as e:
+            print(' The following is the original exception:')
+            print(e)
+            print('\n it may be due to invalid characters in the file name')
+
+        if pdfprint:
+            in_file = outpath_word
+            out_file = outpath_pdf
+
+            try:
+                word = win32com.client.Dispatch('Word.Application')
+            except:
+                raise NotImplementedError('Word not installed')
+
+            try:
+                doc = word.Documents.Open(in_file)
+                doc.ExportAsFixedFormat(
+                    OutputFileName=out_file,
+                    # 17 = PDF output, 18=XPS output
+                    ExportFormat=17,
+                    OpenAfterExport=False,
+                    # 0=Print (higher res), 1=Screen (lower res)
+                    OptimizeFor=0,
+                    # 0=No bookmarks,
+                    # 1=Heading bookmarks only,
+                    # 2=bookmarks match word bookmarks
+                    CreateBookmarks=1,
+                    DocStructureTags=True)
+            finally:
+                doc.Close()
+                word.Quit()
+
+    # @staticmethod
+    # def _wrapper(paragraph, ptype):
+    #     """
+    #     Wrap a paragraph in order to add cross reference
+
+    #     Parameters
+    #     ----------
+    #     paragraph : docx.Paragraph
+    #         image to wrap.
+    #     ptype : str
+    #         type of paragraph to wrap
+
+    #     Returns
+    #     -------
+    #     None.
+
+    #     """
+    #     if ptype == 'table':
+    #         instruction = ' SEQ Table \\* ARABIC'
+    #     elif ptype == 'figure':
+    #         instruction = ' SEQ Figure \\* ARABIC'
+    #     else:
+    #         raise ValueError(ptype+' is not a supported paragraph type')
+
+    #     run = run = paragraph.add_run()
+    #     r = run._r
+    #     fldChar = OxmlElement('w:fldChar')
+    #     fldChar.set(qn('w:fldCharType'), 'begin')
+    #     r.append(fldChar)
+    #     instrText = OxmlElement('w:instrText')
+    #     instrText.text = instruction
+    #     r.append(instrText)
+    #     fldChar = OxmlElement('w:fldChar')
+    #     fldChar.set(qn('w:fldCharType'), 'end')
+    #     r.append(fldChar)
+
+    # @staticmethod
+    # def _highlightCell(cell, color='FBD4B4'):
+    #     shading_elm_1 = parse_xml(r'<w:shd {} w:fill="'.format(nsdecls('w')) +
+    #                               color + r'"/>')
+    #     cell._tc.get_or_add_tcPr().append(shading_elm_1)
