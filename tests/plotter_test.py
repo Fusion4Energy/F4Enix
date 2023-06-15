@@ -26,15 +26,24 @@ def plotter() -> MeshPlotter:
     return plotter
 
 
-class MeshPlotter:
+class TestMeshPlotter:
 
     def test_slice_toroidal(self, plotter):
         slices = plotter.slice_toroidal(20)
         assert len(slices) == 8
 
-    def test_slice_on_axis(self, plotter):
-        plotter.slice_on_axis('y', 3)
-        assert True
+        # Check that they are not empty
+        for slice in slices:
+            assert slice[1].bounds is not None
+            assert slice[2].bounds is not None
+
+    @pytest.mark.parametrize('axis', ['x', 'y', 'z'])
+    def test_slice_on_axis(self, plotter, axis):
+        slices = plotter.slice_on_axis(axis, 3)
+        # Check that they are not empty
+        for slice in slices:
+            assert slice[1].bounds is not None
+            assert slice[2].bounds is not None
 
     def test_plot_slices(self, plotter, tmpdir):
         slices = plotter.slice_on_axis('y', 3)
@@ -61,5 +70,4 @@ class TestAtlas:
 
         except NotImplementedError:
             # cannot be tested if word is not installed
-            assert True
-        
+            assert True    

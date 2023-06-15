@@ -8,10 +8,6 @@ import win32com.client
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.oxml.ns import nsdecls
-from docx.oxml import parse_xml
 
 from pathlib import Path
 
@@ -88,6 +84,9 @@ class MeshPlotter:
             name = 'P{} = {}'.format(axis, round(mslice.center[idxs[axis]], 1))
             if self._has_stl:
                 stl_slice = stl_slices[i]
+                if stl_slice.bounds is None:
+                    # This may happen if the stl is smaller than the mesh
+                    stl_slice = None
             else:
                 stl_slice = None
 
