@@ -47,6 +47,45 @@ class MeshPlotter:
 
         return pl
 
+    def slice(self, slice_param: list[list]
+              ) -> list[tuple[str, pv.PolyData, pv.PolyData | None]]:
+        """Perform arbitrary general slicing providing origin and normal
+        vectors.
+
+        Parameters
+        ----------
+        slice_param : list[list]
+            matrix of parameters to be provided, one row for each slice.
+            [[name, x, y, z, normx, normy, normz]
+             ...
+            ]
+        Returns
+        -------
+        list[tuple[str, pv.PolyData, pv.PolyData | None]]
+            contains a list of (slice name, mesh slice, stl slice).
+            the names are assigned according to slicing logic.
+            In case of no stl assigned to the plotter, the stl slice will be
+            equal to None.
+        """
+
+        outp = []
+        for params in slice_param:
+            name = params[0]
+            origin = params[1:4]
+            norm = params[4:]
+
+            mesh_slice = self.mesh.slice(origin=origin, normal=norm)
+
+            # get the corresponding stl slices if needed
+            if self._has_stl:
+                stl_slice = self._get_stl_slices([mesh_slice])[0]
+            else:
+                stl_slice = None
+
+            outp.append((name, mesh_slice, stl_slice))
+
+        return outp
+
     def slice_on_axis(self, axis: str, n: int
                       ) -> list[tuple[str, pv.PolyData, pv.PolyData | None]]:
         """Creates a series of slice of the mesh distributed equally along the
@@ -64,7 +103,7 @@ class MeshPlotter:
         list[tuple[str, pv.PolyData, pv.PolyData | None]]
             contains a list of (slice name, mesh slice, stl slice).
             the names are assigned according to slicing logic.
-            In case of no stl assigned to the atlas, the stl slice will be
+            In case of no stl assigned to the plotter, the stl slice will be
             equal to None.
 
         """
@@ -84,9 +123,6 @@ class MeshPlotter:
             name = 'P{} = {}'.format(axis, round(mslice.center[idxs[axis]], 1))
             if self._has_stl:
                 stl_slice = stl_slices[i]
-                if stl_slice.bounds is None:
-                    # This may happen if the stl is smaller than the mesh
-                    stl_slice = None
             else:
                 stl_slice = None
 
@@ -121,7 +157,7 @@ class MeshPlotter:
         list[tuple[str, pv.PolyData, pv.PolyData | None]]
             contains a list of (slice name, mesh slice, stl slice).
             the names are assigned according to slicing logic.
-            In case of no stl assigned to the atlas, the stl slice will be
+            In case of no stl assigned to the plotter, the stl slice will be
             equal to None.
         """
 
@@ -250,11 +286,22 @@ class MeshPlotter:
         stl_slices = []
         # get the correspondent stl_slices
         for mesh_slice in mesh_slices:
+            # check it is not empty
+            if len(mesh_slice[mesh_slice.array_names[0]]) == 0:
+                stl_slices.append(None)
+                continue
+
             norm = mesh_slice.cell_normals[0]
             stl_slice = self.stl.slice(normal=norm, origin=mesh_slice.center)
+            if stl_slice.bounds is None:
+                # This may happen if the stl is smaller than the mesh
+                stl_slices.append(None)
+                continue
             # give a very small translation in order to not be exactly
             # coincident, using the normal should be sufficient
-            stl_slice.translate(norm, inplace=True)
+            # but it needs to be properly scaled
+            scale = np.abs(mesh_slice.points).mean()*1e-3
+            stl_slice.translate(norm*scale, inplace=True)
             stl_slices.append(stl_slice)
 
         return stl_slices
