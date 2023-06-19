@@ -56,9 +56,8 @@ class MeshPlotter:
         ----------
         slice_param : list[list]
             matrix of parameters to be provided, one row for each slice.
-            [[name, x, y, z, normx, normy, normz]
-             ...
-            ]
+             [[name, x, y, z, normx, normy, normz], ...]
+
         Returns
         -------
         list[tuple[str, pv.PolyData, pv.PolyData | None]]
@@ -66,6 +65,7 @@ class MeshPlotter:
             the names are assigned according to slicing logic.
             In case of no stl assigned to the plotter, the stl slice will be
             equal to None.
+
         """
 
         outp = []
@@ -213,7 +213,8 @@ class MeshPlotter:
                     min_max: tuple[float] = None,
                     log_scale: bool = True,
                     stl_color: str = 'white',
-                    n_colors: int = 256) -> None:
+                    n_colors: int = 256,
+                    scale_quality: float = 2) -> None:
         """Plot a series of slices to an outpath folder. The slices names
         are used as file names.
 
@@ -236,6 +237,8 @@ class MeshPlotter:
             color for the stl, by default 'white'
         n_colors : int, optional
             number of discrete colors to be used in the legend, by default 256
+        scale_quality: float, optional
+            increase the resolution of the picture by a factor, by default 2
 
         Raises
         ------
@@ -261,11 +264,11 @@ class MeshPlotter:
 
             if i == 0:
                 # ensure that all pictures will have the same bounds
-                bounds = mesh_slice.bounds
+                bounds = np.array(mesh_slice.bounds)*0.8
 
             self._set_perpendicular_camera(mesh_slice, pl, bounds=bounds)
             filename = os.path.join(outpath, '{}.png'.format(name))
-            pl.screenshot(filename)
+            pl.screenshot(filename, scale=scale_quality)
 
     @staticmethod
     def _set_perpendicular_camera(mesh_slice: pv.PolyData,
