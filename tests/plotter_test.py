@@ -49,7 +49,7 @@ class TestMeshPlotter:
     def test_plot_slices(self, plotter: MeshPlotter, tmpdir):
         slices = plotter.slice_on_axis('y', 3)
         outpath = tmpdir.mkdir('meshplotter')
-        plotter.plot_slices(slices, 'Error', outpath)
+        plotter.plot_slices(slices, 'Error', outpath=outpath)
         assert len(os.listdir(outpath)) == 3
 
     def test_slice(self, plotter: MeshPlotter):
@@ -79,6 +79,28 @@ class TestAtlas:
             with open(os.path.join(outfolder, name+'.docx'), 'rb') as infile:
                 doc = docx.Document(infile)
                 assert len(doc.paragraphs) == 15
+
+        except NotImplementedError:
+            # cannot be tested if word is not installed
+            assert True
+
+    def test_add_section(self, tmpdir, plotter):
+        name = 'test2'
+        atlas = Atlas(name=name)
+
+        # Get the slices
+        slices = plotter.slice_on_axis('x', 3)
+        images = plotter.plot_slices(slices, 'Error')
+        atlas.add_section('New section', images)
+
+        outfolder = tmpdir.mkdir('atlas2')
+        try:
+            atlas.save(outfolder)
+
+            # try to open it
+            with open(os.path.join(outfolder, name+'.docx'), 'rb') as infile:
+                doc = docx.Document(infile)
+                assert len(doc.paragraphs) == 9
 
         except NotImplementedError:
             # cannot be tested if word is not installed

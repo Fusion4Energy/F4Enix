@@ -8,6 +8,8 @@ import win32com.client
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
+from PIL import Image, ImageOps
+import io
 
 from pathlib import Path
 
@@ -38,12 +40,14 @@ class MeshPlotter:
             italic=True,
             fmt="%.e",
             font_family="arial",
-            vertical=True)
+            vertical=True,
+            position_x=0.85,
+            position_y=0.25)
 
     def _get_plotter(self) -> pv.Plotter:
         # Initiate the plotter with all default actions if needed
         pl = pv.Plotter(off_screen=True)
-        pl.set_background('white')
+        # pl.set_background('white')
 
         return pl
 
@@ -209,12 +213,12 @@ class MeshPlotter:
     def plot_slices(self,
                     slices: list[tuple[str, pv.PolyData, pv.PolyData | None]],
                     array_name: str,
-                    outpath: os.PathLike,
+                    outpath: os.PathLike = None,
                     min_max: tuple[float] = None,
                     log_scale: bool = True,
                     stl_color: str = 'white',
                     n_colors: int = 256,
-                    scale_quality: float = 2) -> None:
+                    scale_quality: float = 3) -> list[tuple[str, Image.Image]]:
         """Plot a series of slices to an outpath folder. The slices names
         are used as file names.
 
@@ -225,10 +229,10 @@ class MeshPlotter:
             methods.
         array_name : str
             name of the scalar array to be plotted
-        outpath : os.PathLike
+        outpath : os.PathLike, optional
             path to the directory that will contain all the plots. This folder
             must be already created. Files with the same name will be
-            overridden.
+            overridden. default is None, meaning that images will not be saved
         min_max : tuple[float], optional
             min and max values to be set for the scalars in all plots
         log_scale : bool, optional
@@ -240,6 +244,11 @@ class MeshPlotter:
         scale_quality: float, optional
             increase the resolution of the picture by a factor, by default 2
 
+        Returns
+        -------
+        list[tuple[str, Image.Image]]
+            list of images of the slices
+
         Raises
         ------
         ValueError
@@ -247,8 +256,11 @@ class MeshPlotter:
         """
 
         # Check that outpath exists
-        if not os.path.exists(outpath):
-            raise ValueError('{} does not exists'.format(outpath))
+        if outpath is not None:
+            if not os.path.exists(outpath):
+                raise ValueError('{} does not exists'.format(outpath))
+
+        images = []
 
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
             pl = self._get_plotter()
@@ -262,13 +274,25 @@ class MeshPlotter:
             if stl_slice is not None:
                 pl.add_mesh(stl_slice, color=stl_color)
 
-            if i == 0:
-                # ensure that all pictures will have the same bounds
-                bounds = np.array(mesh_slice.bounds)*0.8
+            # if i == 0:
+            #     # ensure that all pictures will have the same bounds
+            #     bounds = np.array(mesh_slice.bounds)*0.8
+            bounds = np.array(mesh_slice.bounds)
 
             self._set_perpendicular_camera(mesh_slice, pl, bounds=bounds)
-            filename = os.path.join(outpath, '{}.png'.format(name))
-            pl.screenshot(filename, scale=scale_quality)
+
+            # Get the image from the plotter and trim it
+            im = Image.fromarray(pl.screenshot(None, return_img=True))
+            bbox = ImageOps.invert(im).getbbox()
+            trimmed = im.crop(bbox)
+
+            images.append((name, trimmed))
+
+            if outpath is not None:
+                filename = os.path.join(outpath, '{}.png'.format(name))
+                pl.screenshot(filename, scale=scale_quality)
+
+        return images
 
     @staticmethod
     def _set_perpendicular_camera(mesh_slice: pv.PolyData,
@@ -341,11 +365,33 @@ class Atlas:
         self.doc = doc  # Word Document
         if landscape:
             self._change_orientation()
+            self.default_width = Inches(5.5)
+        else:
+            self.default_width = Inches(7.5)
 
-    def _insert_img(self, img: os.PathLike, width=Inches(7.5)) -> None:
+    def _insert_img(self, img: os.PathLike, width=None) -> None:
+        if width is None:
+            width = self.default_width
         self.doc.add_picture(img, width=width)
+        # self.doc.add_picture(img, height=Inches(7.5))
         last_paragraph = self.doc.paragraphs[-1]
         last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    def add_section(self, section_name: str,
+                    images: list[tuple[str, Image.Image]],
+                    level: int = 1) -> None:
+
+        self.doc.add_heading(section_name, level=level)
+
+        for name, image in images:
+            self.doc.add_heading(name, level=level+1)
+            # Get a binary stream for pythondocx
+            imdata = io.BytesIO()
+            image.save(imdata, format='png')
+            imdata.seek(0)
+            self._insert_img(imdata)
+            # Clean the buffer
+            del imdata
 
     def build_from_root(self, root_path: os.PathLike) -> None:
         """Given a root folder, build an atlas with all the pictures found
