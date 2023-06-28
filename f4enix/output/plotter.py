@@ -10,6 +10,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
 from PIL import Image, ImageOps
 import io
+from copy import deepcopy
 
 from pathlib import Path
 
@@ -218,7 +219,8 @@ class MeshPlotter:
                     log_scale: bool = True,
                     stl_color: str = 'white',
                     n_colors: int = 256,
-                    scale_quality: float = 3) -> list[tuple[str, Image.Image]]:
+                    scale_quality: float = 3,
+                    scale_title: str = None) -> list[tuple[str, Image.Image]]:
         """Plot a series of slices to an outpath folder. The slices names
         are used as file names.
 
@@ -243,6 +245,9 @@ class MeshPlotter:
             number of discrete colors to be used in the legend, by default 256
         scale_quality: float, optional
             increase the resolution of the picture by a factor, by default 2
+        scale_title: str, optional
+            ovverride the title of the scalar legend. The defualt is None,
+            meaning that the array name will be used.
 
         Returns
         -------
@@ -262,7 +267,12 @@ class MeshPlotter:
 
         images = []
 
+        scalar_bar_args = deepcopy(self.legend_args)
+        if scale_title is not None:
+            scalar_bar_args['title'] = scale_title
+
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
+
             pl = self._get_plotter()
             pl.add_mesh(mesh_slice, scalars=array_name,
                         scalar_bar_args=self.legend_args,
