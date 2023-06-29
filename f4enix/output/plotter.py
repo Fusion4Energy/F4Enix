@@ -275,7 +275,7 @@ class MeshPlotter:
 
             pl = self._get_plotter()
             pl.add_mesh(mesh_slice, scalars=array_name,
-                        scalar_bar_args=self.legend_args,
+                        scalar_bar_args=scalar_bar_args,
                         log_scale=log_scale,
                         below_color='grey',
                         above_color='purple',
