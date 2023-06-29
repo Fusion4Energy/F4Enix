@@ -8,6 +8,7 @@ import re
 import logging
 import pandas as pd
 import pyvista as pv
+import numpy as np
 
 from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
 
@@ -24,6 +25,12 @@ PAT_NPS_LINE = re.compile(r' source')
 # patXYZ = re.compile(r'\s+[eE.0-9]+\s[eE.0-9]+\s[eE.0-9]+\s*')
 # patSDEF = re.compile(r'(?i)sdef')
 # patSDEFsur = re.compile(r'(?i)sur=\d+')
+
+STAT_CHECKS_COLUMNS = ['TFC bin behaviour', 'mean behaviour',
+                       'rel error value', 'rel error decrease',
+                       'rel error decrease rate', 'VoV value', 'VoV decrease',
+                       'VoV decrease rate', 'FoM value', 'FoM behaviour',
+                       'PDF slope']
 
 
 class Output:
@@ -51,18 +58,36 @@ class Output:
         ... outp = Output('test.o')
         ... # print excel and .vtk file containing info on lost particles
         ... outp.print_lp_debug('outfile_name')
-        ... # Get the results of the statistical checks
-        ... outp.get_statistical_checks()
-        {11: 'All zeros',
-         12: 'All zeros',
-         21: 'Passed',
-         22: 'Missed',
-         ...
-         66: 'Passed',
-         76: 'Missed',
-         86: 'Passed',
-         96: 'Passed',
-         106: 'Missed'}
+        ... # Get the results of the statistical checks for a specific tally
+        ... outp.get_tally_stat_checks(46)
+                                mean behaviour    rel error      rel error  ...
+                                                    value         decrease  ...
+        TFC bin behaviour
+        desired                   random           <0.10               yes  ...
+        observed                decrease            0.03               yes  ...
+        passed?                       no             yes               yes  ...
+
+        This tables are produced only if the bins have non-zero values and
+        refer to the total bin. These results, combined with a summary check
+        on all tally bins are used to compile the total summary table
+
+        >>> # Get the total summary table
+        ... outp.get_stat_checks_table()
+                    mean            rel error                        TFC
+                    behaviour        value          ...             bins
+        Cell
+        2              yes           yes            ...            Passed
+        4              NaN           NaN            ...         All zeros
+        6              NaN           NaN            ...         All zeros
+        12             yes           yes            ...            Passed
+        14             NaN           NaN            ...         All zeros
+        24             NaN           NaN            ...         All zeros
+        34             NaN           NaN            ...         All zeros
+        22             yes           yes            ...            Passed
+        32             yes           yes            ...            Passed
+        44              no           yes            ...            Missed
+        46              no           yes            ...            Missed
+        104             no           yes            ...            Missed
 
         Get an MCNP table from the output file in a pandas DataFrame format:
 
@@ -214,7 +239,7 @@ class Output:
 
         logging.info('dump completed')
 
-    def get_statistical_checks(self) -> dict[int, str]:
+    def get_statistical_checks_tfc_bins(self) -> dict[int, str]:
         """
         Retrieve the result of the 10 statistical checks for all tallies.
         They are registered as either 'Missed', 'Passed' or 'All zeros' in a
@@ -265,7 +290,118 @@ class Output:
 
         return stat_checks
 
+    def get_tally_stat_checks(self, cell: int) -> pd.DataFrame:
+        """Get the table of statistical checks for a specific tally
+
+        Parameters
+        ----------
+        cell : int
+            index of the cell to be parsed
+
+        Returns
+        -------
+        pd.DataFrame
+            table reporting the results of the statistical checks
+
+        Raises
+        ------
+        ValueError
+            if the cell is not found in the file.
+        """
+        trigger = re.compile(
+            '           results of 10 statistical .+\s{}\n'.format(cell))
+        found = False
+
+        for i, line in enumerate(self.lines):
+            if trigger.match(line):
+                # found trigger
+                found = True
+                break
+        if found:
+            skiprows = i+5
+            nrows = 3
+            df = pd.read_csv(self.filepath, skiprows=skiprows, nrows=nrows,
+                             header=None, sep=r'\s+')
+            df.columns = STAT_CHECKS_COLUMNS
+            df.set_index('TFC bin behaviour', inplace=True)
+
+            # values for the pdf slopes are assigned wrongly to FoM
+            for row in ['observed', 'passed?']:
+                if pd.isna(df.loc[row, 'PDF slope']):
+                    # pass the values to the correct columns
+                    val = df.loc[row, 'FoM value']
+                    df.loc[row, 'FoM value'] = np.nan
+                    df.loc[row, 'PDF slope'] = val
+
+                    if row == 'passed?':
+                        # assigned passed to the empty ones
+                        df.loc[row, 'FoM value'] = 'yes'
+                        df.loc[row, 'FoM behaviour'] = 'yes'
+
+        else:
+            raise ValueError('Cell {} was not found'.format(cell))
+
+        return df
+
+    def get_stat_checks_table(self) -> pd.DataFrame:
+        """get a table summarizing the 10 statisical checks results for each
+        tally.
+
+        one row per tally, one column per statistical check. An extra column
+        is added that report the results of the statistical checks in all other
+        TFC bins.
+
+        Returns
+        -------
+        pd.DataFrame
+            summary of the statistical checks results.
+        """
+        # get all available cells from the summary
+        summary = self.get_statistical_checks_tfc_bins()
+        rows = []
+        for cell in list(summary.keys()):
+            new_row = [int(cell)]
+            try:
+                table = self.get_tally_stat_checks(int(cell))
+                new_row.extend(list(table.loc['passed?'].values))
+            except ValueError as e:
+                # If all bins have zero values it is expected not to find it
+                if summary[cell] == 'All zeros':
+                    new_row.extend([np.nan]*10)
+                else:
+                    # If they are not all zeros raise the exception
+                    raise e
+            rows.append(new_row)
+
+        df = pd.DataFrame(rows)
+        columns = ['Cell']
+        columns.extend(STAT_CHECKS_COLUMNS[1:])
+        df.columns = columns
+        df.set_index('Cell', inplace=True)
+        df['Other TFC bins'] = pd.Series(summary)
+
+        return df
+
     def get_table(self, table_num: int) -> pd.DataFrame:
+        """Extract a printed table from the MCNP output file.
+
+        All tables should be accessible from their MCNP index.
+
+        Parameters
+        ----------
+        table_num : int
+            MCNP table index
+
+        Returns
+        -------
+        pd.DataFrame
+            parsed table
+
+        Raises
+        ------
+        ValueError
+            If the table associated to the requested index is not found
+        """
         pat_table = re.compile('table '+str(table_num))
 
         skip = None
