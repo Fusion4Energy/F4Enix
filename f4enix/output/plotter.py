@@ -343,15 +343,15 @@ class MeshPlotter:
 
         return stl_slices
 
-    @staticmethod
-    def _get_perpendicular_vector(v):
-        if v[1] == 0 and v[2] == 0:
-            if v[0] == 0:
-                raise ValueError('zero vector')
-            else:
-                return np.cross(v, [0, 1, 0])
+    # @staticmethod
+    # def _get_perpendicular_vector(v):
+    #     if v[1] == 0 and v[2] == 0:
+    #         if v[0] == 0:
+    #             raise ValueError('zero vector')
+    #         else:
+    #             return np.cross(v, [0, 1, 0])
 
-        return np.cross(v, [1, 0, 0])
+    #     return np.cross(v, [1, 0, 0])
 
 
 class Atlas:
