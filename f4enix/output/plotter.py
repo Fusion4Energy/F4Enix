@@ -22,7 +22,61 @@ pv.set_plot_theme('document')
 class MeshPlotter:
     def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None
                  ) -> None:
-        super().__init__()
+        """Object responsible for the plotting of meshes.
+
+        Allows slicing in different orientation and plotting of slices.
+
+        Parameters
+        ----------
+        mesh : pv.PolyData
+            mesh to be sliced
+        stl : pv.PolyData, optional
+            stl to be superimposed in the slices, by default None
+
+        Attributes
+        ----------
+        mesh : pv.PolyData
+            mesh to be sliced
+        stl : pv.PolyData, optional
+            stl to be superimposed in the slices
+        legend_args : dict
+            contains the default parameters for the plot of the scalar bars.
+            use print(self.legend_args) to check the default values. The entire
+            list of parameters that can be used can be found in the
+            `pv.Plotter.add_scalar_bar() method <https://docs.pyvista.org/version/stable/api/plotting/_autosummary/pyvista.Plotter.add_scalar_bar.html>`_
+
+        Examples
+        --------
+        Load a mesh and stl file and slice them in different way
+
+        >>> from f4enix.output.plotter import MeshPlotter
+        ... # Initialize the plotter with the mesh and stl
+        ... # scaling the mesh and stl accordingly to be in the same units
+        ... plotter = MeshPlotter(global_mesh.scale(0.01, inplace=False),
+        ...                       stl=stl.scale(0.001, inplace=False))
+        ... # There are many default settings that can be modified
+        ... plotter.legend_args['vertical'] = False
+        ... # -- Different slicing methods can be used: --
+        ... # toroidal slicing
+        ... toroidal_slices = plotter.slice_toroidal(30)  # 30 deg. increment
+        ... # vertical slicing on an axis and defininig number of divisions
+        ... horizontal_slices = plotter.slice_on_axis('z', 3)
+        ... # General slicing using origin and normals for each slice
+        ... slice_params = [
+                ['slice 1', 0, 0, -11.500, 0, 0, 1],
+                ['slice 2', 9, 0, -8.425, 0.25, 0, 0.9]]
+        ... general_slices = plotter.slice(slice_params)
+
+        and then plot the meshes
+
+        >>> # Plot the slices
+        ... array_name = 'scalar1'  # name of the scalar to be plot from the mesh
+        ... images = plotter.plot_slices(horizontal_slices, array_name,
+        ...                              n_colors=7,  # colors of the legend
+        ...                              min_max=(1e6, 1e12),  # limits
+        ...                              scale_title='Gy/h')  # legend title
+
+        """
         self.mesh = mesh
 
         self.stl = stl
@@ -367,6 +421,35 @@ class Atlas:
         landscape : str, optional
             if true the atlas will be produced in landscape orientation,
             by default True
+
+        Attributes
+        ----------
+        name : str
+            atlas name, by default 'atlas'
+        doc : docx.Document
+            word document used for the creation of the atlas
+        default_width : float
+            width used to rescale images that are added to the atlas.
+            by default this is set to 0.9*text_length in the document.
+            to change it, it is recommended to use either the
+            docx.shared.Inches or docx.shared.Inches.Mm conversion method.
+
+        Examples
+        --------
+        Build an atlas adding sections manually (recommended, since images
+        do not need to be saved to the disk). The images can be produced using
+        py:method:`f4enix.output.plotter.MeshPlotter.plot_slices`. Both a 
+        Word and PDF version are saved.
+
+        >>> from f4enix.output.plotter import Atlas
+        ... atlas = Atlas('Some title for the atlas')
+        ... # reduce for instance the default width for the images
+        ... atlas.default_width = atlas.default_width*0.9
+        ... # add a section to the atlas containing images produced with
+        ... # plot_slices
+        ... atlas.add_section('new section', images)
+        ... atlas.save('path/to/outfolder')
+
         """
 
         self.name = name
@@ -393,7 +476,25 @@ class Atlas:
 
     def add_section(self, section_name: str,
                     images: list[tuple[str, Image.Image]],
-                    level: int = 1) -> None:
+                    level: int = 1,
+                    include_section_name: bool = True) -> None:
+        """Add a section of plots to the Atlas.
+
+        add a chapter to atlas, the level can be decided.
+
+        Parameters
+        ----------
+        section_name : str
+            Name of the section
+        images : list[tuple[str, Image.Image]]
+            list of images produced by the plot_slices() method to be added
+            to the atlas.
+        level : int, optional
+            nested level where the section has to be added, by default 1
+        include_section_name : bool
+            If True, the section name is added to the image name, by default
+            True
+        """
 
         self.doc.add_heading(section_name, level=level)
 
