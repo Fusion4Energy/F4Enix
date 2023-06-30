@@ -15,6 +15,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from math import radians, degrees
+from f4enix.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
 
 pv.set_plot_theme('document')
 
@@ -274,7 +275,9 @@ class MeshPlotter:
                     stl_color: str = 'white',
                     n_colors: int = 256,
                     scale_quality: float = 3,
-                    scale_title: str = None) -> list[tuple[str, Image.Image]]:
+                    scale_title: str = None,
+                    custom_categories: str = None
+                    ) -> list[tuple[str, Image.Image]]:
         """Plot a series of slices to an outpath folder. The slices names
         are used as file names.
 
@@ -297,11 +300,14 @@ class MeshPlotter:
             color for the stl, by default 'white'
         n_colors : int, optional
             number of discrete colors to be used in the legend, by default 256
-        scale_quality: float, optional
+        scale_quality : float, optional
             increase the resolution of the picture by a factor, by default 2
-        scale_title: str, optional
+        scale_title : str, optional
             ovverride the title of the scalar legend. The defualt is None,
             meaning that the array name will be used.
+        custom_categorical : str
+            plot special categorical plots. Admitted categories are TID,
+            TNF and SDDR.
 
         Returns
         -------
@@ -313,6 +319,18 @@ class MeshPlotter:
         ValueError
             if the path do not exists
         """
+        # Check if a categorical plot is requested
+        if custom_categories is not None:
+            if custom_categories == 'SDDR':
+                ctg = SDDR_CATEGORIES
+            elif custom_categories == 'TNF':
+                ctg = TNF_CATEGORIES
+            elif custom_categories == 'TID':
+                ctg = TID_CATEGORIES
+            else:
+                raise ValueError(
+                    '{} are not valid custom categories'.format(
+                        custom_categories))
 
         # Check that outpath exists
         if outpath is not None:
@@ -328,13 +346,33 @@ class MeshPlotter:
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
 
             pl = self._get_plotter()
-            pl.add_mesh(mesh_slice, scalars=array_name,
+            if custom_categories is not None:
+                # Add category label to the mesh
+                colors = self._add_categorization(
+                    mesh_slice, array_name, ctg['values'], ctg['categories'],
+                    ctg['colors'], name=custom_categories)
+                scalars = custom_categories
+                cmap = colors
+                below_color = None
+                above_color = None
+                lscale = False
+                categories = True
+            else:
+                scalars = array_name
+                cmap = 'jet'
+                below_color = 'grey'
+                above_color = 'purple'
+                lscale = log_scale
+                categories = False
+
+            pl.add_mesh(mesh_slice, scalars=scalars,
                         scalar_bar_args=scalar_bar_args,
-                        log_scale=log_scale,
-                        below_color='grey',
-                        above_color='purple',
-                        clim=min_max, cmap='jet',
-                        n_colors=n_colors)
+                        log_scale=lscale,
+                        below_color=below_color,
+                        above_color=above_color,
+                        clim=min_max, cmap=cmap,
+                        n_colors=n_colors,
+                        categories=categories)
             if stl_slice is not None:
                 pl.add_mesh(stl_slice, color=stl_color)
 
@@ -396,6 +434,32 @@ class MeshPlotter:
             stl_slices.append(stl_slice)
 
         return stl_slices
+
+    @staticmethod
+    def _add_categorization(mesh: pv.PolyData, array_name: str,
+                            vals: list[float], categories: list[str],
+                            colors: list[str], name='label') -> list[str]:
+
+        values = mesh[array_name]
+        labels = np.empty(len(values), dtype='<U10')
+
+        # categories = list(range(0, len(vals)+1))
+        labels[:] = categories[-1]
+
+        vals.reverse()
+        categories.reverse()
+        for val, ctg in zip(vals, categories):
+            labels[values < val] = ctg
+
+        mesh[name] = labels
+
+        colors_to_use = []
+        categories.reverse()
+        for category, color in zip(categories, colors):
+            if (labels == category).sum() > 1:
+                colors_to_use.append(color)
+
+        return colors_to_use
 
     # @staticmethod
     # def _get_perpendicular_vector(v):

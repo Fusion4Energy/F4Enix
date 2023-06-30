@@ -14,7 +14,7 @@ class TestOutput:
 
         # This has no LP
         outp.print_lp_debug(tmpdir)
-        checks = outp.get_statistical_checks()
+        checks = outp.get_statistical_checks_tfc_bins()
         assert len(checks) == 12
 
         with as_file(RESOURCES.joinpath('out_lp.txt')) as file:

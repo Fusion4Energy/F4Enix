@@ -81,6 +81,12 @@ class TestMeshPlotter:
         im = plotter_no_stl.plot_slices(slices, 'Error')
         assert len(im) == 3
 
+        # test with categories
+        slices = plotter_no_stl.slice_on_axis('y', 3)
+        im = plotter_no_stl.plot_slices(slices, 'Error',
+                                        custom_categories='TNF')
+        assert len(im) == 3
+
     def test_slice(self, plotter: MeshPlotter,
                    plotter_no_stl: MeshPlotter):
         # coordinates are in meters, input in mm

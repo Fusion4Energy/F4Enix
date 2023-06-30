@@ -34,15 +34,21 @@ ITER_Z_LEVELS = [
                 ['L4_U', 0, 0, 25.560, 0, 0, 1]
                 ]
 # Color Maps
-TID_COLORS = ['green', 'orange', 'red']
-TID_LIMITS = [1, 10]  # Gy
-TID_LABELS = ['< 1 Gy', '1-10 Gy', '> 10 Gy']
+TID_CATEGORIES = {
+    'colors': ['green', 'orange', 'red'],
+    'values': [1, 10],  # Gy
+    'categories': ['< 1 Gy', '1-10 Gy', '> 10 Gy']
+    }
 
-TNF_COLORS = ['green', 'orange', 'red']
-TNF_LIMITS = [0.01, 100]  # n/cm^2/s
-TNF_LABELS = ['< 0.01 n/cm^2/s', '0.01-100 n/cm^2/s', '> 100 n/cm^2/s']
+TNF_CATEGORIES = {
+    'colors': ['green', 'orange', 'red'],
+    'values': [0.01, 100],  # n/cm^2/s
+    'categories': ['< 0.01 n/cm^2/s', '0.01-100 n/cm^2/s', '> 100 n/cm^2/s']
+    }
 
-SDDR_COLORS = ['white', 'blue', 'green', 'yellow', 'orange', 'red']
-SDDR_LIMITS = [1.32e-3, 7.5e-3, 25e-3, 2, 100]  # mSv/h
-SDDR_LABELS = ['< 1.32 uSv/h', '1.32-7.5 uSv/h', '7.5-25 uSv/h',
-               '0.025-2 mSv/s', '2-100 mSv/h', '> 100 mSv/h']
+SDDR_CATEGORIES = {
+    'colors': ['white', 'blue', 'green', 'yellow', 'orange', 'red'],
+    'values': [1.32e-3, 7.5e-3, 25e-3, 2, 100],  # mSv/h
+    'categories': ['< 1.32 uSv/h', '1.32-7.5 uSv/h', '7.5-25 uSv/h',
+                   '0.025-2 mSv/s', '2-100 mSv/h', '> 100 mSv/h']
+    }
