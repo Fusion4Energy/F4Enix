@@ -5,7 +5,7 @@ import logging
 import docx
 import win32com.client
 
-from docx.shared import Inches
+from docx.shared import Inches, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
 from PIL import Image, ImageOps
@@ -375,9 +375,13 @@ class Atlas:
         self.doc = doc  # Word Document
         if landscape:
             self._change_orientation()
-            self.default_width = Inches(5.5)
-        else:
-            self.default_width = Inches(7.5)
+
+        # set default width
+        section = self.doc.sections[-1]
+        width = (section.page_width -
+                 section.left_margin -
+                 section.right_margin)/36000*0.9  # mm
+        self.default_width = Mm(width)
 
     def _insert_img(self, img: os.PathLike, width=None) -> None:
         if width is None:
