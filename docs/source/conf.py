@@ -44,6 +44,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.todo'
 ]
+napoleon_use_ivar = True  # Avoid conflicts between attributes and params
+napoleon_include_init_with_doc = False  # do not document __init__ separately
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,7 +68,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

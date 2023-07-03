@@ -1,3 +1,8 @@
+"""
+Plotter classes and methods for neutronics outputs.
+
+For the moment it allows only to plot slices of meshes.
+"""
 import os
 import pyvista as pv
 import numpy as np
@@ -21,6 +26,7 @@ pv.set_plot_theme('document')
 
 
 class MeshPlotter:
+
     def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None
                  ) -> None:
         """Object responsible for the plotting of meshes.

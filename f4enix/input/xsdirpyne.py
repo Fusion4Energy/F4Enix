@@ -13,7 +13,7 @@ permitted provided that the following conditions are met:
       of conditions and the following disclaimer in the documentation and/or other materials
       provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE PYNE DEVELOPMENT TEAM ``AS IS'' AND ANY EXPRESS OR IMPLIED
+THIS SOFTWARE IS PROVIDED BY THE PYNE DEVELOPMENT TEAM "AS IS" AND ANY EXPRESS OR IMPLIED
 WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> OR
 CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
@@ -151,23 +151,25 @@ class Xsdir(object):
                 table.ptable = (words[10] == 'ptable')
 
     def find_table(self, name, mode='default'):
-        """Find all tables for a given ZIAD.
-        *Modified for JADE, a bug was corrected since table.name do not
-        find natural zaids.
+        """Find all tables for a given ZAID.
 
-        mode: 'default' default behaviour
-              'exact' check also the library
-              'default-fast' accelerated loop giving only the lib names
+        Modified for JADE, a bug was corrected since table.name do not
+        find natural zaids.
 
         Parameters
         ----------
         name : str
             The ZIAD name.
+        mode : str
+            if 'default', the default behaviour is used. If 'exact' the zaid is
+            searched in that specific library. If 'default-fast' it is run
+            in an accellerated loop giving only the libraries names. default is
+            'default'.
 
         Returns
         -------
         tables : list
-            All XsdirTable objects for a given ZIAD.
+            All XsdirTable objects for a given ZAID.
         """
         if mode == 'exact':
             # Faster, checks for the exact name
