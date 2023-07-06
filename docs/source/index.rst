@@ -17,11 +17,16 @@ Brought to you by Fusion For Energy (F4E) neutronics team.
 
    usage/introduction
    usage/installation
-   usage/examples_index
 
+.. toctree::
+   :maxdepth: 2
+   :caption: F4Enix usage examples:
+
+   examples/input/input
+   examples/output/output
 
 F4Enix API
-==========
+----------
 
 .. autosummary::
    :toctree: _autosummary
@@ -30,17 +35,15 @@ F4Enix API
 
    f4enix
 
-Developers
-==========
 .. toctree:: 
+   :caption: Developer Guide
    :maxdepth: 2
 
    developers/ci
 
 
-
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
