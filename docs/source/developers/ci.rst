@@ -60,6 +60,7 @@ following steps:
 
 #. Open an Anaconda prompt or a prompt with an active environment;
 #. Change directory to the code root;
+#. Be sure to have installed both ``pytest`` and ``pytest-cov``
 #. run:
    
    ``pytest --cov=. --cov-report html -cov-config=.coveragerc``

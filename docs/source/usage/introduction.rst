@@ -46,12 +46,12 @@ are ``f4enix.input`` and ``f4enix.output``.
 The following is a list of the kind of files that are currently at least partially
 supported by F4Enix:
 
-* MCNP input file by :py:mod:`f4enix.input.inputAPI`
-* MCNP MCTAL file by :py:mod:`f4enix.output.mctal`
+* MCNP input file by :py:class:`f4enix.input.MCNPinput.Input`
+* MCNP MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
 * MCNP MESHTAL file, including modified versions produced by D1SUNED
-  by :py:mod:`f4enix.output.meshtal`
-* MCNP output file (only some basic features) by :py:mod:`f4enix.output.outputAPI`
-* VTK files by :py:mod:`f4enix.output.pyvistawrap`
+  by :py:class:`f4enix.output.meshtal.Meshtal`
+* MCNP output file by :py:class:`f4enix.output.MCNPoutput.Output`
+* VTK files by :py:class:`f4enix.output.pyvistawrap.PyVistaWrapper`
 
 All classes and methods of the F4Enix API are documented and usage examples
 are provided in all the most important classes documentations.
