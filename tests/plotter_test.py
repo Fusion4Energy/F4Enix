@@ -17,19 +17,19 @@ RESOURCES_PATH = os.path.dirname(os.path.abspath(pkg_res.__file__))
 
 @pytest.fixture
 def plotter() -> MeshPlotter:
-    with as_file(RESOURCES.joinpath('test1.vtk')) as infile:
+    with as_file(RESOURCES.joinpath('meshtal_1004_vtk.vtr')) as infile:
         mesh = pv.read(infile)
-    with as_file(RESOURCES.joinpath('stl.stl')) as infile:
+    with as_file(RESOURCES.joinpath('iter1D.stl')) as infile:
         stl = pv.read(infile)
 
-    plotter = MeshPlotter(mesh, stl)
+    plotter = MeshPlotter(mesh, stl.scale(10))
 
     return plotter
 
 
 @pytest.fixture
 def plotter_no_stl() -> MeshPlotter:
-    with as_file(RESOURCES.joinpath('test1.vtk')) as infile:
+    with as_file(RESOURCES.joinpath('meshtal_1004_vtk.vtr')) as infile:
         mesh = pv.read(infile)
 
     plotter = MeshPlotter(mesh)
@@ -42,7 +42,7 @@ class TestMeshPlotter:
     def test_slice_toroidal(self, plotter: MeshPlotter,
                             plotter_no_stl: MeshPlotter):
         slices = plotter.slice_toroidal(20)
-        assert len(slices) == 8
+        assert len(slices) == 9
 
         # Check that they are not empty
         for slice in slices:
@@ -50,7 +50,7 @@ class TestMeshPlotter:
             assert slice[2].bounds is not None
 
         slices = plotter_no_stl.slice_toroidal(20)
-        assert len(slices) == 8
+        assert len(slices) == 9
 
         # Check that they are not empty
         for slice in slices:
@@ -72,36 +72,34 @@ class TestMeshPlotter:
 
     def test_plot_slices(self, plotter: MeshPlotter,
                          plotter_no_stl: MeshPlotter, tmpdir):
-        slices = plotter.slice_on_axis('y', 3)
+        slices = plotter.slice_on_axis('y', 5)[1:-1]
         outpath = tmpdir.mkdir('meshplotter')
-        plotter.plot_slices(slices, 'Error', outpath=outpath)
+        plotter.plot_slices(slices, 'Value - Total', outpath=outpath)
         assert len(os.listdir(outpath)) == 3
 
-        slices = plotter_no_stl.slice_on_axis('y', 3)
-        im = plotter_no_stl.plot_slices(slices, 'Error')
+        slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
+        im = plotter_no_stl.plot_slices(slices, 'Value - Total')
         assert len(im) == 3
 
         # test with categories
-        slices = plotter_no_stl.slice_on_axis('y', 3)
-        im = plotter_no_stl.plot_slices(slices, 'Error',
+        slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
+        im = plotter_no_stl.plot_slices(slices, 'Value - Total',
                                         custom_categories='TNF')
         assert len(im) == 3
 
     def test_slice(self, plotter: MeshPlotter,
                    plotter_no_stl: MeshPlotter):
-        # coordinates are in meters, input in mm
-        plotter.mesh = plotter.mesh.scale(0.01, inplace=False)
 
-        plotter.stl.scale(0.01, inplace=True)
-        slices = plotter.slice(ITER_Z_LEVELS[:-3])
+        slices = plotter.slice([['slice 1', 0, 0, 0, -0.1, 0.5, 1],
+                                ['slice 2', 0, 15, 0, 0.1, 0.5, 1]])
         # verify that they intersect
         for slice in slices:
             assert slice[-1] is not None
             assert slice[1].bounds is not None
 
         # coordinates are in meters, input in mm
-        plotter_no_stl.mesh = plotter_no_stl.mesh.scale(0.01, inplace=False)
-        slices = plotter_no_stl.slice(ITER_Z_LEVELS[:-3])
+        slices = plotter_no_stl.slice([['slice 1', 0, 0, 0, -0.1, 0.5, 1],
+                                       ['slice 2', 0, 15, 0, 0.1, 0.5, 1]])
         # verify that they intersect
         for slice in slices:
             assert slice[1].bounds is not None

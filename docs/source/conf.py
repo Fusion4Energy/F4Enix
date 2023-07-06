@@ -48,7 +48,7 @@ extensions = [
 ]
 exclude_patterns = ['_autosummary',
                     '_build']
-nb_execution_allow_errors = True  # better than not having a doc
+# nb_execution_allow_errors = True  # better than not having a doc
 napoleon_use_ivar = True  # Avoid conflicts between attributes and params
 napoleon_include_init_with_doc = False  # do not document __init__ separately
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
