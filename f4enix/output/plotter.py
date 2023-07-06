@@ -8,7 +8,6 @@ import pyvista as pv
 import numpy as np
 import logging
 import docx
-import win32com.client
 
 from docx.shared import Inches, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
