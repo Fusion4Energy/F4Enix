@@ -2,7 +2,8 @@ import os
 from copy import deepcopy
 from importlib.resources import files, as_file
 
-from f4enix.input.materials import (Element, Zaid, MatCardsList, Material)
+from f4enix.input.materials import (Element, Zaid, MatCardsList, Material,
+                                    SubMaterial)
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import Input
 import f4enix.resources as pkg_res
@@ -101,6 +102,22 @@ class TestElement:
 
         elem = self._buildElem()
         assert elem.get_fraction() == -4
+
+
+class TestSubmaterial:
+
+    def test_get_info(self):
+        txt = ['C header',
+               '8016.31c        1.333870E-2     $ O-16   AB(%) 99.757',
+               '8017.31c        5.081060E-6     $ O-17   AB(%) 0.038',
+               '8018.31c        2.741100E-5     $ O-18   AB(%) 0.205']
+
+        submat = SubMaterial.from_text(txt)
+        df_el, df_zaid = submat.get_info(LIBMAN)
+        assert len(df_el) == 1
+        assert len(df_zaid) == 3
+        assert len(df_el.columns) == 2
+        assert len(df_zaid.columns) == 3
 
 
 class TestMaterial:

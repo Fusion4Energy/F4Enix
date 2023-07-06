@@ -625,7 +625,9 @@ class Atlas:
 
         return new_section
 
-    def save(self, outpath: os.PathLike, pdfprint: bool = True) -> None:
+    def save(self, outpath: os.PathLike,
+             # pdfprint: bool = True
+             ) -> None:
         """
         Save word atlas and possibly export PDF
 
@@ -633,8 +635,6 @@ class Atlas:
         ----------
         outpath : os.PathLike
             path to the folder where to save the atlas(es)
-        pdfprint : Boolean, optional
-            If True export also in PDF format
 
         Returns
         -------
@@ -642,7 +642,7 @@ class Atlas:
 
         """
         outpath_word = os.path.join(outpath, self.name+'.docx')
-        outpath_pdf = os.path.join(outpath, self.name+'.pdf')
+        # outpath_pdf = os.path.join(outpath, self.name+'.pdf')
 
         try:
             self.doc.save(outpath_word)
@@ -651,32 +651,37 @@ class Atlas:
             print(e)
             print('\n it may be due to invalid characters in the file name')
 
-        if pdfprint:
-            in_file = outpath_word
-            out_file = outpath_pdf
+        # if pdfprint:
+        #     in_file = outpath_word
+        #     out_file = outpath_pdf
 
-            try:
-                word = win32com.client.Dispatch('Word.Application')
-            except:
-                raise NotImplementedError('Word not installed')
+        #     try:
+        #         word = win32com.client.Dispatch('Word.Application')
+        #     except:
+        #         raise NotImplementedError('Word not installed')
 
-            try:
-                doc = word.Documents.Open(in_file)
-                doc.ExportAsFixedFormat(
-                    OutputFileName=out_file,
-                    # 17 = PDF output, 18=XPS output
-                    ExportFormat=17,
-                    OpenAfterExport=False,
-                    # 0=Print (higher res), 1=Screen (lower res)
-                    OptimizeFor=0,
-                    # 0=No bookmarks,
-                    # 1=Heading bookmarks only,
-                    # 2=bookmarks match word bookmarks
-                    CreateBookmarks=1,
-                    DocStructureTags=True)
-            finally:
-                doc.Close()
-                word.Quit()
+        #     try:
+        #         doc = word.Documents.Open(in_file)
+        #         doc.ExportAsFixedFormat(
+        #             OutputFileName=out_file,
+        #             # 17 = PDF output, 18=XPS output
+        #             ExportFormat=17,
+        #             OpenAfterExport=False,
+        #             # 0=Print (higher res), 1=Screen (lower res)
+        #             OptimizeFor=0,
+        #             # 0=No bookmarks,
+        #             # 1=Heading bookmarks only,
+        #             # 2=bookmarks match word bookmarks
+        #             CreateBookmarks=1,
+        #             DocStructureTags=True)
+        #     finally:
+        #         try:
+        #             doc.Close()
+        #         except UnboundLocalError:
+        #             word.Quit()
+        #             raise RuntimeError(
+        #                 'something went wrong in the PDF production')
+        #         word.Quit()
 
     # @staticmethod
     # def _wrapper(paragraph, ptype):

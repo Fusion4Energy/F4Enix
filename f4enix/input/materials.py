@@ -1119,6 +1119,7 @@ class MatCardsList(Sequence):
             3) dic (e.g. {'98c': [list of zaids], '31c': [list of zaids]}),
             the new library to be used is explicitly stated depending
             on the zaidnum.
+
         lib_manager : libmanager.LibManager
             Library manager for the conversion.
 

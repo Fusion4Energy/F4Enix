@@ -137,14 +137,7 @@ class TestAtlas:
         atlas.add_section('New section', images)
 
         outfolder = tmpdir.mkdir('atlas2')
-        try:
-            atlas.save(outfolder)
 
-            # try to open it
-            with open(os.path.join(outfolder, name+'.docx'), 'rb') as infile:
-                doc = docx.Document(infile)
-                assert len(doc.paragraphs) == 9
+        assert len(atlas.doc.paragraphs) == 9
 
-        except NotImplementedError:
-            # cannot be tested if word is not installed
-            assert True
+        atlas.save(outfolder)

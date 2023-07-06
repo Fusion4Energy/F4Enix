@@ -262,8 +262,19 @@ class Input:
 
         Parameters
         ----------
-        newlib : str
-            suffix of the new lib to translate to.
+        newlib : dict | str
+            There are a few ways that newlib can be provided:
+
+            1) str (e.g. 31c), the new library to translate to will be the
+            one indicated;
+
+            2) dic (e.g. {'98c' : '99c', '31c: 32c'}), the new library is
+            determined based on the old library of the zaid
+
+            3) dic (e.g. {'98c': [list of zaids], '31c': [list of zaids]}),
+            the new library to be used is explicitly stated depending
+            on the zaidnum.
+
         libmanager : libmanager.LibManager
             Library manager for the conversion.
 
@@ -353,7 +364,8 @@ class Input:
         return new_cards
 
     @staticmethod
-    def _get_cards_by_id(ids: list[str], cards: dict) -> dict:
+    def _get_cards_by_id(ids: list[str], cards: dict
+                         ) -> dict[str, parser.Card]:
         selected_cards = {}
         for id_card in ids:
             try:
@@ -385,7 +397,7 @@ class Input:
             str_ids.append(str(id))
         return self._get_cards_by_id(str_ids, self.cells)
 
-    def get_surfs_by_id(self, ids: list[int]) -> dict:
+    def get_surfs_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
         """given a list of surfaces id return a dictionary of such surfaces
 
         Parameters
@@ -424,6 +436,32 @@ class Input:
             for id_mat in ids:
                 materials.append(self.materials[id_mat.upper()])
             return MatCardsList(materials)
+
+    def get_data_cards(self, ids: list[str] | str) -> dict[str, parser.Card]:
+        """Get a tranformation card or an other data card by its key.
+
+        For the moment, transformation cards mixed with other data cards is
+        not supported.
+
+        Parameters
+        ----------
+        ids : list[str] | str
+            keys of the cards to retrieve
+
+        Returns
+        -------
+        dict[str, parser.Card]
+            retrieved cards
+        """
+        if type(ids) is str:
+            ids = [ids]
+
+        try:
+            cards = self._get_cards_by_id(ids, self.other_data)
+        except KeyError:
+            cards = self._get_cards_by_id(ids, self.transformations)
+
+        return cards
 
     def _parse_data_section(self, cards: list[parser.Card]
                             ) -> tuple[MatCardsList,

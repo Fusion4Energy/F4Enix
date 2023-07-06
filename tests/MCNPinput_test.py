@@ -121,6 +121,15 @@ class TestInput:
         _ = self.testInput.get_materials_subset(materials)
         assert True
 
+    def test_get_data_cards(self):
+        _ = self.testInput.get_data_cards('SDEF')
+
+        try:
+            self.testInput.get_data_cards('adas')
+            assert False
+        except KeyError:
+            assert True
+
     # def test_print_cards(self):
     #     newinput = deepcopy(self.testInput)
     #     print(newinput._print_cards(newinput.cells))
