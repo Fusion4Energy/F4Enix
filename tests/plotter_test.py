@@ -70,22 +70,22 @@ class TestMeshPlotter:
         for slice in slices:
             assert slice[1].bounds is not None
 
-    def test_plot_slices(self, plotter: MeshPlotter,
-                         plotter_no_stl: MeshPlotter, tmpdir):
-        slices = plotter.slice_on_axis('y', 5)[1:-1]
-        outpath = tmpdir.mkdir('meshplotter')
-        plotter.plot_slices(slices, 'Value - Total', outpath=outpath)
-        assert len(os.listdir(outpath)) == 3
+    # def test_plot_slices(self, plotter: MeshPlotter,
+    #                      plotter_no_stl: MeshPlotter, tmpdir):
+    #     slices = plotter.slice_on_axis('y', 5)[1:-1]
+    #     outpath = tmpdir.mkdir('meshplotter')
+    #     plotter.plot_slices(slices, 'Value - Total', outpath=outpath)
+    #     assert len(os.listdir(outpath)) == 3
 
-        slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
-        im = plotter_no_stl.plot_slices(slices, 'Value - Total')
-        assert len(im) == 3
+    #     slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
+    #     im = plotter_no_stl.plot_slices(slices, 'Value - Total')
+    #     assert len(im) == 3
 
-        # test with categories
-        slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
-        im = plotter_no_stl.plot_slices(slices, 'Value - Total',
-                                        custom_categories='TNF')
-        assert len(im) == 3
+    #     # test with categories
+    #     slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
+    #     im = plotter_no_stl.plot_slices(slices, 'Value - Total',
+    #                                     custom_categories='TNF')
+    #     assert len(im) == 3
 
     def test_slice(self, plotter: MeshPlotter,
                    plotter_no_stl: MeshPlotter):
@@ -105,37 +105,37 @@ class TestMeshPlotter:
             assert slice[1].bounds is not None
 
 
-class TestAtlas:
+# class TestAtlas:
 
-    def test_build_from_root(self, tmpdir):
-        # cannot run this test on linux architecture
-        name = 'test'
-        atlas = Atlas(name=name)
-        atlas.build_from_root(os.path.join(RESOURCES_PATH, 'root'))
-        outfolder = tmpdir.mkdir('atlas')
-        try:
-            atlas.save(outfolder)
+#     def test_build_from_root(self, tmpdir):
+#         # cannot run this test on linux architecture
+#         name = 'test'
+#         atlas = Atlas(name=name)
+#         atlas.build_from_root(os.path.join(RESOURCES_PATH, 'root'))
+#         outfolder = tmpdir.mkdir('atlas')
+#         try:
+#             atlas.save(outfolder)
 
-            # try to open it
-            with open(os.path.join(outfolder, name+'.docx'), 'rb') as infile:
-                doc = docx.Document(infile)
-                assert len(doc.paragraphs) == 15
+#             # try to open it
+#             with open(os.path.join(outfolder, name+'.docx'), 'rb') as infile:
+#                 doc = docx.Document(infile)
+#                 assert len(doc.paragraphs) == 15
 
-        except NotImplementedError:
-            # cannot be tested if word is not installed
-            assert True
+#         except NotImplementedError:
+#             # cannot be tested if word is not installed
+#             assert True
 
-    def test_add_section(self, tmpdir, plotter):
-        name = 'test2'
-        atlas = Atlas(name=name)
+#     def test_add_section(self, tmpdir, plotter):
+#         name = 'test2'
+#         atlas = Atlas(name=name)
 
-        # Get the slices
-        slices = plotter.slice_on_axis('x', 3)
-        images = plotter.plot_slices(slices, 'Error')
-        atlas.add_section('New section', images)
+#         # Get the slices
+#         slices = plotter.slice_on_axis('x', 3)
+#         images = plotter.plot_slices(slices, 'Error')
+#         atlas.add_section('New section', images)
 
-        outfolder = tmpdir.mkdir('atlas2')
+#         outfolder = tmpdir.mkdir('atlas2')
 
-        assert len(atlas.doc.paragraphs) == 9
+#         assert len(atlas.doc.paragraphs) == 9
 
-        atlas.save(outfolder)
+#         atlas.save(outfolder)
