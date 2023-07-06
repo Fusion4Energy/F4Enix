@@ -10,7 +10,7 @@ import logging
 import json
 import re
 from numjuggler import parser
-import shutil
+import pandas as pd
 
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
@@ -635,3 +635,26 @@ class Input:
                 density = cell.get_d()
                 newdensity = float('{:.5e}'.format(density*factor))
                 cell.set_d(newdensity)
+
+    def get_cells_summary(self) -> pd.DataFrame:
+        """Get a summary of infos for each cell
+
+        A DataFrame is returned where for each cell is listed the material,
+        density, universe and filler is present.
+
+        Returns
+        -------
+        pd.DataFrame
+            Summary of cells info
+        """
+        rows = []
+        for key, cell in self.cells.items():
+            row = {'cell': int(key)}
+            row['material'] = cell.get_m()
+            row['density'] = cell.get_d()
+            row['universe'] = cell.get_u()
+            row['filler'] = cell.get_f()
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        return df.set_index('cell').sort_index()

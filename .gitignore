@@ -9,3 +9,4 @@ docs/build/**
 docs/source/_autosummary/*
 docs/jupyter_execute
 examples/**
+example_testing/**

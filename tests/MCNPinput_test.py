@@ -130,6 +130,11 @@ class TestInput:
         except KeyError:
             assert True
 
+    def test_get_cells_summary(self):
+        df = self.testInput.get_cells_summary()
+        assert len(df) == 128
+        assert len(df.columns) == 4
+
     # def test_print_cards(self):
     #     newinput = deepcopy(self.testInput)
     #     print(newinput._print_cards(newinput.cells))
