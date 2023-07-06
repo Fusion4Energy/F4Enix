@@ -70,16 +70,16 @@ class TestMeshPlotter:
         for slice in slices:
             assert slice[1].bounds is not None
 
-    # def test_plot_slices(self, plotter: MeshPlotter,
-    #                      plotter_no_stl: MeshPlotter, tmpdir):
-    #     slices = plotter.slice_on_axis('y', 5)[1:-1]
-    #     outpath = tmpdir.mkdir('meshplotter')
-    #     plotter.plot_slices(slices, 'Value - Total', outpath=outpath)
-    #     assert len(os.listdir(outpath)) == 3
+    def test_plot_slices(self, plotter: MeshPlotter,
+                         plotter_no_stl: MeshPlotter, tmpdir):
+        slices = plotter.slice_on_axis('y', 5)[1:-1]
+        outpath = tmpdir.mkdir('meshplotter')
+        plotter.plot_slices(slices, 'Value - Total', outpath=outpath)
+        assert len(os.listdir(outpath)) == 3
 
-    #     slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
-    #     im = plotter_no_stl.plot_slices(slices, 'Value - Total')
-    #     assert len(im) == 3
+        slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
+        im = plotter_no_stl.plot_slices(slices, 'Value - Total')
+        assert len(im) == 3
 
     #     # test with categories
     #     slices = plotter_no_stl.slice_on_axis('y', 5)[1:-1]
