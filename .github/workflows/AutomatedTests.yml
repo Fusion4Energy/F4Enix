@@ -25,6 +25,9 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      - name: Setup headless display
+        uses: pyvista/setup-headless-display-action@v1
+
       # Install python
       - name: Set up Python
         uses: conda-incubator/setup-miniconda@v2
