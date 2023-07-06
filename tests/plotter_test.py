@@ -131,7 +131,7 @@ class TestAtlas:
 
         # Get the slices
         slices = plotter.slice_on_axis('x', 3)
-        images = plotter.plot_slices(slices, 'Error')
+        images = plotter.plot_slices(slices, 'Value - Total')
         atlas.add_section('New section', images)
 
         outfolder = tmpdir.mkdir('atlas2')
