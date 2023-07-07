@@ -15,7 +15,7 @@ import pandas as pd
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
-from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY
+from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP
 from copy import deepcopy
 
 
@@ -60,6 +60,10 @@ class Input:
             list of transformation datacards (i.e. TRn)
         other_data: list[parser.Card]
             list of all remaining datacards that are treated in a generic way
+        tally_keys: list[int]
+            ids of the tallies available in the input
+        fmesh_keys: list[int]
+            ids of the fmeshes available in the input
 
         Examples
         --------
@@ -175,6 +179,17 @@ class Input:
          self.other_data) = self._parse_data_section(data)
 
         self.header = header
+
+        # get a list of the tally keys
+        tally_keys = []
+        fmesh_keys = []
+        for key, card in self.other_data.items():
+            if card.dtype == 'Fn':
+                tally_keys.append(card.name)
+            elif PAT_FMESH_KEY.match(key):
+                fmesh_keys.append(card.name)
+        self.tally_keys = tally_keys
+        self.fmesh_keys = fmesh_keys
 
         # # store also all the original cards for compatibility
         # # with some numjuggler modes
@@ -658,3 +673,76 @@ class Input:
 
         df = pd.DataFrame(rows)
         return df.set_index('cell').sort_index()
+
+    def _get_tally_cards(self, idx: int,
+                         ) -> list[str]:
+        keys = []
+        pat = re.compile(r'F[a-zA-Z]*{}$'.format(idx))
+        for key, _ in self.other_data.items():
+            if pat.match(key) is not None:
+                keys.append(key)
+        return keys
+
+    def _retrieve_input(self, tag: str) -> str:
+        # get the FC comment excluding the FC tag
+        comment_line = self.other_data[tag].input[0]
+        inp = comment_line.replace(tag, '').strip()
+        inp = inp.replace(tag.lower(), '').strip()
+        return inp
+
+    def get_tally_summary(self, fmesh: bool = False) -> pd.DataFrame:
+        """Get a summary of the tallies defined in the input
+
+        Both normal tallies and fmeshes can be requested. For each tally the
+        number, particle, description and multiplier are listed (if available)
+
+        Parameters
+        ----------
+        fmesh : bool, optional
+            if True produced a summary for the fmehses instead of for the
+            normal tallies, by default False
+
+        Returns
+        -------
+        pd.DataFrame
+            summary info on defined tallies
+
+        """
+
+        if fmesh:
+            tag_tally = 'FMESH'
+            tallies = self.fmesh_keys
+        else:
+            tag_tally = 'F'
+            tallies = self.tally_keys
+
+        rows = []
+        for key in tallies:
+            desc = pd.NA
+            particle = pd.NA
+            multiplier = None
+            card_keys = self._get_tally_cards(key)
+            for aux_key in card_keys:
+                if aux_key[:2] == 'FC':
+                    desc = self._retrieve_input(aux_key)
+                elif aux_key == tag_tally+str(key):
+                    line = self.other_data[aux_key].input[0]
+                    particle = PAT_NP.search(line).group().upper().strip(':')
+                elif aux_key[:2] == 'FM':
+                    multiplier = self._retrieve_input(aux_key).split()
+
+            row = {'Tally': key, 'Particle': particle, 'Description': desc}
+
+            if multiplier is not None:
+                row['Normalization'] = multiplier[0]
+                if len(multiplier) > 1:
+                    row['Other multipliers'] = multiplier[1:]
+                else:
+                    row['Other multipliers'] = pd.NA
+            else:
+                row['Normalization'] = pd.NA
+                row['Other multipliers'] = pd.NA
+
+            rows.append(row)
+
+        return pd.DataFrame(rows).set_index("Tally").sort_index()

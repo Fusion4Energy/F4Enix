@@ -1994,9 +1994,9 @@ fc194   T in Li pt2 appm/FPY
 f194:n  57
 fm194   3.8566e10   25 205
 c     ------------------------------
-fc204   T in Li pt3 appm/FPY
+C fc204   T in Li pt3 appm/FPY
 f204:n  58
-fm204   3.8566e10   26 205
+C fm204   3.8566e10   26 205
 c c     ------------------------------
 fc214   FMESH Neutron Heating [MeV/cc/n_s] 
 FMESH214:n GEOM=cyl     ORIGIN=0.,0.,-1000.

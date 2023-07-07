@@ -7,6 +7,7 @@ from numjuggler import parser
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
+import pandas as pd
 
 from f4enix.input.MCNPinput import Input
 from f4enix.input.libmanager import LibManager
@@ -89,6 +90,8 @@ class TestInput:
         assert len(inp.cells) == 128
         assert len(inp.surfs) == 129
         assert len(inp.materials) == 25
+        assert len(inp.tally_keys) == 7
+        assert len(inp.fmesh_keys) == 5
 
     def test_update_zaidinfo(self):
         newinput = deepcopy(self.testInput)
@@ -186,3 +189,24 @@ class TestInput:
         assert newinput.cells['49'].get_d() == 0.0412067
         assert newinput.cells['52'].get_d() == 0
         assert newinput.cells['53'].get_d() == -2.60000
+
+    @pytest.mark.parametrize(['id', 'expected'],
+                             [[94, ['FC94', 'F94', 'FM94']],
+                              [214, ['FC214', 'FMESH214', 'FM214']]])
+    def test_get_tally_cards(self, id, expected):
+        keys = self.testInput._get_tally_cards(id)
+        assert keys == expected
+
+    def test_get_tally_summary(self):
+        summary = self.testInput.get_tally_summary()
+        assert len(summary) == 7
+        assert (summary.loc[194].values.tolist() ==
+                ['N', 'T in Li pt2 appm/FPY', '3.8566e10', ['25', '205']])
+        assert (summary.loc[204].values.tolist() ==
+                ['N', pd.NA, pd.NA, pd.NA])
+
+        summary = self.testInput.get_tally_summary(fmesh=True)
+        assert len(summary) == 5
+        assert (summary.loc[224].values.tolist() ==
+                ['P', 'FMESH Photon Heating [MeV/cc/n_s]',
+                 '-1', ['0', '-5', '-6']])

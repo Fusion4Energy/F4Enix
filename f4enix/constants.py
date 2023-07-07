@@ -10,6 +10,8 @@ PAT_DOLLAR_COMMENT = re.compile(r'\$.*\n')
 PAT_MAT = re.compile(r'[\s\t]*[mM]\d+')
 PAT_MX = re.compile(r'[\s\t]*mx\d+', re.IGNORECASE)
 SCIENTIFIC_PAT = re.compile(r'-*\d.\d+E[+|-]\d+')
+PAT_FMESH_KEY = re.compile(r'^FMESH\d+')
+PAT_NP = re.compile('(?<=:)[nN,pP]+')
 
 # --- Plotter ---
 # coordinates are in meters
