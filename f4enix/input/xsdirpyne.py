@@ -1,4 +1,8 @@
 """
+Module related to the parsing of xsdir files. Originally developed at
+https://github.com/pyne/pyne
+"""
+"""
 @author: Pyne https://github.com/pyne/pyne
 
 Copyright 2011-2020, the PyNE Development Team. All rights reserved.
@@ -27,6 +31,20 @@ The views and conclusions contained in the software and documentation are those 
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of the stakeholders of the PyNE project or the employers of PyNE developers.
 """
+
+"""
+Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
+Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
+as soon they will be approved by the European Commission - subsequent versions
+of the EUPL (the “Licence”). You may not use this work except in compliance
+with the Licence. You may obtain a copy of the Licence at:
+    https://eupl.eu/1.2/en/
+Unless required by applicable law or agreed to in writing, software distributed
+under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
+and limitations under the Licence.
+"""
+
 import os
 from typing import List, Tuple
 
