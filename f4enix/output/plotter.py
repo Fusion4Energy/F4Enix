@@ -544,6 +544,11 @@ class Atlas:
 
         # set default width
         section = self.doc.sections[-1]
+        margin = 10  # mm
+        section.top_margin = Mm(margin)
+        section.bottom_margin = Mm(margin)
+        section.left_margin = Mm(margin)
+        section.right_margin = Mm(margin)
         width = (section.page_width -
                  section.left_margin -
                  section.right_margin)/36000*0.9  # mm
