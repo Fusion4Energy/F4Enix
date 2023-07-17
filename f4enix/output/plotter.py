@@ -582,6 +582,8 @@ class Atlas:
         self.doc.add_heading(section_name, level=level)
 
         for name, image in images:
+            if include_section_name:
+                name = '{} - {}'.format(name, section_name)
             self.doc.add_heading(name, level=level+1)
             # Get a binary stream for pythondocx
             imdata = io.BytesIO()
