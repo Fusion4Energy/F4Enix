@@ -122,7 +122,8 @@ class MeshPlotter:
     def _get_plotter(self) -> pv.Plotter:
         # Initiate the plotter with all default actions if needed
         pl = pv.Plotter(off_screen=True)
-        pl.add_axes()
+        # TODO horizontal bar may be issue here
+        pl.add_axes(viewport=(0.8, 0, 1, 0.2))
         # pl.set_background('white')
 
         return pl
@@ -428,6 +429,9 @@ class MeshPlotter:
         if bounds is None:
             pl.reset_camera()
         else:
+            # help put Y up in case of PZ plots
+            if bounds[-2] == bounds[-1]:
+                pl.set_viewup([0, 1, 0])
             pl.reset_camera(bounds=bounds)
 
     def _get_stl_slices(self, mesh_slices: list[pv.PolyData]
@@ -450,7 +454,7 @@ class MeshPlotter:
             # coincident, using the normal should be sufficient
             # but it needs to be properly scaled
             scale = np.abs(mesh_slice.points).mean()*1e-3
-            stl_slice.translate(norm*scale, inplace=True)
+            stl_slice.translate(-norm*scale, inplace=True)
             stl_slices.append(stl_slice)
 
         return stl_slices
