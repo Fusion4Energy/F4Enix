@@ -1,5 +1,15 @@
 """
 Constants and patterns used throughout F4Enix
+
+Attributes
+----------
+ITER_Z_LEVELS: list[list[str, float, float, float, float, float, float]]
+    list of parameters for the general slicing at Z Iter levels (e.g. B2L)
+    format is [name, origin[x,y,x], norm[x, y, z]]
+ITER_TOROIDAL_SLICES: list[list[str, float, float, float, float, float, float]]
+    list of parameters for the general toroidal slicing (e.g. Port #1/#10)
+    format is [name, origin[x,y,x], norm[x, y, z]]
+
 """
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of

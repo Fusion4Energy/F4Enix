@@ -560,7 +560,8 @@ class Atlas:
     def add_section(self, section_name: str,
                     images: list[tuple[str, Image.Image]],
                     level: int = 1,
-                    include_section_name: bool = True) -> None:
+                    include_section_name: bool = True,
+                    disclaimer: str = None) -> None:
         """Add a section of plots to the Atlas.
 
         add a chapter to atlas, the level can be decided.
@@ -577,6 +578,9 @@ class Atlas:
         include_section_name : bool
             If True, the section name is added to the image name, by default
             True
+        disclaimer: str
+            add a disclaimer equal for all plots to their titles
+
         """
 
         self.doc.add_heading(section_name, level=level)
@@ -584,6 +588,8 @@ class Atlas:
         for name, image in images:
             if include_section_name:
                 name = '{} - {}'.format(name, section_name)
+            if disclaimer is not None:
+                name = name + ' ' + disclaimer
             self.doc.add_heading(name, level=level+1)
             # Get a binary stream for pythondocx
             imdata = io.BytesIO()
