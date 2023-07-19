@@ -122,6 +122,7 @@ class MeshPlotter:
     def _get_plotter(self) -> pv.Plotter:
         # Initiate the plotter with all default actions if needed
         pl = pv.Plotter(off_screen=True)
+        pl.add_axes()
         # pl.set_background('white')
 
         return pl
@@ -579,7 +580,8 @@ class Atlas:
             If True, the section name is added to the image name, by default
             True
         disclaimer: str
-            add a disclaimer equal for all plots to their titles
+            add a disclaimer equal for all plots to their titles, by default is
+            None
 
         """
 
