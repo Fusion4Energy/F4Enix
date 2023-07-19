@@ -424,7 +424,7 @@ class MeshPlotter:
         # align camera: focus on center, position at center + normal
         center = mesh_slice.center
         pl.camera.focal_point = center
-        pl.camera.position = center + mesh_slice.cell_normals[0]
+        pl.camera.position = center - mesh_slice.cell_normals[0]
         # reset camera to put entire mesh in view
         if bounds is None:
             pl.reset_camera()
