@@ -113,7 +113,7 @@ class Output:
         5	4.0	  4	     0	  ...	-1.000E+00
         """
         self.filepath = filepath
-        self.name = os.path.basename(filepath)
+        self.name = os.path.basename(filepath).split('.')[0]
         logging.info('reading {} ...'.format(self.name))
         self.lines = self._read_lines()
         logging.info('reading completed')
@@ -151,10 +151,12 @@ class Output:
         raise ValueError('No NPS could be read from file')
 
     def print_lp_debug(self, outpath: os.PathLike, print_video: bool = False,
+                       get_cosine: bool = True,
                        input_model: os.PathLike = None) -> None:
         """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
         ['LPdebug_{}.vtp'] containing information about the lost particles
-        registered in an MCNP run.
+        registered in an MCNP run. A .csv file is also printed with origin
+        and flight direction of each lost particle.
 
         Parameters
         ----------
@@ -162,6 +164,9 @@ class Output:
             path to the folder where outputs will be dumped.
         print_video: bool
             if True print the LP to video. deafult is False
+        get_cosine: bool
+            if True recover also the cosines of the flight direction of each
+            lost particle. By default is True
         """
 
         # -- Variables --
@@ -170,6 +175,9 @@ class Output:
         x = []
         y = []
         z = []
+        u = []
+        v = []
+        w = []
 
         logging.info(
             'Recovering lost particles surfaces and cells in '+self.name)
@@ -182,9 +190,14 @@ class Output:
                 cells.append(PAT_DIGIT.search(self.lines[i+1]).group())
 
                 point = SCIENTIFIC_PAT.findall(self.lines[i+6])  # [0:3]
+                cosines = SCIENTIFIC_PAT.findall(self.lines[i+7])  # [0:3]
                 x.append(float(point[0]))
                 y.append(float(point[1]))
                 z.append(float(point[2]))
+                if get_cosine:
+                    u.append(float(cosines[0]))
+                    v.append(float(cosines[1]))
+                    w.append(float(cosines[2]))
 
             # if line.find(CELL_ID) != -1:  # LP in cell
             #     cells.append(PAT_DIGIT.search(line).group())
@@ -220,6 +233,10 @@ class Output:
         df['x'] = x
         df['y'] = y
         df['z'] = z
+        if get_cosine:
+            df['u'] = u
+            df['v'] = v
+            df['w'] = w
 
         # Get a complete set of locations
         loc = df.drop_duplicates().set_index(['Surface', 'Cell']).sort_index()
@@ -235,11 +252,21 @@ class Output:
         logging.info('printing to excel')
 
         # dump in the excel output
-        outfile = os.path.join(outpath, 'LPdebug_{}.xlsx'.format(self.name))
+        filename = 'LPdebug_{}.{}'
+        outfile = os.path.join(outpath, filename.format(self.name, 'xlsx'))
         with pd.ExcelWriter(outfile) as writer:
             # global df
             global_df.to_excel(writer, sheet_name='global')
             # loc.to_excel(writer, sheet_name='Locations')
+
+        # Dump also a csv with only the data
+        if get_cosine:
+            cols = ['x', 'y', 'z', 'u', 'v', 'w']
+        else:
+            cols = ['x', 'y', 'z']
+        lp = df[cols]
+        outfile = os.path.join(outpath, filename.format(self.name, 'csv'))
+        lp.to_csv(outfile, index=None)
 
         # visualize the cloud point
         logging.info('building the cloud point')
@@ -248,7 +275,7 @@ class Output:
         if print_video:
             point_cloud.plot()
 
-        outfile = os.path.join(outpath, 'LPdebug_{}.vtp'.format(self.name))
+        outfile = os.path.join(outpath, filename.format(self.name, 'vtp'))
         point_cloud.save(outfile)
 
         logging.info('dump completed')

@@ -1,4 +1,6 @@
 from importlib.resources import files, as_file
+import pandas as pd
+import os
 
 from f4enix.output.MCNPoutput import Output
 import tests.resources.output as resources
@@ -9,6 +11,7 @@ RESOURCES = files(resources)
 
 class TestOutput:
     def test_print_lp_debug(self, tmpdir):
+        name = 'LPdebug_out_lp.'
         with as_file(RESOURCES.joinpath('test_o')) as file:
             outp = Output(file)
 
@@ -21,6 +24,16 @@ class TestOutput:
             outp = Output(file)
         # This has LP
         outp.print_lp_debug(tmpdir)
+        df = pd.read_csv(os.path.join(tmpdir, name+'csv'))
+        assert len(df) == 10
+        assert len(df.columns) == 6
+        df = pd.read_excel(os.path.join(tmpdir, name+'xlsx'))
+        assert df['count'].sum() == 10
+
+        outp.print_lp_debug(tmpdir, get_cosine=False)
+        df = pd.read_csv(os.path.join(tmpdir, name+'csv'))
+        assert len(df) == 10
+        assert len(df.columns) == 3
 
     def test_get_NPS(self):
         with as_file(RESOURCES.joinpath('test_o')) as file:
