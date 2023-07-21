@@ -141,6 +141,15 @@ class LibManager:
         else:
             reactions = None
 
+        # These are needed for faster operations
+        newiso = self.isotopes.set_index(['E'])
+        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+        self._newiso_byE = newiso.sort_index()
+
+        newiso = self.isotopes.set_index(['Z'])
+        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+        self._newiso_byZ = newiso.sort_index()
+
         self.reactions = reactions
 
     def check4zaid(self, zaid: str) -> list[str]:
@@ -308,11 +317,11 @@ class LibManager:
             i = int(zaid.element)
             isotope = zaid.isotope
 
-        newiso = self.isotopes.set_index('Z')
-        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+        # newiso = self.isotopes.set_index('Z')
+        # newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
 
-        name = newiso['Element'].loc[i]
-        formula = newiso['E'].loc[i]+'-'+str(int(isotope))
+        name = self._newiso_byZ['Element'].loc[i]
+        formula = self._newiso_byZ['E'].loc[i]+'-'+str(int(isotope))
 
         return name, formula
 
@@ -332,8 +341,10 @@ class LibManager:
 
         """
         # get the table and drop the duplicates
-        newiso = self.isotopes.set_index(['E'])
-        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+
+        # newiso = self.isotopes.set_index(['E'])
+        # newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+
         # split the name
         patnum = re.compile(r'\d+')
         patname = re.compile(r'[a-zA-Z]+')
@@ -343,7 +354,7 @@ class LibManager:
         except AttributeError:
             raise ValueError('No correspondent zaid found for '+zaidformula)
 
-        atomnumber = newiso.loc[name, 'Z']
+        atomnumber = self._newiso_byE.loc[name, 'Z']
 
         zaidnum = "{}{:03d}".format(atomnumber, int(num))
 
