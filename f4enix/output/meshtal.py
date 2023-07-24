@@ -20,16 +20,18 @@ and limitations under the Licence.
 
 import numpy as np
 import vtk
+import csv
 import pyvista as pv
 import os
 import time
 from scipy.spatial.transform import Rotation as R
 from io import open
 import logging
-from f4enix.output.pyvistawrap import PyVistaWrapper
+from tqdm import tqdm
 
 
 ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
+ALLOWED_OUTPUT_FORMATS = ['point_cloud', 'ip_fluent', 'csv', 'vtk']
 
 
 # convert character to float
@@ -111,8 +113,8 @@ class Fmesh:
 
         Attributes
         ----------
-        vtk: PyVistaWrapper
-            vtk-like dataset of the parsed data.
+        grid: pv.DataSet
+            pyvista grid of the parsed data.
         meshtal: Meshtal
             the same meshtal object provided as parameter.
         comment: str
@@ -127,6 +129,8 @@ class Fmesh:
             if True, the Fmesh has been populated with data.
         cart: bool
             if True the mesh is cartesian, otherwise cylindrical.
+        ntally: int
+            tally number for the fmesh
 
         Examples
         --------
@@ -152,7 +156,7 @@ class Fmesh:
         self.vec = None
 
         # here is stored the vtk object once the Fmesh is read
-        self.vtk = None
+        self.grid = None
 
         # Rotation matrix
         self.rotation = np.identity(3, self.dtype)
@@ -483,9 +487,9 @@ class Fmesh:
         # if it is filled it means that the vtk object can be created
         name = '{}_{}'.format(self.meshtal.filename, self.ntally)
         if self.cart:
-            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+            self.grid = self._getVTKrg()
         else:
-            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+            self.grid = self._getVTKrg()
 
     # Read photonfile format of SRCIMP mesh (D1SUNED)
     def _readSRCTYPE(self, f, cfilter=None, norm=None):
@@ -739,11 +743,11 @@ class Fmesh:
         self.err = self.err.transpose(0, 3, 2, 1)
         self.filled = True
         # if it is filled it means that the vtk object can be created
-        name = '{}_{}'.format(self.meshtal.filename, self.ntally)
+        # name = '{}_{}'.format(self.meshtal.filename, self.ntally)
         if self.cart:
-            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+            self.grid = self._getVTKrg()
         else:
-            self.vtk = PyVistaWrapper(name, self._getVTKrg())
+            self.grid = self._getVTKrg()
 
     #  end modifs
 
@@ -1187,6 +1191,174 @@ class Fmesh:
     #     else:
     #         dataset = self._getVTKrg()
 
+    def write(self, outpath: os.PathLike,
+              list_array_names: list[str] = None,
+              out_format: str = 'vtk',
+              outfile: str = None) -> None:
+        """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
+        (txt) formats can be selected.
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the output folder.
+        list_array_names : list[str], optional
+            arrays to be exported. The default is None, meaning that all the 
+            available arrays will be used.
+        out_format : str, optional
+            output format. The allowed ones are ['point_cloud', 'ip_fluent',
+            'csv', 'vtk']. Default is .vtk
+        outfile : str, optional
+            name of the output file. If specified, overrides the default one.
+            Do not include the extension of the file here. Default is None.
+
+        Raises
+        ------
+        KeyError
+            raises KeyError if the output format is not allowed.
+        """
+        if list_array_names is None:
+            list_array_names = list(self.grid.array_names)
+
+        if outfile is None:
+            file_name = f"{self.meshtal.filename}_{self.ntally}_{out_format}"
+        else:
+            file_name = outfile
+
+        # TODO either all cells or all point data are supported if not a vtk
+        if out_format != 'vtk':
+            len_data = len(self.grid.cell_data)
+            len_point = len(self.grid.point_data)
+            if len_data > 0 and len_point == 0:
+                f_points = self.grid.cell_centers().points
+            elif len_point > 0:
+                f_points = self.grid.points
+            else:
+                raise ValueError(
+                    'mix between cell and point data is only supported for vtk'
+                    )
+
+        filepath = os.path.join(outpath, file_name)
+        mesh_type = str(type(self.grid)).split(".")[-1][:-2]
+
+        if out_format == 'vtk':
+            if mesh_type == "StructuredGrid":
+                ext = '.vts'
+            elif mesh_type == "UnstructuredGrid":
+                ext = '.vtu'
+            elif mesh_type == "RectilinearGrid":
+                ext = '.vtr'
+            else:
+                ext = '.vtk'
+
+            self.grid.save(filepath+ext)
+            return
+
+        # --- CSV writer ---
+        elif out_format == "csv":
+            new_name = filepath + '.csv'
+
+            with open(new_name, "w", newline="") as outfile:
+                writer = csv.writer(outfile)
+
+                # # TODO This may create some issues...
+                # values_type = self.get_array_type(list_array_names[0])
+                # if values_type == "cells":  # Take points or centers
+                #     f_points = self.centers
+                # else:  # Points
+                #     f_points = self.points
+
+                for i in tqdm(range(len(f_points)),
+                              unit=" Points", desc="Writing"):
+                    csv_points = [
+                        f"{f_points[i][0]:.3f}",
+                        f" {f_points[i][1]:.3f}",
+                        f" {f_points[i][2]:.3f}",
+                    ]
+                    for array_name in list_array_names:
+                        csv_points.append(
+                            f" {self.grid[array_name][i]:.3f}")
+                    writer.writerow(csv_points)
+
+                logging.info(f"{new_name} created successfully!")
+            return
+
+        for array_name in list_array_names:
+            # values_type = self.get_array_type(list_array_names[0])
+            # if values_type == "cells":  # Take points or centers
+            #     f_points = self.centers
+            # else:  # Points
+            #     f_points = self.points
+            values = self.grid[array_name]
+
+            # write depending on format
+            # --- point cloud writer ---
+            if out_format == "point_cloud":
+                new_name = filepath + '.txt'
+                with open(new_name, "w") as outfile:
+                    outfile.write("x, y, z, value\n")
+                    # TODO this can probably be optmized using
+                    # outfile.writeline()
+                    for i in tqdm(range(len(f_points)),
+                                  unit=" Points", desc="Writing"):
+                        outfile.write(f"{f_points[i][0]:.3f},")
+                        outfile.write(f"{f_points[i][1]:.3f},")
+                        outfile.write(f"{f_points[i][2]:.3f},")
+                        outfile.write(f"{values[i]:.3f}\n")
+                logging.info(f"{new_name} created successfully!")
+                return
+
+            # --- fluent writer ---
+            elif out_format == "ip_fluent":
+                new_name = filepath + '.txt'
+
+                with open(new_name, "w") as outfile:
+                    guion1 = "3"
+                    n_coord = f_points.shape[1]  # self.n_coordinates
+                    n_values = str(len(f_points))
+                    guion2 = "1"
+                    uds = "uds-0"
+                    beginning = f"{guion1}\n{n_coord}\n{n_values}\n{guion2}\n{uds}\n"
+                    outfile.write(beginning)
+                    outfile.write("(")
+                    for i in tqdm(range(len(f_points)),
+                                  unit=" x points", desc="Writing x"):
+                        outfile.write(f"{f_points[i][0]:.3f}\n")
+
+                    outfile.write(")\n")
+                    outfile.write("(")
+
+                    for i in tqdm(range(len(f_points)),
+                                  unit=" y points", desc="Writing y"):
+                        outfile.write(f"{f_points[i][1]:.3f}\n")
+
+                    outfile.write(")\n")
+                    outfile.write("(")
+
+                    for i in tqdm(range(len(f_points)),
+                                  unit=" z points", desc="Writing z"):
+                        outfile.write(f"{f_points[i][2]:.3f}\n")
+
+                    outfile.write(")\n")
+                    outfile.write("(")
+
+                    for i in tqdm(range(len(f_points)),
+                                  unit=" values", desc="Writing values"):
+                        outfile.write(f"{values[i]:.3f}\n")
+
+                    outfile.write(")\n")
+
+                logging.info(f"{new_name} created successfully!")
+                return
+
+        raise KeyError(
+            "Invalid format, these are the ones allowed: {}".format(ALLOWED_OUTPUT_FORMATS))
+
+    def _read_from_vtk(self, vtk_file: os.PathLike):
+        # This is mostly used for quicker testing
+        grid = pv.read(vtk_file)
+        self.grid = grid
+
 
 class Meshtal:
     def __init__(self, fn: os.PathLike, filetype: str = "MCNP") -> None:
@@ -1226,26 +1398,35 @@ class Meshtal:
 
         >>> # if no mesh are specified all mesh are read
         ... meshtal.readMesh()
-        ... # Check available meshes
-        ... print(meshtal.mesh)
-        ... # Once the mesh is read, the vtk attribute gets filled
-        ... # dump all meshes
-        ... print(type(meshtal.mesh[24].vtk))
-        ... print(meshtal.mesh[24].vtk)
+        ... # Once the mesh is read, the grid attribute gets filled
+        ... print(type(meshtal.mesh[24].grid))
+        ... meshtal.mesh[24].grid
         {24: <f4enix.output.meshtal.Fmesh at 0x1badb9d4310>}
         ...
-        <class 'f4enix.output.pyvistawrap.PyVistaWrapper'>
+        <class 'pyvista.core.grid.RectilinearGrid'>
         ...
         Name: cuvmsh_24
         ...
-        Number of cells: 132651
-        Number of points: 140608
-        Cells arrays: ['Value [/cc]', 'Error - Total']
-        Points arrays: []
-        Number of coordinates: 3
-        Mesh bounds:  -51.00 51.00 -51.00 51.00 -51.00 51.00
-        Mesh dimensions:  102.00 102.00 102.00
-        Mesh type: RectilinearGrid
+        Header	Data Arrays
+        RectilinearGrid	Information
+        N Cells	2293504
+        N Points	2346125
+        X Bounds	-1.700e+03, 1.700e+03
+        Y Bounds	-1.700e+03, 1.700e+03
+        Z Bounds	-1.360e+03, 1.740e+03
+        Dimensions	137, 137, 125
+        N Arrays	10
+        Name	        Field	Type	N   	Min	       Max
+        Value - Total	Cells	float64	1	0.000e+00	5.286e+08
+        Error - Total	Cells	float64	1	0.000e+00	1.000e+00
+        ValueBin-000	Cells	float64	1	0.000e+00	1.547e+05
+        ErrorBin-000	Cells	float64	1	0.000e+00	1.000e+00
+        ValueBin-001	Cells	float64	1	0.000e+00	3.497e+08
+        ErrorBin-001	Cells	float64	1	0.000e+00	1.000e+00
+        ValueBin-002	Cells	float64	1	0.000e+00	1.787e+08
+        ErrorBin-002	Cells	float64	1	0.000e+00	1.000e+00
+        ValueBin-003	Cells	float64	1	0.000e+00	0.000e+00
+        ErrorBin-003	Cells	float64	1	0.000e+00	0.000e+00
 
         Cell Under Voxel (CuV) approach is supported where cell_filters and
         different normalization can be chosen. Thanks to the PyVistaParser
@@ -1259,8 +1440,8 @@ class Meshtal:
         ... outpath = 'folderpath'
         ... # it can be exported to different formats, extension will be
         ... # inferred automatically
-        ... fmesh.vtk.write_mesh(outpath)
-        ... fmesh.vtk.write_mesh(outpath, out_format='ip_fluent')
+        ... fmesh.write(outpath)
+        ... fmesh.write(outpath, out_format='ip_fluent')
         Tally          : 24
         Comments       : 
             Test cell under voxel                                                      
@@ -1280,9 +1461,6 @@ class Meshtal:
         Writing z: 100%|██████████| 132651/132651 [00:00<00:00, 227737.30 z points/s]
         Writing values: 100%|██████████| 132651/132651 [00:00<00:00, 770635.26 values/s]
 
-        .. seealso::
-            :py:class:`f4enix.output.pyvistawrap.PyVistaWrapper`
-            documentation.
         """
         logging.info('Loading Meshtal: {}'.format(fn))
         self.filename = os.path.basename(fn).split('.')[0]
@@ -1378,6 +1556,21 @@ class Meshtal:
         else:
             raise KeyError("This file type is not implemented: " +
                            str(self.filetype))
+
+    def write_all(self, outpath: os.PathLike, out_format: str = 'vtk') -> None:
+        """write all fmeshes to the outfolder in the specified format.
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the output folder.
+        out_format : str, optional
+            output format. The allowed ones are ['point_cloud', 'ip_fluent',
+            'csv', 'vtk']. Default is .vtk
+
+        """
+        for _, mesh in self.mesh.items():
+            mesh.write(outpath, out_format=out_format)
 
     def __readHeadMCNP__(self) -> None:
         vals = self.f.readline().split()
