@@ -30,7 +30,17 @@ class TestMctal:
             mctal = Mctal(inp)
         assert True
 
-    def test_error_cmodel(self):
-        with as_file(mctal_resources.joinpath('mctal')) as inp:
+    def test_error_detector(self):
+        with as_file(mctal_resources.joinpath('mctal_time')) as inp:
+            mctal = Mctal(inp)
+        assert True
+
+    def test_error_tmesh(self):
+        with as_file(mctal_resources.joinpath('mctal_tmesh')) as inp:
+            mctal = Mctal(inp)
+        assert True
+
+    def test_error_cosbin(self):
+        with as_file(mctal_resources.joinpath('mctal_cosbin')) as inp:
             mctal = Mctal(inp)
         assert True

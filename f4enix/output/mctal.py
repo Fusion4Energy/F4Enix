@@ -207,55 +207,57 @@ class Tally:
 
 #         print ("Total values in the tally: %8d" % self.getTotNumber(False))
 
-    def getDetectorType(self, short=False) -> str:
-        """Returns the type of the detector type used in the tally."""
+# Not called
+    # def getDetectorType(self, short=False) -> str:
+    #     """Returns the type of the detector type used in the tally."""
 
-        if not short:
-            return self.detectorTypeList[self.detectorType]
-        elif short and self.radiograph:
-            return self.detectorTypeList[self.detectorType + 3]
-        elif short and self.mesh:
-            return self.detectorTypeList[self.detectorType - 3]
+    #     if not short:
+    #         return self.detectorTypeList[self.detectorType]
+    #     elif short and self.radiograph:
+    #         return self.detectorTypeList[self.detectorType + 3]
+    #     elif short and self.mesh:
+    #         return self.detectorTypeList[self.detectorType - 3]
 
-    def getTallyParticles(self) -> list[str]:
-        """Returns the particles used in the tally.
-           References can be found in Table 4-1 and page B-2 of the
-           MCNPX manual."""
+# not called anywhere
+    # def getTallyParticles(self) -> list[str]:
+    #     """Returns the particles used in the tally.
+    #        References can be found in Table 4-1 and page B-2 of the
+    #        MCNPX manual."""
 
-        particleNames = []
+    #     particleNames = []
 
-        if self.typeNumber > 0:
-            particleNames.append(self.particleListShort[self.typeNumber])
-        else:
-            for i, _ in enumerate(self.particleList):
-                try:
-                    if self.tallyParticles[i] == 1:
-                        particleNames.append(self.particleList[i])
-                except IndexError:
-                    # For some reasons there can be less than 35 particles
-                    # listed. Skip in case.
-                    pass
-        return particleNames
+    #     if self.typeNumber > 0:
+    #         particleNames.append(self.particleListShort[self.typeNumber])
+    #     else:
+    #         for i, _ in enumerate(self.particleList):
+    #             try:
+    #                 if self.tallyParticles[i] == 1:
+    #                     particleNames.append(self.particleList[i])
+    #             except IndexError:
+    #                 # For some reasons there can be less than 35 particles
+    #                 # listed. Skip in case.
+    #                 pass
+    #     return particleNames
+# This is not called anywhere
+    # def getTotNumber(self, includeTotalBin=True) -> int:
+    #     """Return the total number of bins."""
 
-    def getTotNumber(self, includeTotalBin=True) -> int:
-        """Return the total number of bins."""
+    #     nCells = self._getNbins("f", includeTotalBin)
+    #     nCora = self._getNbins("i", includeTotalBin)
+    #     nCorb = self._getNbins("j", includeTotalBin)
+    #     nCorc = self._getNbins("k", includeTotalBin)
+    #     nDir = self._getNbins("d", includeTotalBin)
+    #     nUsr = self._getNbins("u", includeTotalBin)
+    #     nSeg = self._getNbins("s", includeTotalBin)
+    #     nMul = self._getNbins("m", includeTotalBin)
+    #     nCos = self._getNbins("c", includeTotalBin)
+    #     nErg = self._getNbins("e", includeTotalBin)
+    #     nTim = self._getNbins("t", includeTotalBin)
 
-        nCells = self._getNbins("f", includeTotalBin)
-        nCora = self._getNbins("i", includeTotalBin)
-        nCorb = self._getNbins("j", includeTotalBin)
-        nCorc = self._getNbins("k", includeTotalBin)
-        nDir = self._getNbins("d", includeTotalBin)
-        nUsr = self._getNbins("u", includeTotalBin)
-        nSeg = self._getNbins("s", includeTotalBin)
-        nMul = self._getNbins("m", includeTotalBin)
-        nCos = self._getNbins("c", includeTotalBin)
-        nErg = self._getNbins("e", includeTotalBin)
-        nTim = self._getNbins("t", includeTotalBin)
+    #     tot = (nCells * nDir * nUsr * nSeg * nMul * nCos * nErg * nTim *
+    #            nCora * nCorb * nCorc)
 
-        tot = (nCells * nDir * nUsr * nSeg * nMul * nCos * nErg * nTim *
-               nCora * nCorb * nCorc)
-
-        return tot
+    #     return tot
 
     def _insertCell(self, cN: int) -> bool:
         """Insert cell number."""
@@ -381,55 +383,56 @@ class Tally:
         """
         return self.valsErrors[f][d][u][s][m][c][e][t][i][j][k][v]
 
-    def _getAxis(self, axis: str):
-        """Return an array containing the values of the axis bins.
-        The desired axis is set by passing the
-        corresponding letter as a function argument as
-        defined in MCNPX manual (u,s,c,e,t) for the
-        standard and (i,j,k) for mesh tallies axes (namely
-        cora/b/c).
-        """
+# _getAxis is not called anywhere, check with Davide
+    # def _getAxis(self, axis: str):
+    #     """Return an array containing the values of the axis bins.
+    #     The desired axis is set by passing the
+    #     corresponding letter as a function argument as
+    #     defined in MCNPX manual (u,s,c,e,t) for the
+    #     standard and (i,j,k) for mesh tallies axes (namely
+    #     cora/b/c).
+    #     """
 
-        if axis == "u":
-            if len(self.usr) != 0:
-                return np.append([0], self.usr)
+    #     if axis == "u":
+    #         if len(self.usr) != 0:
+    #             return np.append([0], self.usr)
 
-        if axis == "s":
-            if len(self.seg) != 0:
-                if self.radiograph:
-                    return self.seg
-                else:
-                    first = self.seg[0] - 1.
-                    return np.append([first], self.seg)
+    #     if axis == "s":
+    #         if len(self.seg) != 0:
+    #             if self.radiograph:
+    #                 return self.seg
+    #             else:
+    #                 first = self.seg[0] - 1.
+    #                 return np.append([first], self.seg)
 
-        if axis == "c":
-            if len(self.cos) != 0:
-                if self.radiograph:
-                    return self.cos
-                else:
-                    first = -1.
-                    return np.append([first], self.cos)
+    #     if axis == "c":
+    #         if len(self.cos) != 0:
+    #             if self.radiograph:
+    #                 return self.cos
+    #             else:
+    #                 first = -1.
+    #                 return np.append([first], self.cos)
 
-        if axis == "e":
-            if len(self.erg) != 0:
-                first = 0.0  # self.erg[0] - 1.
-                return np.append([first], self.erg)
+    #     if axis == "e":
+    #         if len(self.erg) != 0:
+    #             first = 0.0  # self.erg[0] - 1.
+    #             return np.append([first], self.erg)
 
-        if axis == "t":
-            if len(self.tim) != 0:
-                first = self.tim[0] - 1.
-                return np.append([first], self.tim)
+    #     if axis == "t":
+    #         if len(self.tim) != 0:
+    #             first = self.tim[0] - 1.
+    #             return np.append([first], self.tim)
 
-        if axis == "i":
-            return self.cora
+    #     if axis == "i":
+    #         return self.cora
 
-        if axis == "j":
-            return self.corb
+    #     if axis == "j":
+    #         return self.corb
 
-        if axis == "k":
-            return self.corc
+    #     if axis == "k":
+    #         return self.corc
 
-        return []
+    #     return []
 
     def _getNbins(self, axis, inclTotBin=True) -> int:
         """Returns the number of bins relative to the desired axis.
@@ -690,7 +693,11 @@ class Mctal:
                                                 raise IOError("Too many cells in the tally n. %d of %s" % (tally.tallyNumber, self.mctalFileName))
 
                         self.line = self.mctalFile.readline()
-
+                
+                if tally.mesh is True:
+                    tally.cora = tally.cora[:-1]
+                    tally.corb = tally.corb[:-1] 
+                    tally.corc = tally.corc[:-1] 
                 # DIR
                 self.line = self.line.split()
                 tally.nDir = int(self.line[1])
@@ -761,7 +768,7 @@ class Mctal:
                 # ERG
                 self.line = self.line.split()
                 if self.line[0].lower() == "et": tally.ergTC = "t"
-                if self.line[0].lower() == "ec": tally.cosTC = "c"
+                if self.line[0].lower() == "ec": tally.ergTC = "c"
                 tally.nErg = int(self.line[1])
                 if len(self.line) == 3: tally.ergFlag = int(self.line[2])
 
