@@ -26,6 +26,11 @@ class TestMctal:
         assert df['max error'].max() == 0.4042
 
     def test_error_cmodel(self):
-            with as_file(mctal_resources.joinpath('C_Modelm')) as inp:
-                mctal = Mctal(inp)
-            assert True
+        with as_file(mctal_resources.joinpath('C_Modelm')) as inp:
+            mctal = Mctal(inp)
+        assert True
+
+    def test_error_cmodel(self):
+        with as_file(mctal_resources.joinpath('mctal')) as inp:
+            mctal = Mctal(inp)
+        assert True
