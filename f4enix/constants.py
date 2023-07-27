@@ -28,6 +28,8 @@ import re
 
 # --- PATTERNS ---
 PAT_BREAK = re.compile(r'[\s\t]*\n')
+PAT_BLANK = re.compile(r'[\s\tCc]*\n')
+PAT_SPACE = re.compile(r'[\s\t]+')
 PAT_DIGIT = re.compile(r'\d+')
 PAT_COMMENT = re.compile(r'[Cc][\s\t]+')
 PAT_COMMENT_TEXT = re.compile(r'[Cc]\s.*\n')
