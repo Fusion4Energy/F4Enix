@@ -620,7 +620,7 @@ class Mctal:
                      " \033[33mParsing tally: %5d\033[0m" % (tally.tallyNumber))
 
                 tally.typeNumber = int(self.line[2])
-                if len(self.line) == 4: tally.detectorType = int(self.line[3])
+                if self.line[3] != 0: tally.detectorType = int(self.line[3])
 
                 if tally.detectorType is not None: # check for None is needed for MCNP6 and F1 tally
                         if tally.detectorType >=  3:
@@ -698,6 +698,7 @@ class Mctal:
                     tally.cora = tally.cora[:-1]
                     tally.corb = tally.corb[:-1] 
                     tally.corc = tally.corc[:-1] 
+                 
                 # DIR
                 self.line = self.line.split()
                 tally.nDir = int(self.line[1])
@@ -765,6 +766,13 @@ class Mctal:
                                                 raise IOError("Too many cosine bins in the tally n. %d of %s" % (tally.tallyNumber, self.mctalFileName))
                         self.line = self.mctalFile.readline()
 
+                if tally.radiograph is True:
+                    tally.seg = tally.seg[:-1]
+                    tally.seg = tally.seg[:-1] 
+                    tally.seg = tally.seg[:-1] 
+                    tally.cos = tally.cos[:-1]
+                    tally.cos = tally.cos[:-1] 
+                    tally.cos = tally.cos[:-1]
                 # ERG
                 self.line = self.line.split()
                 if self.line[0].lower() == "et": tally.ergTC = "t"

@@ -44,3 +44,8 @@ class TestMctal:
         with as_file(mctal_resources.joinpath('mctal_cosbin')) as inp:
             mctal = Mctal(inp)
         assert True
+
+    def test_error_radio(self):
+        with as_file(mctal_resources.joinpath('mctal_radio')) as inp:
+            mctal = Mctal(inp)
+        assert True
