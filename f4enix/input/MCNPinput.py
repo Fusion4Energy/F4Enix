@@ -29,6 +29,7 @@ from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
 from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP
+from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
 from copy import deepcopy
 
 
@@ -759,3 +760,251 @@ class Input:
             rows.append(row)
 
         return pd.DataFrame(rows).set_index("Tally").sort_index()
+
+
+class D1S_Input(Input):
+
+    def __init__(self, cells: list[parser.Card], surfs: list[parser.Card],
+                 data: list[parser.Card], header: list = None,
+                 irrad_file: IrradiationFile = None,
+                 reac_file: ReactionFile = None) -> None:
+
+        super().__init__(cells, surfs, data, header=header)
+        self.irrad_file = irrad_file
+        self.reac_file = reac_file
+
+    def get_potential_paths(self, libmanager: LibManager,
+                            lib: str) -> list[Reaction]:
+        """Given an activation library, return a list of all possible reactions
+        paths foreseen by the libmanager that can originate from the material
+        section of the input.
+
+        Parameters
+        ----------
+        libmanager : LibManager
+            Handlers of cross sections operations
+        lib : str
+            activation library to be used (e.g. 99c)
+
+        Returns
+        -------
+        list[Reaction]
+            list of Reaction objects describing all possible paths included in
+            LibManager
+        """
+        reactions = []
+        for material in self.materials.materials:
+            for submat in material.submaterials:
+                for zaid in submat.zaidList:
+                    parent = zaid.element+zaid.isotope
+                    zaidreactions = libmanager.get_reactions(lib, parent)
+                    # if len(zaidreactions) > 0:
+                    #     # it is a parent only if reactions are available
+                    #     parentlist.append(parent)
+                    for MT, daughter in zaidreactions:
+                        reactions.append((parent, MT, daughter))
+                        # daughterlist.append(daughter)
+
+        reactions = list(set(reactions))
+        reactions.sort()
+        # --- Build the reactions and reaction file ---
+        reaction_list = []
+        for parent, MT, daughter in reactions:
+            parent = parent+'.'+lib
+            # Build a comment
+            _, parent_formula = libmanager.get_zaidname(parent)
+            _, daughter_formula = libmanager.get_zaidname(daughter)
+            comment = '{} -> {}'.format(parent_formula, daughter_formula)
+
+            rx = Reaction(parent, MT, daughter, comment=comment)
+            reaction_list.append(rx)
+
+        return reaction_list
+
+    def get_reaction_file(self, libmanager: LibManager, lib: str,
+                          set_as_attribute: bool = True
+                          ) -> ReactionFile:
+        """
+        Get a reaction file suitable for the input.
+
+        The reaction file is built selecting from all the possible reaction
+        paths that can originate in the model due to its material cards only
+        the reactions that lead to a daughter listed in the irradiation file.
+        By default this is added as the irrad_file for the input.
+
+        Parameters
+        ----------
+        libmanager : LibManager
+            Object handling all cross-sections related operations.
+        lib : str
+            library suffix to be used.
+        set_as_attribute: bool
+            if True (default) the reactionfile is saved as the self.reac_file
+
+        Returns
+        -------
+        ReactionFile
+            Object representing the react file for D1S.
+
+        Raises
+        ------
+        ValueError
+            if no irradiation files have been assigned yet to the input
+
+        """
+        # irrad file is necessary for this operation
+        # recover all available daughters
+        if self.irrad_file is None:
+            raise ValueError(
+                'irrad_file attribute cannot be None for this operation')
+        else:
+            available_daughters = self.irrad_file.get_daughters()
+
+        # Recover all possible reactions
+        reactions = self.get_potential_paths(libmanager, lib)
+
+        # perform the selection
+        selected_reactions = []
+        for reaction in reactions:
+            if reaction.daughter in available_daughters:
+                # add the reaction to the one to use
+                selected_reactions.append(reaction)
+
+        reac_file = ReactionFile(selected_reactions)
+
+        if set_as_attribute:
+            self.reac_file = reac_file
+
+        return reac_file
+
+    def smart_translate(self, activation_lib: str, transport_lib: str,
+                        libmanager: LibManager,
+                        fix_natural_zaid: bool = False) -> None:
+        """
+        Translate the input to another library without relying on old libs.
+
+        Both the activation and transport libraries are changed. The reaction
+        file and PIKMT cards are also translated.
+        Differently from self.translate(),
+        libraries are not modified based on old ones but based on the reaction
+        file. This is, to all parent zaids listed in the reactions will be
+        assigned the activation_lib, to all others the transport_lib.
+
+        Parameters
+        ----------
+        activation_lib : str
+            library to be used for activation, e.g., 99c
+        activation_lib : dict[str, str]
+            library to be used for activation, e.g., 31c
+        libmanager : LibManager
+            Library manager for the conversion.
+        fix_natural_zaid: bool
+            if True, and additional initial translation with the transport lib
+            is done in order to expand the natural zaids. If the transport lib
+            do not expand the natural zaid there may be issues.
+
+        Returns
+        -------
+        None
+
+        """
+        if self.reac_file is None:
+            raise ValueError(
+                'reac_file cannot be None for this operation'
+            )
+
+        if fix_natural_zaid:
+            # get a first translation to avoid issues with old natural zaids
+            self.translate(transport_lib)
+
+        active_zaids = []
+        transp_zaids = []
+
+        for reaction in self.reac_file.reactions:
+            # strip the lib from the parent
+            parent = reaction.parent.split('.')[0]
+            active_zaids.append(parent)
+            reaction.change_lib(activation_lib)
+
+        # Now check for the remaing materials in the input to be assigned
+        # to transport
+        for material in self.materials.materials:
+            for submaterial in material.submaterials:
+                for zaid in submaterial.zaidList:
+                    zaidnum = zaid.element+zaid.isotope
+                    if (zaidnum not in active_zaids and
+                            zaidnum not in transp_zaids):
+                        transp_zaids.append(zaidnum)
+
+        newlib = {activation_lib: active_zaids, transport_lib: transp_zaids}
+
+        # trigger translation of the PIKMT card
+        self.add_PIKMT_card()
+
+        # Translate the input with the new lib
+        self.materials.translate(newlib, libmanager)
+
+    def add_PIKMT_card(self) -> None:
+        """
+        Add a PIKMT card to the input file. If a PKMT card is already present
+        this will be overridden.
+
+        Returns
+        -------
+        None.
+
+        """
+        key = 'PIKMT'
+        lines = [key+'\n']
+        for parent in self.reac_file.get_parents():
+            lines.append('         {}    {}\n'.format(parent, 0))
+
+        card = parser.Card(lines, 5, -1)
+        self.other_data[key] = card  # should override other PKMT cards
+
+    # def add_track_contribution(self, tallyID: str, zaids: list[str],
+    #                            who='parent'):
+    #     """
+    #     Given a list of zaid add the FU bin in the requested tallies in order
+    #     to collect the contribution of them to the tally.
+
+    #     Parameters
+    #     ----------
+    #     tallyID : str
+    #         ID of the tally onto which to operate (e.g. F4:p).
+    #     zaids : list[str]
+    #         list of zaid numbers of the parents/daughters (e.g. 1001).
+    #     who : str, optional
+    #         either 'parent' or 'daughter' specifies the types of zaids to
+    #         be tracked. The default is 'parent'.
+
+    #     Raises
+    #     ------
+    #     ValueError
+    #         check for admissible who parameter.
+
+    #     Returns
+    #     -------
+    #     bool
+    #         return True if lines were added correctly
+
+    #     """
+    #     patnum = re.compile(r'\d+')
+    #     try:
+    #         num = patnum.search(tallyID).group()
+    #     except AttributeError:
+    #         # The pattern was not found
+    #         raise ValueError(tallyID+' is not a valid tally ID')
+
+    #     text = 'FU'+num+' 0'
+    #     if who == 'parent':
+    #         for zaid in zaids:
+    #             text = text+' -'+zaid
+    #     elif who == 'daughter':
+    #         for zaid in zaids:
+    #             text = text+' '+zaid
+    #     else:
+    #         raise ValueError(who+' is not an admissible "who" parameters')
+
+    #     res = self.addlines2card(text, 'settings', tallyID, offset_all=False)
+    #     return res
