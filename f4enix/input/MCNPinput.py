@@ -34,6 +34,7 @@ from copy import deepcopy
 
 
 PAT_MT = re.compile(r'm[tx]\d+', re.IGNORECASE)
+ADD_LINE_FORMAT = '         {}\n'
 
 
 class Input:
@@ -225,26 +226,7 @@ class Input:
         Input
             Input object
         """
-        name = os.path.basename(inputfile).split(".")[0]
-
-        # Get the blocks using numjuggler parser
-        logging.info('Reading file: {}'.format(name))
-        jug_cards = parser.get_cards_from_input(inputfile)
-        try:
-            jug_cardsDic = parser.get_blocks(jug_cards)
-        except UnicodeDecodeError as e:
-            logging.error('The file contains unicode errors, scan initiated')
-            txt = debug_file_unicode(inputfile)
-            logging.error('The following error where encountered: \n'+txt)
-            raise e
-
-        logging.debug('Reading has finished')
-
-        # Parse the different sections
-        header = jug_cardsDic[2][0].lines
-        cells = jug_cardsDic[3]
-        surfaces = jug_cardsDic[4]
-        data = jug_cardsDic[5]
+        cells, surfaces, data, header = _get_input_arguments(inputfile)
 
         return cls(cells, surfaces, data, header=header)
 
@@ -773,6 +755,36 @@ class D1S_Input(Input):
         self.irrad_file = irrad_file
         self.reac_file = reac_file
 
+    @classmethod
+    def from_input(cls, inputfile: os.PathLike, irrad_file: os.PathLike = None,
+                   reac_file: os.PathLike = None) -> D1S_Input:
+        """Generate a D1S-UNED input file.
+
+        this includes also the reaction and irradiation files.
+
+        Parameters
+        ----------
+        inputfile : os.PathLike
+            path to the MCNP input (D1S)
+        irrad_file : os.PathLike, optional
+            path to the irradiation file, by default None (no file associated)
+        reac_file : os.PathLike, optional
+            path to the reaction file, by default None (no file associated)
+
+        Returns
+        -------
+        D1S_Input
+            generated D1S_Input object
+        """
+        cells, surfaces, data, header = _get_input_arguments(inputfile)
+        if irrad_file is not None:
+            irrad_file = IrradiationFile.from_text(irrad_file)
+        if reac_file is not None:
+            reac_file = ReactionFile.from_text(reac_file)
+
+        return D1S_Input(cells, surfaces, data, header=header,
+                         irrad_file=irrad_file, reac_file=reac_file)
+
     def get_potential_paths(self, libmanager: LibManager,
                             lib: str) -> list[Reaction]:
         """Given an activation library, return a list of all possible reactions
@@ -830,7 +842,7 @@ class D1S_Input(Input):
         The reaction file is built selecting from all the possible reaction
         paths that can originate in the model due to its material cards only
         the reactions that lead to a daughter listed in the irradiation file.
-        By default this is added as the irrad_file for the input.
+        By default this is added as the reac_file for the input.
 
         Parameters
         ----------
@@ -915,7 +927,7 @@ class D1S_Input(Input):
 
         if fix_natural_zaid:
             # get a first translation to avoid issues with old natural zaids
-            self.translate(transport_lib)
+            self.translate(transport_lib, libmanager)
 
         active_zaids = []
         transp_zaids = []
@@ -962,49 +974,81 @@ class D1S_Input(Input):
         card = parser.Card(lines, 5, -1)
         self.other_data[key] = card  # should override other PKMT cards
 
-    # def add_track_contribution(self, tallyID: str, zaids: list[str],
-    #                            who='parent'):
-    #     """
-    #     Given a list of zaid add the FU bin in the requested tallies in order
-    #     to collect the contribution of them to the tally.
+    def add_track_contribution(self, tallykey: str, zaids: list[str],
+                               who: str = 'parent'):
+        """
+        Given a list of zaid add the FU bin in the requested tallies in order
+        to collect the contribution of them to the tally.
 
-    #     Parameters
-    #     ----------
-    #     tallyID : str
-    #         ID of the tally onto which to operate (e.g. F4:p).
-    #     zaids : list[str]
-    #         list of zaid numbers of the parents/daughters (e.g. 1001).
-    #     who : str, optional
-    #         either 'parent' or 'daughter' specifies the types of zaids to
-    #         be tracked. The default is 'parent'.
+        Parameters
+        ----------
+        tallykey : str
+            ID of the tally onto which to operate (e.g. F4).
+        zaids : list[str]
+            list of zaid numbers of the parents/daughters (e.g. 1001).
+        who : str, optional
+            either 'parent' or 'daughter' specifies the types of zaids to
+            be tracked. The default is 'parent'.
 
-    #     Raises
-    #     ------
-    #     ValueError
-    #         check for admissible who parameter.
+        Raises
+        ------
+        ValueError
+            check for admissible who parameter.
 
-    #     Returns
-    #     -------
-    #     bool
-    #         return True if lines were added correctly
+        Returns
+        -------
+        bool
+            return True if lines were added correctly
 
-    #     """
-    #     patnum = re.compile(r'\d+')
-    #     try:
-    #         num = patnum.search(tallyID).group()
-    #     except AttributeError:
-    #         # The pattern was not found
-    #         raise ValueError(tallyID+' is not a valid tally ID')
+        """
+        card = self.other_data[tallykey]
+        num = str(_get_num_tally(tallykey))
 
-    #     text = 'FU'+num+' 0'
-    #     if who == 'parent':
-    #         for zaid in zaids:
-    #             text = text+' -'+zaid
-    #     elif who == 'daughter':
-    #         for zaid in zaids:
-    #             text = text+' '+zaid
-    #     else:
-    #         raise ValueError(who+' is not an admissible "who" parameters')
+        card.lines.append('FU'+num+' 0\n')
 
-    #     res = self.addlines2card(text, 'settings', tallyID, offset_all=False)
-    #     return res
+        if who == 'parent':
+            for zaid in zaids:
+                card.lines.append(ADD_LINE_FORMAT.format('-'+zaid))
+        elif who == 'daughter':
+            for zaid in zaids:
+                card.lines.append(ADD_LINE_FORMAT.format(zaid))
+        else:
+            raise ValueError(who+' is not an admissible "who" parameters')
+        card.get_input()
+
+
+def _get_input_arguments(inputfile: os.PathLike
+                            ) -> tuple:
+    name = os.path.basename(inputfile).split(".")[0]
+
+    # Get the blocks using numjuggler parser
+    logging.info('Reading file: {}'.format(name))
+    jug_cards = parser.get_cards_from_input(inputfile)
+    try:
+        jug_cardsDic = parser.get_blocks(jug_cards)
+    except UnicodeDecodeError as e:
+        logging.error('The file contains unicode errors, scan initiated')
+        txt = debug_file_unicode(inputfile)
+        logging.error('The following error where encountered: \n'+txt)
+        raise e
+
+    logging.debug('Reading has finished')
+
+    # Parse the different sections
+    header = jug_cardsDic[2][0].lines
+    cells = jug_cardsDic[3]
+    surfaces = jug_cardsDic[4]
+    data = jug_cardsDic[5]
+
+    return cells, surfaces, data, header
+
+
+def _get_num_tally(key: str) -> int:
+    patnum = re.compile(r'\d+')
+    try:
+        num = patnum.search(key).group()
+    except AttributeError:
+        # The pattern was not found
+        raise ValueError(key+' is not a valid tally ID')
+
+    return int(num)
