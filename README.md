@@ -1,4 +1,5 @@
-[![Testing](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests.yml)
+[![Testing windows](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_win.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_win.yml)
+[![Testing linux](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml)
 
 # F4Enix
 Parser for Monte Carlo simulations input and output files

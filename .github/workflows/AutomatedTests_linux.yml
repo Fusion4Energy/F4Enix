@@ -18,7 +18,10 @@ jobs:
   # This workflow contains a single job called "build"
   TestBuild:
     # The type of runner that the job will run on
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -29,10 +32,10 @@ jobs:
         uses: pyvista/setup-headless-display-action@v1
 
       # Install python
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
 
       # Install the package
       - name: Install the package
