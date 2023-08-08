@@ -364,6 +364,11 @@ class MeshPlotter:
         if scale_title is not None:
             scalar_bar_args['title'] = scale_title
 
+        # get a number of labels that pairs with the number of colors
+        # works only with even numbers
+        if n_colors < 30 and n_colors % 2 == 0:
+            scalar_bar_args['n_labels'] = int(n_colors/2+1)
+
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
 
             pl = self._get_plotter()
