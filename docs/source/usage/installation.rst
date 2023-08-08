@@ -7,6 +7,8 @@ Installation
 .. warning::
     Please remeber that python versions lower than **v3.10** are not supported.
 
+Both Windows and Linux OS are supported.
+
 
 Install from PyPI
 =================

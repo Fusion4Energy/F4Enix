@@ -6,6 +6,8 @@ Parser for Monte Carlo simulations input and output files
 
 **Pyhton >3.10!**
 
+Both Windows and Linux supported.
+
 ## Install
 ### Disclaimer
 Currently the package can be installed only in developer mode.
