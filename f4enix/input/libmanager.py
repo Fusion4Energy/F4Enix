@@ -131,15 +131,16 @@ class LibManager:
         self.libraries = libraries
 
         # Load the activation reaction data if available
+        reactions = {}
         if activationfile is not None:
-            reactions = {}
             file = pd.ExcelFile(activationfile)
-            for sheet in file.sheet_names:
-                # Load the df that also needs to be filled
-                reactions[sheet] = file.parse(sheet).ffill()
-                # translate the formula name to zaid
         else:
-            reactions = None
+            resources = files(pkg_res)
+            with as_file(resources.joinpath('activation_libs.xlsx')) as infile:
+                file = pd.ExcelFile(infile)
+        for sheet in file.sheet_names:
+            # Load the df that also needs to be filled
+            reactions[sheet] = file.parse(sheet).ffill()
 
         # These are needed for faster operations
         newiso = self.isotopes.set_index(['E'])

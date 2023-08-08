@@ -750,6 +750,45 @@ class D1S_Input(Input):
                  data: list[parser.Card], header: list = None,
                  irrad_file: IrradiationFile = None,
                  reac_file: ReactionFile = None) -> None:
+        """Children of the :py:class:`Input`.
+
+        it includes also the reaction and irradiation files necessary for a 
+        D1S-UNED run and defines additional methods related to them.
+
+        Parameters
+        ----------
+        cells : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP cells.
+        surfs : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP surfaces.
+        data : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP data cards.
+        header : list, optional
+            list of strings that compose the MCNP header, by default None
+        irrad_file : IrradiationFile, optional
+            irradiation file object, by default None
+        reac_file : ReactionFile, optional
+            readtion file object, by default None
+
+        Attributes
+        ----------
+        irrad_file : IrradiationFile
+            irradiation file object
+        reac_file : ReactionFile
+            readtion file object
+
+        Examples
+        --------
+        translate the input defining an activation and transport library.
+        the reaction file will be used to identify to which isotopes the
+        activation library has to be assigned.
+
+        >>> from f4enix.input.MCNPinput import D1S_Input
+        ... from f4enix.input.libmanager import LibManager
+        ... d1s_inp = D1S_Input.from_input('d1stest.i', irrad_file='irr_test',
+        ...                                reac_file='reac_fe')
+        ... d1s_inp.smart_translate('99c', '00c', LibManager())
+        """
 
         super().__init__(cells, surfs, data, header=header)
         self.irrad_file = irrad_file
@@ -1008,7 +1047,7 @@ class D1S_Input(Input):
 
         if who == 'parent':
             for zaid in zaids:
-                card.lines.append(ADD_LINE_FORMAT.format('-'+zaid))
+                card.lines.append(ADD_LINE_FORMAT.format('-'+str(zaid)))
         elif who == 'daughter':
             for zaid in zaids:
                 card.lines.append(ADD_LINE_FORMAT.format(zaid))
