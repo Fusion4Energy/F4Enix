@@ -77,5 +77,5 @@ class TestMeshInfoFile:
 
         mesh_1 = meshinfofile.info[4]
         mesh_2 = meshinfofile.info[234]
-        assert (mesh_1.data_mass._dataframe.values[-1].sum() ==
-                mesh_2.data_mass._dataframe.values[-1].sum())
+        assert (mesh_1.data_mass.df.values[-1].sum() ==
+                mesh_2.data_mass.df.values[-1].sum())

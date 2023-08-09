@@ -49,6 +49,21 @@ class DataMass:
         Voxel-Cell combinations or to relate the material ids with the MCNP
         cell ids and vice-versa.
 
+        Parameters
+        ----------
+        dataframe : pd.DataFrame
+            mass dataframe
+
+        Attributes
+        ----------
+        dataframe : pd.DataFrame
+            mass dataframe
+
+        Examples
+        --------
+        Example of mass dataframe
+
+        >>> datamass.df
                                 Mass [g]
         Voxel Material Cell
         1     0        327608     0.000000
@@ -57,18 +72,19 @@ class DataMass:
             110      324893  4977.059766
                     324894  1332.655347
                     324896  8458.281897
+
         """
-        self._dataframe: pd.DataFrame = dataframe.sort_index()
+        self.df: pd.DataFrame = dataframe.sort_index()
         self._check_dataframe_format()
 
     def _check_dataframe_format(self) -> None:
         try:
-            assert self._dataframe.index.names == [
+            assert self.df.index.names == [
                 INDEX_KEY_VOXEL,
                 INDEX_KEY_MATERIAL,
                 INDEX_KEY_CELL,
             ]
-            assert self._dataframe.columns.tolist() == [COLUMN_KEY_MASS_GRAMS]
+            assert self.df.columns.tolist() == [COLUMN_KEY_MASS_GRAMS]
         except AssertionError as error:
             raise ValueError(
                 "The format of the dataframe is not correct. "
@@ -82,8 +98,8 @@ class DataMass:
     @property
     def materials(self) -> np.ndarray:
         """Returns the unique values of Material index"""
-        material_index = self._dataframe.index.names.index(INDEX_KEY_MATERIAL)
-        return self._dataframe.index.levels[material_index].values
+        material_index = self.df.index.names.index(INDEX_KEY_MATERIAL)
+        return self.df.index.levels[material_index].values
 
     def get_filtered_dataframe(
         self,
@@ -108,15 +124,15 @@ class DataMass:
         pd.DataFrame
             filtered dataframe
         """
-        mask = np.full(len(self._dataframe), True)
+        mask = np.full(len(self.df), True)
         for key, filter_values in zip(
             [INDEX_KEY_VOXEL, INDEX_KEY_MATERIAL, INDEX_KEY_CELL],
             [voxels, materials, cells],
         ):
             if filter_values is None:
                 continue
-            mask *= self._dataframe.index.isin(filter_values, level=key)
-        return self._dataframe.iloc[mask]
+            mask *= self.df.index.isin(filter_values, level=key)
+        return self.df.iloc[mask]
 
     def get_cells_from_materials(self,
                                  materials: list[int] | None) -> pd.DataFrame:
@@ -146,7 +162,7 @@ class DataMass:
             path to the output folder
         """
         outfile = os.path.join(results_path, "data_mass.hdf5")
-        self._dataframe.to_hdf(outfile, key="df")
+        self.df.to_hdf(outfile, key="df")
 
     @classmethod
     def load(cls, path_to_folder: os.PathLike) -> DataMass:
@@ -284,8 +300,8 @@ class MeshInfo:
             assert (self.vector_i == __value.vector_i).all()
             assert (self.vector_j == __value.vector_j).all()
             assert (self.vector_k == __value.vector_k).all()
-            assert self.data_mass._dataframe.equals(
-                __value.data_mass._dataframe)
+            assert self.data_mass.df.equals(
+                __value.data_mass.df)
             if type(self) == MeshInfoCyl:
                 assert (self.origin == __value.origin).all()
                 assert (self.axis == __value.axis).all()
