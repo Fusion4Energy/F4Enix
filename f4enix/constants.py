@@ -93,3 +93,6 @@ SDDR_CATEGORIES = {
     'categories': ['< 1.32 uSv/h', '1.32-7.5 uSv/h', '7.5-25 uSv/h',
                    '0.025-2 mSv/s', '2-100 mSv/h', '> 100 mSv/h']
     }
+
+# --- Constants ---
+ITER_PLASMA_360_500MW = 1.7757e20
