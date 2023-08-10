@@ -4,10 +4,10 @@
 from __future__ import annotations
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
-Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
+Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or -
 as soon they will be approved by the European Commission - subsequent versions
 of the EUPL (the “Licence”). You may not use this work except in compliance
-with the Licence. You may obtain a copy of the Licence at: 
+with the Licence. You may obtain a copy of the Licence at:
     https://eupl.eu/1.2/en/  
 Unless required by applicable law or agreed to in writing, software distributed
 under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
@@ -21,8 +21,6 @@ from typing import BinaryIO, Dict
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-
-# FILE_NAME = '../tests/data/E-Lite_IVVS_v5.5.w'
 BYTE = np.byte
 CHAR = np.char
 INT = np.int32
@@ -67,6 +65,20 @@ class RSSA:
             10 c  # Surface id
         filename : str
             name of the original file
+
+        Examples
+        --------
+        Load a RSSA file and get some info
+
+        >>> from f4enix.output.rssa import RSSA
+        ... my_rssa = RSSA('small_cyl.w')
+        ... print(my_rssa)
+        RSSA file small_cyl was recorded using the following surfaces:
+        Surface id: 1
+        The surface type is a cylinder with a radius of 30.00
+        The total amount of tracks recorded is 72083, of which 72083 were neutrons and 0 were photons.
+        The simulation that produced this RSSA run 100000 histories
+        The amount of independent histories that reached the RSSA surfaces was 70797.
 
         """
         self.filename = os.path.basename(file).split('.')[0]
