@@ -25,6 +25,7 @@ import pyvista as pv
 import numpy as np
 
 from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
+from f4enix.input.MCNPinput import Input
 
 # -- Identifiers --
 SURFACE_ID = 'currently being tracked has reached surface'
@@ -152,7 +153,7 @@ class Output:
 
     def print_lp_debug(self, outpath: os.PathLike, print_video: bool = False,
                        get_cosine: bool = True,
-                       input_model: os.PathLike = None) -> None:
+                       input_mcnp: Input = None) -> None:
         """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
         ['LPdebug_{}.vtp'] containing information about the lost particles
         registered in an MCNP run. A .csv file is also printed with origin
@@ -162,16 +163,21 @@ class Output:
         ----------
         outpath : os.PathLike
             path to the folder where outputs will be dumped.
-        print_video: bool
+        print_video : bool, optional
             if True print the LP to video. deafult is False
-        get_cosine: bool
+        get_cosine : bool, optional
             if True recover also the cosines of the flight direction of each
             lost particle. By default is True
+        input_mcnp : Input, optional
+            Input file that generated the MCNP output. Providing this will
+            ensure that also the universe in which the particles are
+            lost will be tracked. By default is None.
         """
 
         # -- Variables --
         surfaces = []
         cells = []
+        universes = []
         x = []
         y = []
         z = []
@@ -187,7 +193,12 @@ class Output:
             if line.find(SURFACE_ID) != -1:  # LP in surface
                 surfaces.append(PAT_DIGIT.search(line).group())
 
-                cells.append(PAT_DIGIT.search(self.lines[i+1]).group())
+                cell_ID = PAT_DIGIT.search(self.lines[i+1]).group()
+                cells.append(cell_ID)
+                # add the universe if requested
+                if input_mcnp is not None:
+                    universe = input_mcnp.cells[cell_ID].get_u()
+                    universes.append(universe)
 
                 point = SCIENTIFIC_PAT.findall(self.lines[i+6])  # [0:3]
                 cosines = SCIENTIFIC_PAT.findall(self.lines[i+7])  # [0:3]
@@ -199,7 +210,8 @@ class Output:
                     v.append(float(cosines[1]))
                     w.append(float(cosines[2]))
 
-            # if line.find(CELL_ID) != -1:  # LP in cell
+            # if line.find(CELL_ID) != -1 and input_mcnp is not None:
+            #     # LP is in cell
             #     cells.append(PAT_DIGIT.search(line).group())
 
             # if line.find(POINT_ID) != -1:  # LP in cell
@@ -237,6 +249,8 @@ class Output:
             df['u'] = u
             df['v'] = v
             df['w'] = w
+        if len(universes) > 0:
+            df['Universe'] = universes
 
         # Get a complete set of locations
         loc = df.drop_duplicates().set_index(['Surface', 'Cell']).sort_index()
@@ -258,6 +272,12 @@ class Output:
             # global df
             global_df.to_excel(writer, sheet_name='global')
             # loc.to_excel(writer, sheet_name='Locations')
+            if input_mcnp is not None:
+                logging.info('building universe df')
+                u_df = df[['Universe', 'Cell', 'Surface', 'count']]
+                u_df = u_df.groupby(['Universe', 'Cell', 'Surface']).sum()
+                u_df = u_df.sort_values(by='count', ascending=False)
+                u_df.to_excel(writer, sheet_name='by universe')
 
         # Dump also a csv with only the data
         if get_cosine:

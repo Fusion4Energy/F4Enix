@@ -3,6 +3,7 @@ import pandas as pd
 import os
 
 from f4enix.output.MCNPoutput import Output
+from f4enix.input.MCNPinput import Input
 import tests.resources.output as resources
 import pytest
 
@@ -34,6 +35,16 @@ class TestOutput:
         df = pd.read_csv(os.path.join(tmpdir, name+'csv'))
         assert len(df) == 10
         assert len(df.columns) == 3
+
+        # LP debug with universes
+        with as_file(RESOURCES.joinpath('test_lp_u.o')) as file:
+            outp = Output(file)
+        with as_file(RESOURCES.joinpath('test_lp_u.i')) as file:
+            inp = Input.from_input(file)
+        outp.print_lp_debug(tmpdir, input_mcnp=inp)
+        df = pd.read_excel(os.path.join(tmpdir, 'LPdebug_test_lp_u.xlsx'),
+                           sheet_name='by universe')
+        assert df['count'].values[-1] == 42
 
     def test_get_NPS(self):
         with as_file(RESOURCES.joinpath('test_o')) as file:
