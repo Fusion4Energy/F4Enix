@@ -908,7 +908,7 @@ class CDFplot(Plotter2D):
                 self.ax.yaxis.set_major_formatter(PercentFormatter(1))
 
         if outside_legend:
-            self.ax.legend(framealpha=1, bbox_to_anchor=(1, 0.5))
+            self.ax.legend(framealpha=1, bbox_to_anchor=(1, 1))
         else:
             self.ax.legend(loc='lower right', framealpha=1)
         logging.info('CDF was plotted')
