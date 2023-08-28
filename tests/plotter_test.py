@@ -3,8 +3,10 @@ import pytest
 import pyvista as pv
 import os
 import docx
+import numpy as np
 
-from f4enix.output.plotter import MeshPlotter, Atlas
+
+from f4enix.output.plotter import MeshPlotter, Atlas, CDFplot
 from f4enix.constants import ITER_Z_LEVELS
 import tests.resources.plotter as pkg_res
 
@@ -139,3 +141,17 @@ class TestAtlas:
         assert len(atlas.doc.paragraphs) == 9
 
         atlas.save(outfolder)
+
+
+class TestCDFplot:
+    def test_plot(self, tmpdir):
+        data_list = []
+        labels = []
+        for i in range(10):
+            data_list.append(np.random.random(100))
+            labels.append(str(i))
+
+        plotter = CDFplot(suptitle='title', xlabel='xlabel',
+                          ylabel='ylabel')
+        plotter.plot(data_list, datalabels=labels)
+        plotter.save(os.path.join(tmpdir, 'trial.png'))
