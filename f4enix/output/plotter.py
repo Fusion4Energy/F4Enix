@@ -819,6 +819,7 @@ class Plotter2D(ABC):
         # Color-blind friendly palette
         self.colors = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628',
                        '#984ea3', '#999999', '#e41a1c', '#dede00']*50
+        logging.debug('plotter initialized')
 
     @abstractmethod
     def plot(self) -> None:
@@ -826,6 +827,7 @@ class Plotter2D(ABC):
 
     def save(self, outpath: os.PathLike) -> None:
         self.fig.savefig(outpath, dpi=300, bbox_inches='tight')
+        logging.info('plot has been saved at {}'.format(outpath))
 
 
 class CDFplot(Plotter2D):
@@ -901,3 +903,4 @@ class CDFplot(Plotter2D):
             if perc:
                 self.ax.yaxis.set_major_formatter(PercentFormatter(1))
             self.ax.legend(loc='lower right', framealpha=1)
+        logging.info('CDF was plotted')
