@@ -865,13 +865,14 @@ class CDFplot(Plotter2D):
         """
         super().__init__(suptitle, xlabel, ylabel)
 
-    def plot(self, values_list: np.array, bins: int = 10,
-             datalabels: list[str] = None, perc: bool = True) -> None:
+    def plot(self, values_list: list, bins: int = 10,
+             datalabels: list[str] = None, perc: bool = True,
+             outside_legend: bool = False) -> None:
         """plot the comulative distributions as discrete steps
 
         Parameters
         ----------
-        values_list : np.array
+        values_list : list
             list of list of values containing the occurencies to be analyzed
         bins : int, optional
             number of bins into which the observations should be divided,
@@ -881,6 +882,9 @@ class CDFplot(Plotter2D):
             different datasets reported in values_list, by default None
         perc : bool, optional
             if True, format y-axis as percentages, by default True
+        outside_legend : bool
+            if True pushes the legend outside of the graph frame, by default is
+            False
         """
         # check that the length of labels is consisting
         if datalabels is not None:
@@ -902,5 +906,9 @@ class CDFplot(Plotter2D):
                          color=self.colors[i])
             if perc:
                 self.ax.yaxis.set_major_formatter(PercentFormatter(1))
+
+        if outside_legend:
+            self.ax.legend(framealpha=1, bbox_to_anchor=(1, 0.5))
+        else:
             self.ax.legend(loc='lower right', framealpha=1)
         logging.info('CDF was plotted')
