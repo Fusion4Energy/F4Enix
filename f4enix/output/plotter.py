@@ -920,5 +920,5 @@ class CDFplot(Plotter2D):
         if cut_y is not None:
             self.ax.set_ylim(top=cut_y)
         if cut_x is not None:
-            self.ax.set_xlim(top=cut_x)
+            self.ax.set_xlim(right=cut_x)
         logging.info('CDF was plotted')
