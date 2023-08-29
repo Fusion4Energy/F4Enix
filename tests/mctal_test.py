@@ -18,9 +18,12 @@ class TestMctal:
     def test_get_error_summary(self):
         with as_file(mctal_resources.joinpath('error_summary.m')) as inp:
             mctal = Mctal(inp)
-        df = mctal.get_error_summary()
-        assert df['min error'].isna().sum() == 4
-        assert df['max error'].isna().sum() == 4
-        assert len(df) == 36
-        assert df['min error'].max() == 0.4042
-        assert df['max error'].max() == 0.4042
+
+        # nothing should change if also the abs error is asked for
+        for option in [True, False]:
+            df = mctal.get_error_summary(include_abs_err=option)
+            assert df['min rel error'].isna().sum() == 4
+            assert df['max rel error'].isna().sum() == 4
+            assert len(df) == 36
+            assert df['min rel error'].max() == 0.4042
+            assert df['max rel error'].max() == 0.4042
