@@ -867,7 +867,8 @@ class CDFplot(Plotter2D):
 
     def plot(self, values_list: list, bins: int = 10,
              datalabels: list[str] = None, perc: bool = True,
-             outside_legend: bool = False, cut_y: float = None) -> None:
+             outside_legend: bool = False, cut_y: float = None,
+             cut_x: float = None) -> None:
         """plot the comulative distributions as discrete steps
 
         Parameters
@@ -887,6 +888,8 @@ class CDFplot(Plotter2D):
             False
         cut_y : float, optional
             cut the y axis to a specific value, by default is None.
+        cut_x : float, optional
+            cut the x axis to a specific value, by default is None.
         """
         # check that the length of labels is consisting
         if datalabels is not None:
@@ -913,7 +916,9 @@ class CDFplot(Plotter2D):
             self.ax.legend(framealpha=1, bbox_to_anchor=(1, 1))
         else:
             self.ax.legend(loc='lower right', framealpha=1)
-        
+
         if cut_y is not None:
             self.ax.set_ylim(top=cut_y)
+        if cut_x is not None:
+            self.ax.set_xlim(top=cut_x)
         logging.info('CDF was plotted')
