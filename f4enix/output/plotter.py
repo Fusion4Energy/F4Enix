@@ -867,7 +867,7 @@ class CDFplot(Plotter2D):
 
     def plot(self, values_list: list, bins: int = 10,
              datalabels: list[str] = None, perc: bool = True,
-             outside_legend: bool = False) -> None:
+             outside_legend: bool = False, cut_y: float = None) -> None:
         """plot the comulative distributions as discrete steps
 
         Parameters
@@ -885,6 +885,8 @@ class CDFplot(Plotter2D):
         outside_legend : bool
             if True pushes the legend outside of the graph frame, by default is
             False
+        cut_y : float, optional
+            cut the y axis to a specific value, by default is None.
         """
         # check that the length of labels is consisting
         if datalabels is not None:
@@ -911,4 +913,7 @@ class CDFplot(Plotter2D):
             self.ax.legend(framealpha=1, bbox_to_anchor=(1, 1))
         else:
             self.ax.legend(loc='lower right', framealpha=1)
+        
+        if cut_y is not None:
+            self.ax.set_ylim(top=cut_y)
         logging.info('CDF was plotted')
