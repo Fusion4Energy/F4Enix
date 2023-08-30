@@ -489,7 +489,7 @@ class Fmesh:
         if self.cart:
             self.grid = self._getVTKrg()
         else:
-            self.grid = self._getVTKrg()
+            self.grid = self._getVTKsg()
 
     # Read photonfile format of SRCIMP mesh (D1SUNED)
     def _readSRCTYPE(self, f, cfilter=None, norm=None):
@@ -535,7 +535,7 @@ class Fmesh:
             _skipLines(f, 2)
         else:
             if self.type == "srcimp":
-                self.tallyscore = np.float(f.readline().split()[-1])
+                self.tallyscore = np.float64(f.readline().split()[-1])
             _skipLines(f, 5)
 
         nelemts = self.ldims[1] * self.ldims[2] * self.ldims[3]
@@ -1611,30 +1611,30 @@ class Meshtal:
     #     off.SetFileName(outpath)
     #     off.Write()
 
-    def _addVTKparams(self, xdict: dict) -> None:
-        """Add more parameters to include in VTK
+    # def _addVTKparams(self, xdict: dict) -> None:
+    #     """Add more parameters to include in VTK
 
-        Parameters
-        ----------
-        xdict : dict
-            parameters to be added
-        """
-        self.params.update(xdict)
+    #     Parameters
+    #     ----------
+    #     xdict : dict
+    #         parameters to be added
+    #     """
+    #     self.params.update(xdict)
 
-    def _setVTKparams(self, xdat: vtk.vtkDataSet) -> None:
-        """Modify VTK structure for including parameters
+    # def _setVTKparams(self, xdat: vtk.vtkDataSet) -> None:
+    #     """Modify VTK structure for including parameters
 
-        Parameters
-        ----------
-        xdat : vtk.vtkDataSet
-            vtk data set to be modified
-        """
-        # for x,v in self.params.iteritems():
-        for x, v in self.params.items():
-            t = vtk.vtkStringArray()
-            t.SetName(x)
-            t.InsertNextValue(v)
-            xdat.GetFieldData().AddArray(t)
+    #     Parameters
+    #     ----------
+    #     xdat : vtk.vtkDataSet
+    #         vtk data set to be modified
+    #     """
+    #     # for x,v in self.params.iteritems():
+    #     for x, v in self.params.items():
+    #         t = vtk.vtkStringArray()
+    #         t.SetName(x)
+    #         t.InsertNextValue(v)
+    #         xdat.GetFieldData().AddArray(t)
 
     def __repr__(self) -> str:
         return self.__str__()

@@ -23,7 +23,9 @@ class TestMeshtal:
                               "meshtal_cyl",
                               "meshtal_d1s_CSimpactStudy",
                               "meshtal_CUBE_SQUARE",
-                              "meshtal_CUBE_ONES"])
+                              "meshtal_CUBE_ONES",
+                              'test_srcimp',
+                              'assembly_meshtal_test'])
     def test_mesh_print_tally_info(self, input_meshtal):
         # To check if the meshtal can be read without any problem"
         filetype = "MCNP"
@@ -49,6 +51,8 @@ class TestMeshtal:
             "meshtal_d1s_CSimpactStudy",
             "meshtal_CUBE_SQUARE",
             "meshtal_CUBE_ONES",
+            'test_srcimp',
+            'assembly_meshtal_test'
         ],
     )
     def test_read_mesh(self, input_meshtal):
@@ -142,7 +146,8 @@ class TestMeshtal:
                              ['meshtal_cuv', 'meshtal_cyl',
                               'meshtal_d1s_CSimpactStudy',
                               'meshtal_d1s_IVVS_FDR',
-                              'meshtal_rect_VV'])
+                              'meshtal_rect_VV','test_srcimp',
+                              'assembly_meshtal_test'])
     def test_reading(self, input_meshtal):
         # To check if the meshtal can be read without any problem"
         filetype = 'MCNP'

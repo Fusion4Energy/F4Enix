@@ -1273,7 +1273,8 @@ class MatCardsList(Sequence):
                           percentages: list[float],
                           newlib: str,
                           libmanager: LibManager,
-                          fractiontype='atom') -> Material:
+                          fractiontype='atom',
+                          mat_name='M1') -> Material:
         """
         Starting from an MCNP input, materials contained in its material list
         can be used to generate a new material combining them.
@@ -1291,17 +1292,23 @@ class MatCardsList(Sequence):
         fractiontype : str, optional
             type of fraction to use in the new material (either 'atom' or
             'mass'. The default is 'atom'.
-
+        mat_name : str, optional
+            Material card name of the new generated material. the default is 
+            'M1'
         Returns
         -------
         Material
             Newly created material
 
         """
-
+        
+        if re.match(r'^M\d{1,7}$', mat_name) is None:
+            print('\nMaterial name not valid, set to M1\n')
+            mat_name = 'M1'
+            
         # Translate to requested lib
         self.translate(newlib, libmanager)
-
+        
         # Collect all submaterials
         submaterials = []
         main_header = ''
@@ -1343,7 +1350,7 @@ class MatCardsList(Sequence):
             submaterials.extend(current_submaterials)
 
         # Generate new material and matlist
-        newmat = Material(None, None, 'M1', submaterials=submaterials,
+        newmat = Material(None, None, mat_name, submaterials=submaterials,
                           header=main_header)
 
         return newmat
