@@ -441,7 +441,7 @@ class Output:
         df.set_index('Cell', inplace=True)
         df['Other TFC bins'] = pd.Series(summary)
 
-        return df
+        return df.sort_index()
 
     def get_table(self, table_num: int) -> pd.DataFrame:
         """Extract a printed table from the MCNP output file.
