@@ -26,6 +26,13 @@ Brought to you by Fusion For Energy (F4E) Analyses & Codes team.
    examples/input/input
    examples/output/output
 
+.. toctree:: 
+   :caption: Developer Guide:
+   :maxdepth: 2
+
+   developers/contributing
+   developers/ci
+
 F4Enix API
 ----------
 
@@ -35,13 +42,6 @@ F4Enix API
    :recursive:
 
    f4enix
-
-.. toctree:: 
-   :caption: Developer Guide
-   :maxdepth: 2
-
-   developers/contributing
-   developers/ci
 
 
 Indices and tables
