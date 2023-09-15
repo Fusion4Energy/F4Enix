@@ -40,6 +40,7 @@ F4Enix API
    :caption: Developer Guide
    :maxdepth: 2
 
+   developers/contributing
    developers/ci
 
 
