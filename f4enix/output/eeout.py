@@ -20,6 +20,8 @@ and limitations under the Licence.
 import re
 import os
 import logging
+import pyvista as pv
+import numpy as np
 
 from f4enix.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
 
@@ -38,6 +40,7 @@ from f4enix.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
 # id2Neighbour = 'NEAREST NEIGHBOR DATA 2ND ORDER TETS'
 # Common patterns
 PAT_INFO_NAME = re.compile(r'[A-Za-z\s\d]+')
+PAT_VALUE = re.compile(r'\s[\s-]\d')
 # patNumber = re.compile(r'\d+')
 # patNumberSci = re.compile(r'[-+]*\d+.\d+E[+-]\d+')
 # patSpace = re.compile(r'\s+')
@@ -74,6 +77,16 @@ class EEOUT:
             number of nodes of the mesh
         n_elem : int
             number of elements of the mesh
+        grid : pv.UnstructuredGrid
+            vtk object containing all the parsed data from eeout
+
+        Examples
+        --------
+        Parse an eeout file and export it to .vtu format
+
+        >>> from f4enix.output.eeout import EEOUT
+        ... eeout = EEOUT(r'path/to/file.eeout')
+        ... eeout.export(r'path/to/output/folder')
 
         Raises
         ------
@@ -91,6 +104,9 @@ class EEOUT:
 
         # Get infos
         self.info = self._read_info()
+
+        # get materials name
+        mat_names = self._get_materials_name()
 
         # Determine mesh elements used. Only first and second order tetras
         # are supported. No mixed formulation are supported
@@ -111,7 +127,9 @@ class EEOUT:
         self.p_list = self._read_particle_list()
         assert len(self.p_list) == self.info['NUMBER OF PARTICLES']
 
-        nodes_x, nodes_y, nodes_z, idx_elem_type = self._read_nodes_xyz()
+        points, idx_elem_type = self._read_nodes_xyz()
+
+        # get the materialss
         material_ids, idx_connect = self._read_material(idx_init=idx_elem_type)
 
         # TODO the element type should be parsed here in order to allow mixed
@@ -124,10 +142,64 @@ class EEOUT:
         # get edits
         edits, idx_centroids = self._read_edits(start_idx=idx_neigh)
 
-        # get the materials
+        # read density and volumes
+        rhos, volumes = self._read_rho_vol(start_index=idx_centroids)
 
+        # build the UM
+        if self.elem_type == TETRA1:
+            cell_type = np.full(self.n_elem, pv.CellType.TETRA, dtype=np.uint8)
+        elif self.elem_type == TETRA2:
+            cell_type = np.full(self.n_elem, pv.CellType.TETRA, dtype=np.uint8)
+        else:
+            raise NotImplementedError(f'{self.elem_type} not implemented')
+
+        grid = pv.UnstructuredGrid(elem_connectivity.ravel(), cell_type,
+                                   points)
+        grid['material'] = np.vectorize(mat_names.get)(material_ids)
+        grid['density'] = rhos
+        grid['volume'] = volumes
+        for key, field in edits.items():
+            grid[f'{key} - value'] = field['values']
+            grid[f'{key} - error'] = field['errors']
+
+        self.grid = grid
 
         logging.info('Parsing completed correctly')
+
+    def export(self, outfolder: os.PathLike, filename: str = None,
+               format: str = 'vtu') -> None:
+        """Export the eeout to different format.
+
+        at the moment only unstructured mesh vtk (vtu) is the only supported
+        format.
+
+        Parameters
+        ----------
+        outfolder : os.PathLike
+            path to the output folder where to export.
+        filename : str, optional
+            name of the file (without format extension), by default None,
+            meaning the the original name of the eeout file will be used.
+        format : str, optional
+            export format, by default 'vtu' which is only one that is currently
+            supported.
+
+        Raises
+        ------
+        ValueError
+            if the output folder does not exists.
+        """
+        if not os.path.exists(outfolder):
+            raise ValueError(f'{outfolder} does not exist')
+
+        if format not in ['vtu']:
+            raise NotImplementedError(f'{format} is not a valid format')
+
+        if filename is None:
+            filename = self.filename
+
+        outpath = os.path.join(outfolder, filename+'.'+format)
+        self.grid.save(outpath)
 
     def _read_info(self) -> dict:
         read = False
@@ -146,6 +218,22 @@ class EEOUT:
                 return infos
 
         raise RuntimeError("No 'NUMBER OF EDITS' tag was found")
+
+    def _get_materials_name(self) -> dict[int, str]:
+        n_materials = self.info['NUMBER OF MATERIALS']
+        for idx, line in enumerate(self.lines):
+            pat_flag = re.compile(r'\s+MATERIALS')
+            if pat_flag.match(line):
+                break
+
+        pat_whatever = re.compile('.+')
+        materials = {}
+        for i in range(n_materials):
+            line = self.lines[i+1+idx]
+            mat = pat_whatever.match(line).group().strip()
+            materials[i+1] = mat
+
+        return materials
 
     def _read_particle_list(self) -> int:
         readFlag = False
@@ -180,8 +268,7 @@ class EEOUT:
             if line.find('ELEMENT MATERIAL') != -1:
                 materialFlag = True
 
-    def _read_nodes_xyz(self) -> tuple[list[float], list[float],
-                                      list[float], int]:
+    def _read_nodes_xyz(self) -> tuple[np.ndarray, int]:
 
         # Reading nodes
         readFlagX = False
@@ -229,12 +316,14 @@ class EEOUT:
 
             # trigger exit
             if pat_trigger_end.match(line) is not None:
-                return nodesX, nodesY, nodesZ, idx
+                points = np.concatenate([np.array([nodesX]).T,
+                                         np.array([nodesY]).T,
+                                         np.array([nodesZ]).T], axis=1)
+                return points, idx
 
         raise RuntimeError("Could not find the element tag 'ELEMENT TYPE'")
 
-    def _read_connectivity(self, start_idx: int = 0) -> tuple[list[str], int]:
-        cells = []
+    def _read_connectivity(self, start_idx: int = 0) -> tuple[np.ndarray, int]:
         data = []
         # Reading nodes
         readFlagCon = False
@@ -261,16 +350,24 @@ class EEOUT:
         elif self.elem_type == TETRA2:
             n_nodes = 10
 
+        # first get all values and straigthen the array
+        # (solve multiple line issue)
+        conn = []
         for string in data:
             newline = string.strip()
             substrings = PAT_SPACE.split(newline)
-            field = '{} '.format(n_nodes)
             for substring in substrings:
                 num = int(PAT_DIGIT.search(substring).group())-1
-                field = field+' '+'{:11d}'.format(num)
-            cells.append(field)
+                conn.append(num)
 
-        return cells, idx+start_idx
+        conn = np.reshape(np.array(conn), (-1, n_nodes))
+        # add the n_nodes describer
+        describer = np.full((len(conn), 1), n_nodes)
+
+        # finally concat
+        connectivity = np.concatenate([describer, conn], axis=1)
+
+        return connectivity, idx+start_idx
 
     def _read_edits(self, start_idx: int = 0
                     ) -> tuple[dict[str, dict[str, list]], int]:
@@ -278,7 +375,6 @@ class EEOUT:
         pat_particle = re.compile(r'(?<=DATA OUTPUT PARTICLE :)\s+\d+')
         pat_edit = re.compile(r'(?<=EDIT LIST :)\s+\d+')
         pat_type = re.compile(r'(?<=TYPE :)\s+\w+')
-        pat_value = re.compile(r'\s[\s-]\d')
 
         valuesFlag = False
 
@@ -297,10 +393,11 @@ class EEOUT:
             # We need to read data (either values or errors)
             if valuesFlag:
                 # valid data line
-                if pat_value.match(line) is not None:
+                if PAT_VALUE.match(line) is not None:
                     strippedline = line.strip()
                     values = PAT_SPACE.split(strippedline)
-                    values_list.extend(values)
+                    for value in values:
+                        values_list.append(float(value))
                 # no more values in this block
                 else:
                     edits[current_tally][value_type] = values_list[1:]
@@ -325,64 +422,31 @@ class EEOUT:
         raise RuntimeError(
             "Could not parse edits properly, missing 'CENTROIDS X'")
 
+    def _read_rho_vol(self, start_index: int = 0) -> tuple[list[float],
+                                                           list[float]]:
+        densityFlag = False
+        volumeFlag = False
+        densityList = []
+        volumesList = []
+        for line in self.lines[start_index:]:
+            if densityFlag or volumeFlag:
+                # valid data line
+                if PAT_VALUE.match(line) is not None:
+                    strippedline = line.strip()
+                    splitline = PAT_SPACE.split(strippedline)
+                    for value in splitline:
+                        if densityFlag:
+                            densityList.append(float(value))
+                        elif volumeFlag:
+                            volumesList.append(float(value))
 
+            if line.find('DENSITY') != -1:
+                densityFlag = True
+            if line.find('VOLUMES') != -1:
+                volumeFlag = True
+                densityFlag = False
 
-
-    # def _init_geom(self):
-    #     # -- General Variables --
-    #     numTets = 0
-    #     numNodes = 0
-    #     particleList = []
-    #     nodesX = []
-    #     nodesY = []
-    #     nodesZ = []
-    #     # Flags
-    #     readFlag = False
-
-    #     for line in self.lines:
-    #         # 1st order tetra
-    #         if line.find(idTets) != -1:
-    #             tets = re.findall(r'\d+', line)
-
-    #         # 2nd order tetra
-    #         if line.find(id2Tets) != -1:
-    #             tets = re.findall(r'\d+', line)
-
-    # def _get_general_info(self) -> tuple[int, int]:
-    #     for line in self.lines:
-    #         if line.find(idNodes) != -1:
-    #             numNodes = patNumber.search(line).group()
-    #         if line.find(idTets) != -1:
-    #             numTets = patTets.search(line).group()
-    #             return numNodes, numTets
-
-    # def _init_tetra1():
-    #     for line in infile:
-    #         if line.find(idTets) !=-1:
-    #             tets=re.findall('\d+',line)
-    #             if int(tets[1]) > 0:
-
-    #                 t=5
-                    
-    #                 # General infos
-    #                 with open (pathfile,'r', errors="surrogateescape") as infile:
-    #                     for line in infile:
-    #                         if line.find(idNodes) !=-1:
-    #                             numNodes=patNumber.search(line).group()
-    #                         if line.find(idTets) !=-1:
-    #                             numTets=patTets.search(line).group()
-    #                             break
-                            
-                                
-    #                 # Particle type
-    #                 with open (pathfile,'r', errors="surrogateescape") as infile:
-    #                     for line in infile:
-    #                         if readFlag:
-    #                                 particleList=(patNumber.findall(line))
-    #                                 break
-                                
-    #                         if line.find(idParticlesType) !=-1:
-    #                                 readFlag=True
+        return densityList, volumesList
 
     def __repr__(self) -> str:
         return str(self.info)
