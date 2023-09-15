@@ -9,7 +9,7 @@ Version: |release|
 
 A python package for Monte Carlo simulations input and output files parsing.
 
-Brought to you by Fusion For Energy (F4E) neutronics team.
+Brought to you by Fusion For Energy (F4E) Analyses & Codes team.
 
 .. toctree::
    :maxdepth: 2
