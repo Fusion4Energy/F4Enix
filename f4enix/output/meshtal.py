@@ -574,9 +574,9 @@ class Fmesh:
                 vals = []
                 errs = []
                 tot = f.readline().split()[-1]
-                for i in range(nline):
+                for i in range(ne):
                     vals.extend(f.readline().split())
-                for i in range(nline):
+                for i in range(ne):
                     errs.extend(f.readline().split())
 
                 if nbin > 1:
