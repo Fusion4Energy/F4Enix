@@ -5,6 +5,7 @@ import pyvista as pv
 from importlib.resources import files, as_file
 
 from f4enix.output.meshtal import Meshtal
+from f4enix.output.meshtal import identical_mesh
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.tests as res
 import tests.resources.meshtal.expected as res_exp
@@ -41,6 +42,7 @@ class TestMeshtal:
         with as_file(RESOURCES.joinpath('meshtal_CUBE_SQUARE')) as inp:
             meshtally = Meshtal(inp)
         meshtally.readMesh()
+        assert meshtally.mesh[124].sameMesh(meshtally.mesh[124], checkErg=True)
         assert meshtally.mesh[124].sameMesh(meshtally.mesh[124])
 
     @pytest.mark.parametrize(
@@ -162,6 +164,32 @@ class TestMeshtal:
         meshtally.readMesh()
         meshtally.write_all(tmpdir)
 
+    @pytest.mark.parametrize(
+        "input_meshtal",
+        [
+            "meshtal_cuv",
+            "meshtal_cyl",
+            "meshtal_d1s_CSimpactStudy",
+            "meshtal_CUBE_SQUARE",
+            "meshtal_CUBE_ONES",
+            'test_srcimp',
+            'assembly_meshtal_test'
+        ],
+    )
+
+    def test_identical_mesh(self, input_meshtal):
+        # To check if the meshtal can be read without any problem"
+        filetype = "MCNP"
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtally = Meshtal(inp, filetype)
+
+        for m, i in enumerate(list(meshtally.mesh.values())[1:]):
+            if m == 0:
+                j = list(meshtally.mesh.values())[0]
+            a, b, c = identical_mesh(i, j)
+            j = i
+
+        assert True
 # ************** STATUS OF TESTING *****************
 # Mesh scale               (scale)      ---> DONE
 # Mesh sum                 (sum)        ---> DONE
