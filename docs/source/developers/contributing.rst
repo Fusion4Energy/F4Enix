@@ -33,7 +33,7 @@ have a GitHub account and that you are able to create/push to repositories on Gi
 An easy wasy to approach the world of git actions and their integration with GitHub is to use
 `GitHub Desktop <https://desktop.github.com/>`_.
 
-Development of OpenMC relies heavily on branching; specifically, we use a branching model
+Development of F4Enix relies heavily on branching; specifically, we use a branching model
 sometimes referred to as git flow. If you plan to contribute to F4Enix development,
 we highly recommend that you read this
 `blog post <https://nvie.com/posts/a-successful-git-branching-model/>`_
