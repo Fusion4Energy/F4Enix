@@ -503,11 +503,17 @@ class Mctal:
         self.tallies = self._read()
         self.tallydata, self.totalbin = self._get_dfs()
 
-    def get_error_summary(self) -> pd.DataFrame:
+    def get_error_summary(self, include_abs_err: bool = False) -> pd.DataFrame:
         """Return a dataframe containing a summary of the min and max errror
         registered in each tally. If both value and error are equal to zero,
         the errors will be set to NaN, since it means that nothing has been
         scored in the tally.
+
+        Parameters
+        ----------
+        include_abs_err : bool, optional
+            if True includes the absolute error in addition to the total one,
+            by default is False
 
         Returns
         -------
@@ -522,16 +528,30 @@ class Mctal:
             max_error = data["Error"].max()
             max_idx = data['Error'].idxmax()
 
+            min_val = data['Value'].iloc[min_idx]
+            max_val = data['Value'].iloc[max_idx]
+
             # put a NaN, since no particle was tallied in the cell
-            if min_error == 0 and data['Value'].iloc[min_idx] == 0:
+            if min_error == 0 and min_val == 0:
                 min_error = np.nan
-            if max_error == 0 and data['Value'].iloc[max_idx] == 0:
+            if max_error == 0 and max_val == 0:
                 max_error = np.nan
 
-            rows.append([tally, min_error, max_error])
+            if include_abs_err:
+                rows.append([tally, min_error, min_val,
+                             max_error, max_val])
+            else:
+                rows.append([tally, min_error, max_error])
+
+        if include_abs_err:
+            columns = ['tally num', 'min rel error', 'min abs err',
+                       'max rel error', 'max abs err']
+        else:
+            columns = ['tally num', 'min rel error', 'max rel error']
 
         df = pd.DataFrame(rows)
-        df.columns = ['tally num', 'min error', 'max error']
+        df.columns = columns
+
         return df
 
     def _read(self) -> list[Tally]:

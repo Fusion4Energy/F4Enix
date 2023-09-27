@@ -26,6 +26,10 @@ class TestLibManger:
         assert len(self.lm.reactions['99c']) == 100
         assert len(self.lm.reactions['98c']) == 34
 
+    def test_default_lm(self):
+        LibManager()
+        assert True
+
     def test_get_reactions1(self):
         """
         Test ability to recover reactions for parent zaid (one)

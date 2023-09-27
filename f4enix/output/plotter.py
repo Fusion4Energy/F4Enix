@@ -29,6 +29,10 @@ from docx.enum.section import WD_ORIENT
 from PIL import Image, ImageOps
 import io
 from copy import deepcopy
+from abc import ABC, abstractmethod
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
+
 
 from pathlib import Path
 
@@ -363,6 +367,11 @@ class MeshPlotter:
         scalar_bar_args = deepcopy(self.legend_args)
         if scale_title is not None:
             scalar_bar_args['title'] = scale_title
+
+        # get a number of labels that pairs with the number of colors
+        # works only with even numbers
+        if n_colors < 30 and n_colors % 2 == 0:
+            scalar_bar_args['n_labels'] = int(n_colors/2+1)
 
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
 
@@ -756,3 +765,160 @@ class Atlas:
     #     shading_elm_1 = parse_xml(r'<w:shd {} w:fill="'.format(nsdecls('w')) +
     #                               color + r'"/>')
     #     cell._tc.get_or_add_tcPr().append(shading_elm_1)
+
+
+class Plotter2D(ABC):
+
+    def __init__(self, suptitle: str = None, xlabel: str = None,
+                 ylabel: str = None) -> None:
+        """Abstract class for the definition of 2D plots.
+
+        Parameters
+        ----------
+        suptitle : str, optional
+            title of the plot, by default None
+        xlabel : str, optional
+            X axis label, by default None
+        ylabel : str, optional
+            Y axis label, by default None
+
+        Attributes
+        ----------
+        fig : matplotlib.pyplot.Figure
+            matplotlib figure representation
+        ax : matplotlib.pyplot.Axis
+            matplotlib axes representation
+        markers : list[str]
+            markers used in the plots ['o', 's', 'D', '^', 'X', 'p', 'd', '*'].
+        lines : list[str]
+            linestyles used in the plots ['-', '--', '-.', ':']
+        colors : list[str]
+            colors used in the plots. They compose a color-blind friendly
+            palette.
+
+        """
+        fig, ax = plt.subplots()
+
+        # Some default actions
+        ax.grid(alpha=0.6, which='both')
+        if suptitle is not None:
+            ax.set_title(suptitle)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel)
+        if xlabel is not None:
+            ax.set_xlabel(xlabel)
+
+        # store the default
+        self.fig = fig
+        self.ax = ax
+
+        # May be improved in the future with additional markers and colors
+        # plot decorators
+        self.markers = ['o', 's', 'D', '^', 'X', 'p', 'd', '*']*50
+        self.lines = ['-', '--', '-.', ':']*50
+        # Color-blind friendly palette
+        self.colors = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628',
+                       '#984ea3', '#999999', '#e41a1c', '#dede00']*50
+        logging.debug('plotter initialized')
+
+    @abstractmethod
+    def plot(self) -> None:
+        pass
+
+    def save(self, outpath: os.PathLike) -> None:
+        self.fig.savefig(outpath, dpi=300, bbox_inches='tight')
+        logging.info('plot has been saved at {}'.format(outpath))
+
+
+class CDFplot(Plotter2D):
+    def __init__(self, suptitle: str = None,
+                 xlabel: str = None,
+                 ylabel: str = None) -> None:
+        """Plotter for cumulative distributions.
+
+        all datasets of observations are automatically binnned and plotted as 
+        (unfilled) histograms.
+
+        Parameters
+        ----------
+        suptitle : str, optional
+            title of the plot, by default None
+        xlabel : str, optional
+            X axis label, by default None
+        ylabel : str, optional
+            Y axis label, by default None
+
+        Attributes
+        ----------
+        fig : matplotlib.pyplot.Figure
+            matplotlib figure representation
+        ax : matplotlib.pyplot.Axis
+            matplotlib axes representation
+        markers : list[str]
+            markers used in the plots ['o', 's', 'D', '^', 'X', 'p', 'd', '*'].
+        lines : list[str]
+            linestyles used in the plots ['-', '--', '-.', ':']
+        colors : list[str]
+            colors used in the plots. They compose a color-blind friendly
+            palette.
+
+        """
+        super().__init__(suptitle, xlabel, ylabel)
+
+    def plot(self, values_list: list, bins: int = 10,
+             datalabels: list[str] = None, perc: bool = True,
+             outside_legend: bool = False, cut_y: float = None,
+             cut_x: float = None) -> None:
+        """plot the comulative distributions as discrete steps
+
+        Parameters
+        ----------
+        values_list : list
+            list of list of values containing the occurencies to be analyzed
+        bins : int, optional
+            number of bins into which the observations should be divided,
+            by default 10
+        datalabels : list[str], optional
+            list of labels to be added in the plot legend representing the
+            different datasets reported in values_list, by default None
+        perc : bool, optional
+            if True, format y-axis as percentages, by default True
+        outside_legend : bool
+            if True pushes the legend outside of the graph frame, by default is
+            False
+        cut_y : float, optional
+            cut the y axis to a specific value, by default is None.
+        cut_x : float, optional
+            cut the x axis to a specific value, by default is None.
+        """
+        # check that the length of labels is consisting
+        if datalabels is not None:
+            try:
+                assert len(datalabels) == len(values_list)
+            except AssertionError:
+                msg = 'leghth of values ({}) is different from lenght of labels ({})'
+                raise ValueError(msg.format(len(values_list), len(datalabels)))
+
+        for i, values in enumerate(values_list):
+            if datalabels is not None:
+                label = datalabels[i]
+            else:
+                label = None
+
+            self.ax.hist(values, bins=bins, histtype='step',
+                         weights=np.ones(len(values))/len(values),
+                         cumulative=True, label=label, linestyle=self.lines[i],
+                         color=self.colors[i])
+            if perc:
+                self.ax.yaxis.set_major_formatter(PercentFormatter(1))
+
+        if outside_legend:
+            self.ax.legend(framealpha=1, bbox_to_anchor=(1, 1))
+        else:
+            self.ax.legend(loc='lower right', framealpha=1)
+
+        if cut_y is not None:
+            self.ax.set_ylim(top=cut_y)
+        if cut_x is not None:
+            self.ax.set_xlim(right=cut_x)
+        logging.info('CDF was plotted')

@@ -37,9 +37,9 @@ PAT_CARD_KEY = re.compile(r'[A-Za-z]+\d+')
 PAT_DOLLAR_COMMENT = re.compile(r'\$.*\n')
 PAT_MAT = re.compile(r'[\s\t]*[mM]\d+')
 PAT_MX = re.compile(r'[\s\t]*mx\d+', re.IGNORECASE)
-SCIENTIFIC_PAT = re.compile(r'-*\d.\d+E[+|-]\d+')
+SCIENTIFIC_PAT = re.compile(r'[-+]*\d.\d+E[+-]\d+')
 PAT_FMESH_KEY = re.compile(r'^FMESH\d+')
-PAT_NP = re.compile('(?<=:)[nN,pP]+')
+PAT_NP = re.compile(r'(?<=:)[nN,pP]+')
 
 # --- Plotter ---
 # coordinates are in meters
@@ -93,3 +93,6 @@ SDDR_CATEGORIES = {
     'categories': ['< 1.32 uSv/h', '1.32-7.5 uSv/h', '7.5-25 uSv/h',
                    '0.025-2 mSv/s', '2-100 mSv/h', '> 100 mSv/h']
     }
+
+# --- Constants ---
+ITER_PLASMA_360_500MW = 1.7757e20

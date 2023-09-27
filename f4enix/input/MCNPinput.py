@@ -29,10 +29,12 @@ from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
 from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP
+from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
 from copy import deepcopy
 
 
 PAT_MT = re.compile(r'm[tx]\d+', re.IGNORECASE)
+ADD_LINE_FORMAT = '         {}\n'
 
 
 class Input:
@@ -224,26 +226,7 @@ class Input:
         Input
             Input object
         """
-        name = os.path.basename(inputfile).split(".")[0]
-
-        # Get the blocks using numjuggler parser
-        logging.info('Reading file: {}'.format(name))
-        jug_cards = parser.get_cards_from_input(inputfile)
-        try:
-            jug_cardsDic = parser.get_blocks(jug_cards)
-        except UnicodeDecodeError as e:
-            logging.error('The file contains unicode errors, scan initiated')
-            txt = debug_file_unicode(inputfile)
-            logging.error('The following error where encountered: \n'+txt)
-            raise e
-
-        logging.debug('Reading has finished')
-
-        # Parse the different sections
-        header = jug_cardsDic[2][0].lines
-        cells = jug_cardsDic[3]
-        surfaces = jug_cardsDic[4]
-        data = jug_cardsDic[5]
+        cells, surfaces, data, header = _get_input_arguments(inputfile)
 
         return cls(cells, surfaces, data, header=header)
 
@@ -759,3 +742,352 @@ class Input:
             rows.append(row)
 
         return pd.DataFrame(rows).set_index("Tally").sort_index()
+
+
+class D1S_Input(Input):
+
+    def __init__(self, cells: list[parser.Card], surfs: list[parser.Card],
+                 data: list[parser.Card], header: list = None,
+                 irrad_file: IrradiationFile = None,
+                 reac_file: ReactionFile = None) -> None:
+        """Children of the :py:class:`Input`.
+
+        it includes also the reaction and irradiation files necessary for a 
+        D1S-UNED run and defines additional methods related to them.
+
+        Parameters
+        ----------
+        cells : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP cells.
+        surfs : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP surfaces.
+        data : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP data cards.
+        header : list, optional
+            list of strings that compose the MCNP header, by default None
+        irrad_file : IrradiationFile, optional
+            irradiation file object, by default None
+        reac_file : ReactionFile, optional
+            readtion file object, by default None
+
+        Attributes
+        ----------
+        irrad_file : IrradiationFile
+            irradiation file object
+        reac_file : ReactionFile
+            readtion file object
+
+        Examples
+        --------
+        translate the input defining an activation and transport library.
+        the reaction file will be used to identify to which isotopes the
+        activation library has to be assigned.
+
+        >>> from f4enix.input.MCNPinput import D1S_Input
+        ... from f4enix.input.libmanager import LibManager
+        ... d1s_inp = D1S_Input.from_input('d1stest.i', irrad_file='irr_test',
+        ...                                reac_file='reac_fe')
+        ... d1s_inp.smart_translate('99c', '00c', LibManager())
+        """
+
+        super().__init__(cells, surfs, data, header=header)
+        self.irrad_file = irrad_file
+        self.reac_file = reac_file
+
+    @classmethod
+    def from_input(cls, inputfile: os.PathLike, irrad_file: os.PathLike = None,
+                   reac_file: os.PathLike = None) -> D1S_Input:
+        """Generate a D1S-UNED input file.
+
+        this includes also the reaction and irradiation files.
+
+        Parameters
+        ----------
+        inputfile : os.PathLike
+            path to the MCNP input (D1S)
+        irrad_file : os.PathLike, optional
+            path to the irradiation file, by default None (no file associated)
+        reac_file : os.PathLike, optional
+            path to the reaction file, by default None (no file associated)
+
+        Returns
+        -------
+        D1S_Input
+            generated D1S_Input object
+        """
+        cells, surfaces, data, header = _get_input_arguments(inputfile)
+        if irrad_file is not None:
+            irrad_file = IrradiationFile.from_text(irrad_file)
+        if reac_file is not None:
+            reac_file = ReactionFile.from_text(reac_file)
+
+        return D1S_Input(cells, surfaces, data, header=header,
+                         irrad_file=irrad_file, reac_file=reac_file)
+
+    def get_potential_paths(self, libmanager: LibManager,
+                            lib: str) -> list[Reaction]:
+        """Given an activation library, return a list of all possible reactions
+        paths foreseen by the libmanager that can originate from the material
+        section of the input.
+
+        Parameters
+        ----------
+        libmanager : LibManager
+            Handlers of cross sections operations
+        lib : str
+            activation library to be used (e.g. 99c)
+
+        Returns
+        -------
+        list[Reaction]
+            list of Reaction objects describing all possible paths included in
+            LibManager
+        """
+        reactions = []
+        for material in self.materials.materials:
+            for submat in material.submaterials:
+                for zaid in submat.zaidList:
+                    parent = zaid.element+zaid.isotope
+                    zaidreactions = libmanager.get_reactions(lib, parent)
+                    # if len(zaidreactions) > 0:
+                    #     # it is a parent only if reactions are available
+                    #     parentlist.append(parent)
+                    for MT, daughter in zaidreactions:
+                        reactions.append((parent, MT, daughter))
+                        # daughterlist.append(daughter)
+
+        reactions = list(set(reactions))
+        reactions.sort()
+        # --- Build the reactions and reaction file ---
+        reaction_list = []
+        for parent, MT, daughter in reactions:
+            parent = parent+'.'+lib
+            # Build a comment
+            _, parent_formula = libmanager.get_zaidname(parent)
+            _, daughter_formula = libmanager.get_zaidname(daughter)
+            comment = '{} -> {}'.format(parent_formula, daughter_formula)
+
+            rx = Reaction(parent, MT, daughter, comment=comment)
+            reaction_list.append(rx)
+
+        return reaction_list
+
+    def get_reaction_file(self, libmanager: LibManager, lib: str,
+                          set_as_attribute: bool = True
+                          ) -> ReactionFile:
+        """
+        Get a reaction file suitable for the input.
+
+        The reaction file is built selecting from all the possible reaction
+        paths that can originate in the model due to its material cards only
+        the reactions that lead to a daughter listed in the irradiation file.
+        By default this is added as the reac_file for the input.
+
+        Parameters
+        ----------
+        libmanager : LibManager
+            Object handling all cross-sections related operations.
+        lib : str
+            library suffix to be used.
+        set_as_attribute: bool
+            if True (default) the reactionfile is saved as the self.reac_file
+
+        Returns
+        -------
+        ReactionFile
+            Object representing the react file for D1S.
+
+        Raises
+        ------
+        ValueError
+            if no irradiation files have been assigned yet to the input
+
+        """
+        # irrad file is necessary for this operation
+        # recover all available daughters
+        if self.irrad_file is None:
+            raise ValueError(
+                'irrad_file attribute cannot be None for this operation')
+        else:
+            available_daughters = self.irrad_file.get_daughters()
+
+        # Recover all possible reactions
+        reactions = self.get_potential_paths(libmanager, lib)
+
+        # perform the selection
+        selected_reactions = []
+        for reaction in reactions:
+            if reaction.daughter in available_daughters:
+                # add the reaction to the one to use
+                selected_reactions.append(reaction)
+
+        reac_file = ReactionFile(selected_reactions)
+
+        if set_as_attribute:
+            self.reac_file = reac_file
+
+        return reac_file
+
+    def smart_translate(self, activation_lib: str, transport_lib: str,
+                        libmanager: LibManager,
+                        fix_natural_zaid: bool = False) -> None:
+        """
+        Translate the input to another library without relying on old libs.
+
+        Both the activation and transport libraries are changed. The reaction
+        file and PIKMT cards are also translated.
+        Differently from self.translate(),
+        libraries are not modified based on old ones but based on the reaction
+        file. This is, to all parent zaids listed in the reactions will be
+        assigned the activation_lib, to all others the transport_lib.
+
+        Parameters
+        ----------
+        activation_lib : str
+            library to be used for activation, e.g., 99c
+        activation_lib : dict[str, str]
+            library to be used for activation, e.g., 31c
+        libmanager : LibManager
+            Library manager for the conversion.
+        fix_natural_zaid: bool
+            if True, and additional initial translation with the transport lib
+            is done in order to expand the natural zaids. If the transport lib
+            do not expand the natural zaid there may be issues.
+
+        Returns
+        -------
+        None
+
+        """
+        if self.reac_file is None:
+            raise ValueError(
+                'reac_file cannot be None for this operation'
+            )
+
+        if fix_natural_zaid:
+            # get a first translation to avoid issues with old natural zaids
+            self.translate(transport_lib, libmanager)
+
+        active_zaids = []
+        transp_zaids = []
+
+        for reaction in self.reac_file.reactions:
+            # strip the lib from the parent
+            parent = reaction.parent.split('.')[0]
+            active_zaids.append(parent)
+            reaction.change_lib(activation_lib)
+
+        # Now check for the remaing materials in the input to be assigned
+        # to transport
+        for material in self.materials.materials:
+            for submaterial in material.submaterials:
+                for zaid in submaterial.zaidList:
+                    zaidnum = zaid.element+zaid.isotope
+                    if (zaidnum not in active_zaids and
+                            zaidnum not in transp_zaids):
+                        transp_zaids.append(zaidnum)
+
+        newlib = {activation_lib: active_zaids, transport_lib: transp_zaids}
+
+        # trigger translation of the PIKMT card
+        self.add_PIKMT_card()
+
+        # Translate the input with the new lib
+        self.materials.translate(newlib, libmanager)
+
+    def add_PIKMT_card(self) -> None:
+        """
+        Add a PIKMT card to the input file. If a PKMT card is already present
+        this will be overridden.
+
+        Returns
+        -------
+        None.
+
+        """
+        key = 'PIKMT'
+        lines = [key+'\n']
+        for parent in self.reac_file.get_parents():
+            lines.append('         {}    {}\n'.format(parent, 0))
+
+        card = parser.Card(lines, 5, -1)
+        self.other_data[key] = card  # should override other PKMT cards
+
+    def add_track_contribution(self, tallykey: str, zaids: list[str],
+                               who: str = 'parent'):
+        """
+        Given a list of zaid add the FU bin in the requested tallies in order
+        to collect the contribution of them to the tally.
+
+        Parameters
+        ----------
+        tallykey : str
+            ID of the tally onto which to operate (e.g. F4).
+        zaids : list[str]
+            list of zaid numbers of the parents/daughters (e.g. 1001).
+        who : str, optional
+            either 'parent' or 'daughter' specifies the types of zaids to
+            be tracked. The default is 'parent'.
+
+        Raises
+        ------
+        ValueError
+            check for admissible who parameter.
+
+        Returns
+        -------
+        bool
+            return True if lines were added correctly
+
+        """
+        card = self.other_data[tallykey]
+        num = str(_get_num_tally(tallykey))
+
+        card.lines.append('FU'+num+' 0\n')
+
+        if who == 'parent':
+            for zaid in zaids:
+                card.lines.append(ADD_LINE_FORMAT.format('-'+str(zaid)))
+        elif who == 'daughter':
+            for zaid in zaids:
+                card.lines.append(ADD_LINE_FORMAT.format(zaid))
+        else:
+            raise ValueError(who+' is not an admissible "who" parameters')
+        card.get_input()
+
+
+def _get_input_arguments(inputfile: os.PathLike
+                            ) -> tuple:
+    name = os.path.basename(inputfile).split(".")[0]
+
+    # Get the blocks using numjuggler parser
+    logging.info('Reading file: {}'.format(name))
+    jug_cards = parser.get_cards_from_input(inputfile)
+    try:
+        jug_cardsDic = parser.get_blocks(jug_cards)
+    except UnicodeDecodeError as e:
+        logging.error('The file contains unicode errors, scan initiated')
+        txt = debug_file_unicode(inputfile)
+        logging.error('The following error where encountered: \n'+txt)
+        raise e
+
+    logging.debug('Reading has finished')
+
+    # Parse the different sections
+    header = jug_cardsDic[2][0].lines
+    cells = jug_cardsDic[3]
+    surfaces = jug_cardsDic[4]
+    data = jug_cardsDic[5]
+
+    return cells, surfaces, data, header
+
+
+def _get_num_tally(key: str) -> int:
+    patnum = re.compile(r'\d+')
+    try:
+        num = patnum.search(key).group()
+    except AttributeError:
+        # The pattern was not found
+        raise ValueError(key+' is not a valid tally ID')
+
+    return int(num)

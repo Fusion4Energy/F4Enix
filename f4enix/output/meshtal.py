@@ -1429,8 +1429,8 @@ class Meshtal:
         ErrorBin-003	Cells	float64	1	0.000e+00	0.000e+00
 
         Cell Under Voxel (CuV) approach is supported where cell_filters and
-        different normalization can be chosen. Thanks to the PyVistaParser
-        object then the fmesh can be exported to different formats
+        different normalization can be chosen. The fmesh can be exported to
+        different formats
 
         >>> # Read a specific CuV fmesh filtering by a set of cells
         ... # and changing the normalization to get the integral result

@@ -9,8 +9,9 @@ import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
 import pandas as pd
 
-from f4enix.input.MCNPinput import Input
+from f4enix.input.MCNPinput import Input, D1S_Input
 from f4enix.input.libmanager import LibManager
+from f4enix.input.d1suned import ReactionFile, IrradiationFile
 
 
 resources_inp = files(input_res)
@@ -210,3 +211,85 @@ class TestInput:
         assert (summary.loc[224].values.tolist() ==
                 ['P', 'FMESH Photon Heating [MeV/cc/n_s]',
                  '-1', ['0', '-5', '-6']])
+
+
+class TestD1S_Input:
+
+    with (as_file(resources_inp.joinpath('d1stest.i')) as inp_file,
+          as_file(resources_inp.joinpath('d1stest_irrad')) as irrad_file,
+          as_file(resources_inp.joinpath('d1stest_react')) as react_file
+          ):
+        inp = D1S_Input.from_input(inp_file, reac_file=react_file,
+                                   irrad_file=irrad_file)
+
+    with (as_file(resources_lib.joinpath('Activation libs.xlsx')) as ACTIVATION_FILE,
+          as_file(resources_lib.joinpath('xsdir')) as XSDIR_FILE,
+          as_file(resources_pkg.joinpath('Isotopes.txt')) as ISOTOPES_FILE):
+
+        lm = LibManager(XSDIR_FILE, activationfile=ACTIVATION_FILE,
+                        isotopes_file=ISOTOPES_FILE)
+
+    def test_smart_translate(self):
+        # This test needs to be improved
+        with (as_file(resources_inp.joinpath('d1stest_irrad_st')) as irrad_file,
+              as_file(resources_inp.joinpath('d1stest_react_st')) as react_file
+              ):
+            react_file = ReactionFile.from_text(react_file)
+            irrad_file = IrradiationFile.from_text(irrad_file)
+
+        newinp = deepcopy(self.inp)
+        newinp.irrad_file = irrad_file
+        newinp.reac_file = react_file
+
+        activation_lib = '98c'
+        transport_lib = '00c'
+        newinp.smart_translate(activation_lib, transport_lib, self.lm,
+                               fix_natural_zaid=True)
+
+        translation = newinp.materials.to_text()
+
+        assert translation.count('98c') == 4
+        assert translation.count('00c') == 145
+        assert newinp.reac_file.reactions[0].parent == '24050.98c'
+
+    def test_add_PKMT_card(self):
+        with as_file(resources_inp.joinpath('d1stest_noPKMT.i')) as inp_file:
+            newinp = D1S_Input.from_input(inp_file)
+        newinp.reac_file = self.inp.reac_file
+
+        newinp.add_PIKMT_card()
+        card = newinp.other_data['PIKMT']
+        assert len(card.lines) == 17
+
+    def test_get_reaction_file(self):
+        with (as_file(resources_inp.joinpath('d1stest_getreact.i')) as inp_file,
+              as_file(resources_inp.joinpath('d1stest_irrad_getreact')) as irr_file):
+            newinp = D1S_Input.from_input(inp_file, irrad_file=irr_file)
+
+        lib = '99c'
+        reacfile = newinp.get_reaction_file(self.lm, lib)
+        assert ['24050'] == reacfile.get_parents()
+
+    def test_get_potential_paths(self):
+        reaction_list = self.inp.get_potential_paths(self.lm, '98c')
+        assert len(reaction_list) == 32
+
+    @pytest.mark.parametrize(['who', 'sign'],
+                             [['parent', '-'],
+                              ['daughter', '']])
+    def test_add_track_contribution(self, tmpdir, who, sign):
+        zaids = ['1001', '1002']
+        tallyID = 'F124'
+
+        # --- Test parents---
+        inp = deepcopy(self.inp)
+        inp.add_track_contribution(tallyID, zaids, who=who)
+        # dump and reread the input
+        tmpfile = os.path.join(tmpdir, 'tmp.i')
+        inp.write(tmpfile)
+        newinp = D1S_Input.from_input(tmpfile)
+        # get the new injected card
+        card = newinp.other_data['FU124']
+        for line, exp in zip(card.lines[-3:],
+                             ['FU124 0', sign+'1001', sign+'1002']):
+            assert line.strip() == exp

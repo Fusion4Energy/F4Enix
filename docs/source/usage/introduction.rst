@@ -32,6 +32,10 @@ The package is made available on GitHub at [FUTURE LINK].
 
 Python has been chosen as the programming language for making it easy to use,
 portable, and easy to be intagrated with other scientific libraries and tools.
+
+Continous Integration (CI) procedures are implemented for F4Enix, additional
+details may be found at :ref:`CI details`.
+Both Linux and Windows OS are supported and tested.
  
 
 What is F4Enix
@@ -46,22 +50,33 @@ are ``f4enix.input`` and ``f4enix.output``.
 The following is a list of the kind of files that are currently at least partially
 supported by F4Enix:
 
-* MCNP input file by :py:class:`f4enix.input.MCNPinput.Input`
+* MCNP input file by :py:class:`f4enix.input.MCNPinput.Input`, which essentially is
+  a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
+* D1SUNED input file by :py:class:`f4enix.input.d1suned.IrradiationFile`, 
+  :py:class:`f4enix.input.d1suned.ReactionFile` and :py:class:`f4enix.input.MCNPinput.D1S_Input`
 * MCNP MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
 * MCNP MESHTAL file, including modified versions produced by D1SUNED
   by :py:class:`f4enix.output.meshtal.Meshtal`
 * MCNP output file by :py:class:`f4enix.output.MCNPoutput.Output`
-* VTK files by :py:class:`f4enix.output.pyvistawrap.PyVistaWrapper`
+* D1SUNED meshinfo file by :py:class:`f4enix.output.meshinfo.MeshInfo`
+* MCNP rssa file by :py:class:`f4enix.output.rssa.RSSA`
+* MCNP eeout file by :py:class:`f4enix.output.eeout.EEOUT`
 
 All classes and methods of the F4Enix API are documented and usage examples
-are provided in all the most important classes documentations.
+are provided in all the most important classes documentations. Additionally more
+structured examples of pre and post-processing pipelines are provided in the form
+of compiled jupyter notebooks.
+Everything that involves mesh output is dealt with the very versatile python
+package `PyVista <https://docs.pyvista.org/version/stable/index.html>`_.
 
-Short/mid term goals for the project:
+**Short/mid term goals for the project:**
 
 * support for MCNP Weight-Windows files
-* support for MCNP unstructured meshes output
-* support for RSSA files
-* support for the meshinfo file from CuV FMESH approach
-* build a common plotter to be potentially used by different modules
-* increase automatic test coverage
+* general issues fixing
 * improve documentation
+* increase automatic test coverage
+
+**Long term goals for the project:**
+
+* compatibilty with newer output formats brought by MCNP v6.3
+* increase features in all modules depending on needs

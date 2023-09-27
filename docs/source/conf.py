@@ -21,8 +21,8 @@ from f4enix import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'F4Enix'
-copyright = '2023, F4E neutronics team'
-author = 'F4E neutronics team'
+copyright = '2023, F4E Analyses & Codes team'
+author = 'F4E Analyses & Codes team'
 
 # The full version, including alpha/beta/rc tags
 release = __version__
@@ -151,7 +151,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'F4Enix.tex', 'F4Enix Documentation',
-     'F4E neutronics team', 'manual'),
+     'F4E Analyses & Codes team', 'manual'),
 ]
 
 

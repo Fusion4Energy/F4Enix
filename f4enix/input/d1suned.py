@@ -67,6 +67,29 @@ class IrradiationFile:
         name : str, optional
             name of the file. The default is 'irrad'.
 
+        Examples
+        --------
+        Some usage examples
+
+        >>> # parse an existing file
+        ... irrad_file = IrradiationFile.from_text('irr_test')
+        ... # get the list of irradiation schedules
+        ... irrad_file.irr_schedules
+        [['24051', '2.896e-07', '5.982e+00', '5.697e+00', 'Cr51'],
+         ['25054', '2.570e-08', '5.881e+00', '1.829e+00', 'Mn54'],
+         ['26055', '8.031e-09', '4.487e+00', '6.364e-01', 'Fe55']]
+
+        >>> # auxiliary method to retrieve a specific irradiation
+        ... print(irrad_file.get_irrad('24051'))
+        Daughter: 24051
+        lambda [1/s]: 2.896e-07
+        times: ['5.982e+00', '5.697e+00']
+        comment: Cr51
+
+        >>> # auxiliary method to get all daughters
+        ... print(irrad_file.get_daughters())
+        ['24051', '25054', '26055']
+
         Returns
         -------
         None.
@@ -332,11 +355,21 @@ class Irradiation:
         args.append(self.comment)
         return args
 
+    def _print(self) -> str:
+        text = """
+Daughter: {}
+lambda [1/s]: {}
+times: {}
+comment: {}
+""".format(self.daughter, self.lambd, self.times, self.comment)
+
+        return text
+
     def __repr__(self) -> str:
         return str(self._get_format_args())
 
     def __str__(self) -> str:
-        return str(self._get_format_args())
+        return self._print()
 
 
 class ReactionFile:
@@ -350,6 +383,19 @@ class ReactionFile:
             contains all reaction objects contained in the file.
         name : name, optional
             file name. The default is 'react'.
+
+        Examples
+        --------
+        It is possible to change the libraries of a reaction file
+
+        >>> from f4enix.input.d1suned import ReactionFile
+        ... reac_file = ReactionFile.from_text('reac_fe')
+        ... reac_file.change_lib('98c')
+
+        and obtain a list of the parents
+
+        >>> reac_file.get_parents()
+        ['26054', '26056', '26057', '26058']
 
         Returns
         -------
@@ -471,6 +517,18 @@ class ReactionFile:
                 outfile.write(REACFORMAT.format(*reaction._get_text())+'\n')
         logging.info('Reaction file written at {}'.format(outfile))
 
+    def _print(self) -> str:
+        text = REACFORMAT.format('Parent', 'MT', 'Daughter', 'Comment')+'\n'
+        for reaction in self.reactions:
+            text = text+REACFORMAT.format(*reaction._get_text())+'\n'
+        return text
+
+    def __repr__(self) -> str:
+        return self._print()
+
+    def __str__(self) -> str:
+        return self._print()
+
 
 class Reaction:
     def __init__(self, parent: str, MT: int | str, daughter: str,
@@ -556,6 +614,15 @@ class Reaction:
 
         return textpieces
 
+    def _nice_print(self) -> str:
+        text = """
+parent: {}
+MT channel: {}
+daughter: {}
+comment: {}
+""".format(self.parent, self.MT, self.daughter, self.comment)
+        return text
+
     @classmethod
     def from_text(cls, text: str) -> Reaction:
         """
@@ -590,7 +657,7 @@ class Reaction:
         return cls(parent, MT, daughter, comment=comment)
 
     def __repr__(self) -> str:
-        return str(self._get_text())
+        return self._nice_print()
 
     def __str__(self) -> str:
-        return str(self._get_text())
+        return self._nice_print()
