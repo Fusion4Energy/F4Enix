@@ -1301,14 +1301,14 @@ class MatCardsList(Sequence):
             Newly created material
 
         """
-        
+
         if re.match(r'^M\d{1,7}$', mat_name) is None:
             print('\nMaterial name not valid, set to M1\n')
             mat_name = 'M1'
-            
+ 
         # Translate to requested lib
         self.translate(newlib, libmanager)
-        
+
         # Collect all submaterials
         submaterials = []
         main_header = ''
