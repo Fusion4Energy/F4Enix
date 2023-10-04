@@ -325,6 +325,15 @@ class Input:
         self.materials.update_info(lib_manager)
 
     @staticmethod
+    def set_cell_void(cell: parser.Card) -> None:
+        if cell.ctype == 3 and cell.get_m() != 0:
+            cell.hidden['~'][0] = ''
+            cell._set_value_by_type('mat', 0)
+        else:
+            logging.warning(
+                f'cell {cell.name} is either already void or not a cell')
+
+    @staticmethod
     def _print_cards(cards: dict[str, parser.Card],
                      wrap: bool = False) -> list[str]:
         text = []

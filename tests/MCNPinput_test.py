@@ -213,6 +213,12 @@ class TestInput:
                 ['P', 'FMESH Photon Heating [MeV/cc/n_s]',
                  '-1', ['0', '-5', '-6']])
 
+    def test_set_cell_void(self):
+        newinput = deepcopy(self.testInput)
+        Input.set_cell_void(newinput.cells['49'])
+        assert (newinput.cells['49'].card() ==
+                '49   0     -128 129 48  -49               $imp:n,p=1\n')
+
 
 class TestD1S_Input:
 
