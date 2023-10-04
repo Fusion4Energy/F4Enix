@@ -148,12 +148,13 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir('sub').join('extract.i')
-        newinput.extract_cells(cells, outfile)
+        newinput.extract_cells(cells, outfile, renumber_from=1)
         # re-read
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
+        assert list(inp2.cells.keys()) == ['1', '2', '3', '4', '5']
 
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath('test_universe.i')) as FILE:
@@ -229,6 +230,12 @@ class TestInput:
         assert (summary.loc[224].values.tolist() ==
                 ['P', 'FMESH Photon Heating [MeV/cc/n_s]',
                  '-1', ['0', '-5', '-6']])
+
+    def test_set_cell_void(self):
+        newinput = deepcopy(self.testInput)
+        Input.set_cell_void(newinput.cells['49'])
+        assert (newinput.cells['49'].card() ==
+                '49   0     -128 129 48  -49               $imp:n,p=1\n')
 
 
 class TestD1S_Input:
