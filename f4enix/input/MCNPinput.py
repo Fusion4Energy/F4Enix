@@ -588,6 +588,34 @@ class Input:
 
         logging.info('input written correctly')
 
+    def extract_universe(self, universe: int, outfile: os.PathLike):
+        """Dumps a minimum MCNP working file that
+        includes all the cells, surfaces, materials and
+        translations of the universe. The resulting file doesn't have the universe
+        keyword in the cell definitions
+
+        Parameters
+        ----------
+        universe : int
+            universe id to be extracted
+        outfile : os.PathLike
+            path to the file where the MCNP input needs to be dumped
+        """
+        cell_ids_to_extract = []
+        for cell_id, cell in self.cells.items():
+            cell_universe = cell.get_u()
+
+            if cell_universe == universe:
+                cell_ids_to_extract.append(cell_id)
+
+                # remove the universe keyword
+                new_input = []
+                for input_part in cell.input:
+                    new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
+                cell.input = new_input
+                
+        self.extract_cells(cells=cell_ids_to_extract, outfile=outfile)
+
     @staticmethod
     def _clean_card_name(key: str) -> str:
         # this is to clean cases like:

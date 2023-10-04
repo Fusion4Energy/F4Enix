@@ -155,6 +155,24 @@ class TestInput:
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
 
+    def test_extract_universe(self, tmpdir):
+        with as_file(resources_inp.joinpath('test_universe.i')) as FILE:
+            mcnp_input = Input.from_input(FILE)
+        
+        outfile = tmpdir.mkdir('sub').join('extract_universe.i')
+
+        universe = 125
+        mcnp_input.extract_universe(universe, outfile)
+
+        # re-read
+        result = Input.from_input(outfile)
+
+        assert len(result.cells) == 3
+        assert len(result.surfs) == 2
+        assert len(result.materials) == 1 
+        for _, cell in result.cells.items():
+            assert cell.get_u() is None
+
     def test_duplicated_nums(self):
         # There was a bug reading material 101
         self.bugInput.get_materials_subset(['m101'])
