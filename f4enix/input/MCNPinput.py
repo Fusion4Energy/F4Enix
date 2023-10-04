@@ -520,10 +520,12 @@ class Input:
         return MatCardsList(materials), transformations, other_data
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None):
+                      renumber_from: int = None, keep_universe:bool = True):
         """given a list of cells, dumps a minimum MCNP working file that
         includes all the requested cells, defined surfaces, materials and
         translations.
+        TODO: if keep_universe is False: the cell definitions of the original input
+         class will be modified. This may be undesirable.
 
         Parameters
         ----------
@@ -571,6 +573,11 @@ class Input:
                         mset.add('M'+str(v))
             if renumber_from is not None:
                 cell._set_value_by_type('cel', i+renumber_from)
+            if not keep_universe:
+                new_input = []
+                for input_part in cell.input:
+                    new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
+                cell.input = new_input
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -625,14 +632,12 @@ class Input:
 
             if cell_universe == universe:
                 cell_ids_to_extract.append(cell_id)
-
-                # remove the universe keyword
-                new_input = []
-                for input_part in cell.input:
-                    new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
-                cell.input = new_input
                 
-        self.extract_cells(cells=cell_ids_to_extract, outfile=outfile)
+        self.extract_cells(
+            cells=cell_ids_to_extract, 
+            outfile=outfile, 
+            keep_universe=False
+            )
 
     @staticmethod
     def _clean_card_name(key: str) -> str:
