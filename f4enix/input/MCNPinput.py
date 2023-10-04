@@ -390,7 +390,7 @@ class Input:
 
         return selected_cards
 
-    def get_cells_by_id(self, ids: list[int]) -> dict:
+    def get_cells_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
@@ -510,7 +510,8 @@ class Input:
 
         return MatCardsList(materials), transformations, other_data
 
-    def extract_cells(self, cells: list[int], outfile: os.PathLike):
+    def extract_cells(self, cells: list[int], outfile: os.PathLike,
+                      renumber_from: int = None):
         """given a list of cells, dumps a minimum MCNP working file that
         includes all the requested cells, defined surfaces, materials and
         translations.
@@ -521,6 +522,11 @@ class Input:
             desired list of cells
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
+        renumber_from : int
+            apply a renumbering to the extracted cells starting from the 
+            specified int. It is important to notice that this renumbering
+            DOES NOT SUPPORT # operator for the moment being.
+            Default is None, no renumbering is applied.
         """
         logging.info('Collecting the cells, surfaces, materials and transf.')
         # make sure these are str
@@ -546,14 +552,16 @@ class Input:
                         cset = cset.union(cref)
 
         # Get all surfaces and materials
-        cells = self.get_cells_by_id(cset)
-        for _, cell in cells.items():
+        cells_cards = self.get_cells_by_id(cset)
+        for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
                 if t == 'sur':
                     sset.add(v)
                 elif t == 'mat':
                     if int(v) != 0:  # void material is not defined in a card
                         mset.add('M'+str(v))
+            if renumber_from is not None:
+                cell._set_value_by_type('cel', i+renumber_from)
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -567,13 +575,14 @@ class Input:
         #         for v, t in surf.values:
         #             if t == 'tr':
         #                 tset.add(v)
+
         logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:
             # Add the header lines
             for line in self.header:
                 outfile.write(line)
             # Add the cells
-            outfile.writelines(self._print_cards(cells))
+            outfile.writelines(self._print_cards(cells_cards))
             # Add a break
             outfile.write('\n')
             # Add the surfaces

@@ -148,12 +148,13 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir('sub').join('extract.i')
-        newinput.extract_cells(cells, outfile)
+        newinput.extract_cells(cells, outfile, renumber_from=1)
         # re-read
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
+        assert list(inp2.cells.keys()) == ['1', '2', '3', '4', '5']
 
     def test_duplicated_nums(self):
         # There was a bug reading material 101
