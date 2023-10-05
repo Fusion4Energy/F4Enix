@@ -237,6 +237,16 @@ class TestInput:
         assert (newinput.cells['49'].card() ==
                 '49   0     -128 129 48  -49               $imp:n,p=1\n')
 
+    def test_replace_material(self):
+        with as_file(resources_inp.joinpath('test_universe.i')) as inp_file:
+            newinp = Input.from_input(inp_file)
+        newinp.replace_material(10, '-2', 4)
+        assert newinp.cells['21'].get_m() == 10
+        assert newinp.cells['21'].get_d() == -2
+
+        newinp.replace_material(0, '10', 10, u_list=[125])
+        assert newinp.cells['21'].get_m() == 0
+
 
 class TestD1S_Input:
 

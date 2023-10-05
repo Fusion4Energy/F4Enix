@@ -329,6 +329,7 @@ class Input:
         if cell.ctype == 3 and cell.get_m() != 0:
             cell.hidden['~'][0] = ''
             cell._set_value_by_type('mat', 0)
+            cell._Card__m = 0  # necessary for the get val
         else:
             logging.warning(
                 f'cell {cell.name} is either already void or not a cell')
@@ -793,6 +794,54 @@ class Input:
             rows.append(row)
 
         return pd.DataFrame(rows).set_index("Tally").sort_index()
+
+    def replace_material(self, new_mat_id: int,
+                         new_density: str,
+                         old_mat_id: int,
+                         u_list: list[int] = None
+                         ) -> None:
+        """Replace a material and density in the input with other values.
+
+        Parameters
+        ----------
+        new_mat_id : int
+            id of the new material (0 for void)
+        new_density : str
+            new value for the density (including sign)
+        old_mat_id : int
+            id of the material to be repèlaced
+        u_list : list[int]
+            change the material only if cells belong to one of the universes
+            in the list. By default is None, all cells are affected.
+
+        Raises
+        ------
+        NotImplementedError
+            The capability to switch from a void cell to a filled cell is not
+            implemented yet. Viceversa is possible.
+        """
+        if old_mat_id == 0:
+            raise NotImplementedError('Cannot change a void cell')
+
+        for _, cell in self.cells.items():
+            in_universe = False
+            # check if universe is a parameter
+            if u_list is not None:
+                if cell.get_u() in u_list:
+                    in_universe = True
+            else:
+                # always in universe, default is always
+                in_universe = True
+
+            # If the material needs change and in universe
+            if cell.get_m() == old_mat_id and in_universe:
+                # Void needs to be handle in a specific way
+                if new_mat_id == 0:
+                    Input.set_cell_void(cell)
+                else:
+                    cell._set_value_by_type('mat', new_mat_id)
+                    cell._Card__m = new_mat_id  # necessary for the get val
+                    cell.set_d(new_density)
 
 
 class D1S_Input(Input):
