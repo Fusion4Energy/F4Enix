@@ -28,6 +28,7 @@ from scipy.spatial.transform import Rotation as R
 from io import open
 import logging
 from tqdm import tqdm
+from copy import deepcopy
 
 
 ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
@@ -1581,6 +1582,75 @@ class Meshtal:
         self.nps = int(
             float((self.f.readline().split()[-1]))
         )  # nps: int doesnt like decimals
+
+    def collapse_grids(self, name_dict: dict[int, list[str, str]]
+                       ) -> pv.DataSet:
+        """If the all the fmeshes in the meshtal are defined on the same
+        structured grid, returns a grid onto which all the fmeshes are
+        collapsed. That is, the returned grid will have all the field data that
+        are stored in the different fmeshes.
+
+        Parameters
+        ----------
+        name_dict : dict[int, list[str, str]]
+            this dictionary is used to assign names to the fields that are
+            added to the grid. The key of the dictionary is the number of the
+            fmesh, while the list of strings are
+            ['name of the values', 'name of the values statistical error'].
+            For instance {104: ['neutron heating [W/cc]',
+            'neutron heating [Rel err]']}
+
+        Returns
+        -------
+        pv.DataSet
+            returns the pyvista grid where all fields from the different
+            Fmeshes have been added
+
+        Raises
+        ------
+        RuntimeError
+            if the fmeshes have different geometry if they do not contain
+            only the default fields ['Value - Total', 'Error - Total'].
+        """
+
+        ids = ['Value - Total', 'Error - Total']
+
+        try:
+            # check that the collapse is doable
+            for i, (_, fmesh) in enumerate(self.mesh.items()):
+                # Check they are all same size
+                if i == 0:
+                    try:
+                        comparison = fmesh
+                    except AttributeError:
+                        # it means that the mesh has not been read
+                        raise AttributeError(
+                            'Please read the meshtal file first using readMesh()')
+                else:
+                    assert comparison.sameMesh(fmesh)
+        except AssertionError:
+            raise RuntimeError('the different fmeshes geom are not compatible')
+
+        try:
+            # check that the collapse is doable
+            for i, (_, fmesh) in enumerate(self.mesh.items()):
+                # check that there are only the two usual values, no binning
+                assert fmesh.grid.array_names == ids
+        except AssertionError:
+            raise RuntimeError('no binning allowed for the collapse')
+
+        for i, (key, fmesh) in enumerate(self.mesh.items()):
+            if i == 0:
+                grid = deepcopy(fmesh.grid)
+                for old_name, new_name in zip(grid.array_names,
+                                              name_dict[key]):
+                    grid.rename_array(old_name, new_name)
+            else:
+                # results just have to be added for the other fmeshes
+                for array_name, id in zip(name_dict[key], ids):
+                    grid[array_name] = fmesh.grid[id]
+
+        return grid
 
     # def writeVTK(self, ofn: os.PathLike) -> None:
     #     """write a .vtk file for all read fmeshes
