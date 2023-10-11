@@ -159,7 +159,7 @@ class TestInput:
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath('test_universe.i')) as FILE:
             mcnp_input = Input.from_input(FILE)
-        
+
         outfile = tmpdir.mkdir('sub').join('extract_universe.i')
 
         universe = 125

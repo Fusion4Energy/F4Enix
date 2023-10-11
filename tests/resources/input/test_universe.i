@@ -7,7 +7,8 @@ c Universe level 0
 C
 c Universe level 1
 21 4 -1.0 -21 imp:n=1 u=125
-22 0      -22 imp:n=1 U=125
+22 0      -22 imp:n=1 
+        U=125
 299 0 #21 #22    imp:n=1 u=125
 
 C Surfaces section

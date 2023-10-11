@@ -34,6 +34,7 @@ from copy import deepcopy
 
 
 PAT_MT = re.compile(r'm[tx]\d+', re.IGNORECASE)
+PAT_BLANK_LINE = re.compile(r'\n[\s\t]*\n')
 ADD_LINE_FORMAT = '         {}\n'
 
 
@@ -339,7 +340,10 @@ class Input:
                      wrap: bool = False) -> list[str]:
         text = []
         for _, card in cards.items():
-            text.append(card.card(wrap=wrap).strip('\n')+'\n')
+            text_candidate = card.card(wrap=wrap).strip('\n')+'\n'
+            # avoid blank lines
+            text_candidate = PAT_BLANK_LINE.sub('\n', text_candidate)
+            text.append(text_candidate)
         return text
 
     @staticmethod
