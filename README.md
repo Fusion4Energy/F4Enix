@@ -10,6 +10,9 @@ Parser for Monte Carlo simulations input and output files
 
 Both Windows and Linux supported.
 
+Go to [F4Enix official documentation](https://f4enix.readthedocs.io/en/latest/) to get
+more information on the library capabilities, examples and much more.
+
 ## Install
 The easiest way to install F4Enix is using pip:
 
