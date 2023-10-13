@@ -1,5 +1,7 @@
 [![Testing windows](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_win.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_win.yml)
 [![Testing linux](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml)
+[![PyPi build](https://github.com/Radiation-Transport/F4Enix/actions/workflows/build_publish.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/build_publish.yml)
+[![Documentation Status](https://readthedocs.org/projects/f4enix/badge/?version=latest)](https://f4enix.readthedocs.io/en/latest/?badge=latest)
 
 # F4Enix
 Parser for Monte Carlo simulations input and output files
@@ -9,22 +11,25 @@ Parser for Monte Carlo simulations input and output files
 Both Windows and Linux supported.
 
 ## Install
-### Disclaimer
-Currently the package can be installed only in developer mode.
+The easiest way to install F4Enix is using pip:
 
-The step 0 of this procedure, that is, if you are encountering any
-sort of trouble, would be to create a new fresh virtual environment.
+```
+pip install f4enix
+```
+
+### Troubleshooting and developer mode
+If any unexpected issue is encountered during installation, the first step for
+its resolution would be to create a new fresh virtual environment.
 In conda this would be done with:
 ```
 conda create -n <env_name> python=3.10
 ```
 Please remeber that python versions lower than 3.10 are not supported.
 
-### Proper installation
-Since the wheels of the package are not being built, the package can be
-install in editing (developer) mode. In order to do so, navigate to the
-F4Eparser folder and type the following to be sure that you pip is
-up to date:
+### Developer mode installation
+There are many situations (especially while being an active developer) where it may be useful to install f4enix in developer mode. In order to do so, navigate to the
+F4Eparser folder and type the following to be sure that your pip is
+up to date (optional):
 ```
 python -m pip install --upgrade pip setuptools wheel
 ```

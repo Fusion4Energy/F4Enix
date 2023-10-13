@@ -12,12 +12,17 @@ Both Windows and Linux OS are supported.
 
 Install from PyPI
 =================
-*Coming soon*
+The easiest (and recommended) way to install f4enix is from the 
+`PyPi <https://pypi.org/project/f4enix/>`_ index using:
 
+``pip install f4enix``
+
+In case of issues during installation, it is recommended to create a fresh virtual
+environment where to install the package.
 
 Local install
 =============
-To have a simple local installation (default choice).
+To have a simple local installation.
 
 Navigate to the F4Eparser folder and type the following to be sure that you
 pip is up to date:
