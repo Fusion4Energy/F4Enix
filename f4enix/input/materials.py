@@ -734,6 +734,44 @@ class Material:
             self.header = None
 
     @classmethod
+    def from_zaids(cls, zaids: list[tuple[str | int, float]],
+                   libman: LibManager,
+                   lib: str, name: str = '') -> Material:
+        """Generate a material giving a list of zaids or elements.
+
+        Parameters
+        ----------
+        zaids : list[tuple[str | int, float]]
+            list of (zaid, fraction) couples, e.g., (1001, -0.1). If negative,
+            fractions are intended as
+            mass fraction, if positive as atom fractions. To define a material
+            using elements, one can use natural zaids notation, e.g.,
+            (1000, -1). The translation operation to the requested library
+            will take care of expanding such zaids using natural abundances.
+        libman : LibManager
+            The usual library manager needed for XS operations.
+        lib : str
+            suffix of the library to apply to the material, e.g., 31c.
+        name : str, optional
+            this will be put in the header of the material card as a comment,
+            by default ''.
+
+        Returns
+        -------
+        Material
+            F4Enix material object
+        """
+        zaid_list = []
+        for zaid, fraction in zaids:
+            zaid = str(zaid)
+            zaid_list.append(Zaid(fraction, zaid[:-3], zaid[-3:], None))
+
+        submat = SubMaterial(f'C {name}', zaid_list)
+        submat.translate(lib, libman)
+        submat._update_info(libman)
+        return cls(None, None, submat.name, submaterials=[submat], header=None)
+
+    @classmethod
     def from_text(cls, text: list[str]) -> Material:
         """
         Create a material from MCNP formatted text

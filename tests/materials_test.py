@@ -183,6 +183,40 @@ class TestMaterial:
             diff = zaid1.fraction - zaid2.fraction
             assert diff < tolerance
 
+    def test_from_zaids(self):
+        zaids = [('1001', -100)]
+        mat = Material.from_zaids(zaids, LIBMAN, '31c', 'header')
+        assert len(mat.submaterials[0].zaidList) == 1
+        zaid = mat.submaterials[0].zaidList[0]
+        assert zaid.element == '1'
+        assert zaid.isotope == '001'
+        assert zaid.fraction == -100.
+
+        zaids = [(1000, -4.7), (5000, -30.4), (6000, -28.3), (11000, -3.2),
+                 (16000, -33.1), (14000, -0.06), (26000, -0.08), (7000, -0.4)]
+        mat = Material.from_zaids(zaids, LIBMAN, '31c', 'header')
+        assert mat.to_text() == """C HEADER
+       1001.31c       -4.698638E+0     $ H-1    AB(%) 99.971
+       1002.31c       -1.361756E-3     $ H-2    AB(%) 0.028974
+       5010.31c       -5.531343E+0     $ B-10   AB(%) 18.195
+       5011.31c       -2.486866E+1     $ B-11   AB(%) 81.805
+       6012.31c       -2.797523E+1     $ C-12   AB(%) 98.852
+       6013.31c       -3.247744E-1     $ C-13   AB(%) 1.1476
+      11023.31c       -3.200000E+0     $ Na-23  AB(%) 100.0
+      16032.31c       -3.130391E+1     $ S-32   AB(%) 94.574
+      16033.31c       -2.596888E-1     $ S-33   AB(%) 0.78456
+      16034.31c       -1.530534E+0     $ S-34   AB(%) 4.624
+      16036.31c       -5.866145E-3     $ S-36   AB(%) 0.017722
+      14028.31c       -5.513970E-2     $ Si-28  AB(%) 91.899
+      14029.31c       -2.892181E-3     $ Si-29  AB(%) 4.8203
+      14030.31c       -1.968119E-3     $ Si-30  AB(%) 3.2802
+      26054.31c       -4.516447E-3     $ Fe-54  AB(%) 5.6456
+      26056.31c       -7.352122E-2     $ Fe-56  AB(%) 91.902
+      26057.31c       -1.728295E-3     $ Fe-57  AB(%) 2.1604
+      26058.31c       -2.340355E-4     $ Fe-58  AB(%) 0.29254
+       7014.31c       -3.983744E-1     $ N-14   AB(%) 99.594
+       7015.31c       -1.625644E-3     $ N-15   AB(%) 0.40641"""
+
 
 class TestMatCardList:
     """test needs to be conducted both for the creation through
