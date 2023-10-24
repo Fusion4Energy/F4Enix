@@ -195,7 +195,8 @@ class TestMaterial:
         zaids = [(1000, -4.7), (5000, -30.4), (6000, -28.3), (11000, -3.2),
                  (16000, -33.1), (14000, -0.06), (26000, -0.08), (7000, -0.4)]
         mat = Material.from_zaids(zaids, LIBMAN, '31c', 'header')
-        assert mat.to_text() == """C HEADER
+        assert mat.to_text() == """C header
+M1
        1001.31c       -4.698638E+0     $ H-1    AB(%) 99.971
        1002.31c       -1.361756E-3     $ H-2    AB(%) 0.028974
        5010.31c       -5.531343E+0     $ B-10   AB(%) 18.195

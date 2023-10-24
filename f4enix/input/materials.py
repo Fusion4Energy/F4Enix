@@ -766,10 +766,10 @@ class Material:
             zaid = str(zaid)
             zaid_list.append(Zaid(fraction, zaid[:-3], zaid[-3:], None))
 
-        submat = SubMaterial(f'C {name}', zaid_list)
+        submat = SubMaterial('', zaid_list)
         submat.translate(lib, libman)
         submat._update_info(libman)
-        return cls(None, None, submat.name, submaterials=[submat], header=None)
+        return cls(None, None, 'M1', submaterials=[submat], header=f'C {name}')
 
     @classmethod
     def from_text(cls, text: list[str]) -> Material:
@@ -1343,7 +1343,7 @@ class MatCardsList(Sequence):
         if re.match(r'^M\d{1,7}$', mat_name) is None:
             print('\nMaterial name not valid, set to M1\n')
             mat_name = 'M1'
- 
+
         # Translate to requested lib
         self.translate(newlib, libmanager)
 
