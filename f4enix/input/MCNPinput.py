@@ -525,7 +525,8 @@ class Input:
         return MatCardsList(materials), transformations, other_data
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None, keep_universe:bool = True):
+                      renumber_from: int = None, keep_universe:bool = True,
+                      keep_fill:bool = True):
         """given a list of cells, dumps a minimum MCNP working file that
         includes all the requested cells, defined surfaces, materials and
         translations.
@@ -582,6 +583,37 @@ class Input:
                 new_input = []
                 for input_part in cell.input:
                     new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
+                cell.input = new_input
+            if not keep_fill:
+                new_input = []
+                fill_flag = 0
+                for input_part in cell.input:
+                    if '*FILL' in input_part.upper():
+                        input_part = re.sub(r'(?i)\*fill[^a-zA-Z]*', ' ', input_part, 
+                                            flags=re.IGNORECASE)
+                        fill_flag = 1
+                        new_input.append(input_part)
+                        continue
+                    elif 'FILL' in input_part.upper():
+                        input_part = re.sub(r'(?i)fill[^a-zA-Z]*', ' ', input_part, 
+                                            flags=re.IGNORECASE)
+                        fill_flag = 1
+                        new_input.append(input_part)
+                        continue
+                    if not fill_flag:
+                        new_input.append(input_part)
+                    else:
+                        if input_part[:5] != '     ' or input_part.isspace():
+                            new_input.append(input_part)
+                            continue
+                        elif not input_part.isspace():
+                            for ch, char in enumerate(input_part):
+                                if char.isalpha():
+                                    modified_string = "     " + input_part[ch:]
+                                    new_input.append(modified_string)
+                                    break
+                            new_input.append('     ')
+                       # Stop after the first letter is found 
                 cell.input = new_input
 
         # Do not bother for the moment in selecting also the transformations
