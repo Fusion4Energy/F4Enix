@@ -68,3 +68,5 @@ trame-vuetify
 trame-components
 trame-vtk
 ipywidgets
+libgl1-mesa-glx
+xvfb
