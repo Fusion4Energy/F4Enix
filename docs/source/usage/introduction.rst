@@ -28,7 +28,7 @@ level and facilitates engagement with a wide user community. It also enables
 users to contribute to the debugging and enhancement of the package,
 ensuring continuous development and improvement.
 
-The package is made available on GitHub at [FUTURE LINK].
+The package is made available on GitHub at https://github.com/Radiation-Transport/F4Enix.
 
 Python has been chosen as the programming language for making it easy to use,
 portable, and easy to be intagrated with other scientific libraries and tools.
