@@ -63,8 +63,3 @@ urllib3
 vtk
 wcwidth
 wincertstore
-trame
-trame-vuetify
-trame-components
-trame-vtk
-ipywidgets
