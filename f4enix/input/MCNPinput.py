@@ -645,8 +645,9 @@ class Input:
             outfile.write('\n')
             # Add materials
             materials = self.get_materials_subset(mset)
-            outfile.write(materials.to_text()+'\n')
-            outfile.writelines(self._print_cards(self.transformations))
+            if len(materials) > 0:
+                outfile.write(materials.to_text()+'\n')
+            outfile.writelines(self._print_cards(self.transformations, wrap=True))
 
         logging.info('input written correctly')
 
