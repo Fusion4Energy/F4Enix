@@ -256,8 +256,10 @@ class Input:
             outfile.writelines(self._print_cards(self.surfs, wrap=wrap))
             # Add a break
             outfile.write('\n')
+            
+            if len(self.materials.matdic) > 0:
             # Add the material section (they exit without the \n)
-            outfile.write(self.materials.to_text()+'\n')
+                outfile.write(self.materials.to_text()+'\n')
             # Add the translations
             outfile.writelines(self._print_cards(self.transformations,
                                                  wrap=wrap))
@@ -645,7 +647,7 @@ class Input:
             outfile.write('\n')
             # Add materials
             materials = self.get_materials_subset(mset)
-            if len(materials) > 0:
+            if len(materials.matdic) > 0:
                 outfile.write(materials.to_text()+'\n')
             outfile.writelines(self._print_cards(self.transformations, wrap=True))
 
