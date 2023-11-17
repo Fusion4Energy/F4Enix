@@ -184,13 +184,22 @@ class TestMaterial:
             assert diff < tolerance
 
     def test_from_zaids(self):
-        zaids = [('1001', -100)]
+        zaids = [('1001', -100), ('B-0', -200), ('C-12', -50)]
         mat = Material.from_zaids(zaids, LIBMAN, '31c', 'header')
-        assert len(mat.submaterials[0].zaidList) == 1
+        assert len(mat.submaterials[0].zaidList) == 4
         zaid = mat.submaterials[0].zaidList[0]
         assert zaid.element == '1'
         assert zaid.isotope == '001'
         assert zaid.fraction == -100.
+
+        zaid = mat.submaterials[0].zaidList[1]
+        assert zaid.element == '5'
+        assert zaid.isotope == '010'
+
+        zaid = mat.submaterials[0].zaidList[2]
+        assert zaid.element == '5'
+        assert zaid.isotope == '011'
+
 
         zaids = [(1000, -4.7), (5000, -30.4), (6000, -28.3), (11000, -3.2),
                  (16000, -33.1), (14000, -0.06), (26000, -0.08), (7000, -0.4)]
