@@ -24,6 +24,7 @@ import json
 import re
 from numjuggler import parser
 import pandas as pd
+import copy
 
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
@@ -528,7 +529,7 @@ class Input:
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
                       renumber_from: int = None, keep_universe:bool = True,
-                      keep_fill:bool = True):
+                      keep_fill:bool = True, extract_fillers:bool = True):
         """given a list of cells, dumps a minimum MCNP working file that
         includes all the requested cells, defined surfaces, materials and
         translations.
@@ -558,20 +559,44 @@ class Input:
         sset = set()  # surfaces
         mset = set()  # material
         # tset = set()  # transformations
+        cell_set = copy.deepcopy(cset)
 
         # next runs: find all other cells:
         again = True
         while again:
             again = False
-            for key, c in self.cells.items():
-                if key in cset:
-                    cref = c.get_refcells()
-                    if cref.difference(cset):
-                        again = True
-                        cset = cset.union(cref)
+            new_set = set()
+            uni_set = set()
+            for cell_num in cell_set:
+                c = self.cells[cell_num]
+                cref_i = c.get_refcells()
+                cref = {str(integer) for integer in cref_i}
+                new_set |= cref
+                if extract_fillers:
+                    fill = c.get_f()
+                    if fill is not None:
+                        uni_set.add(fill)
+            
+            if extract_fillers:
+                for key, c in self.cells.items():
+                    if c.get_u() in uni_set:
+                        new_set.add(key)
+
+            cell_set = new_set - cell_set
+            if cell_set:
+                again = True
+                cset |= cell_set
 
         # Get all surfaces and materials
+        # define dict holding map old IDs new IDs for cell renumbering
+        # only way to protect old cells is to copy them
+        
         cells_cards = self.get_cells_by_id(cset)
+        new_cells_cards = None
+        if not keep_universe or not keep_fill or renumber_from is not None:
+            new_cells_cards = copy.deepcopy(cells_cards)
+            renumber_dict = {}
+
         for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
                 if t == 'sur':
@@ -580,43 +605,12 @@ class Input:
                     if int(v) != 0:  # void material is not defined in a card
                         mset.add('M'+str(v))
             if renumber_from is not None:
-                cell._set_value_by_type('cel', i+renumber_from)
-            if not keep_universe:
-                new_input = []
-                for input_part in cell.input:
-                    new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
-                cell.input = new_input
-            if not keep_fill:
-                new_input = []
-                fill_flag = 0
-                for input_part in cell.input:
-                    if '*FILL' in input_part.upper():
-                        input_part = re.sub(r'(?i)\*fill[^a-zA-Z]*', ' ', input_part, 
-                                            flags=re.IGNORECASE)
-                        fill_flag = 1
-                        new_input.append(input_part)
-                        continue
-                    elif 'FILL' in input_part.upper():
-                        input_part = re.sub(r'(?i)fill[^a-zA-Z]*', ' ', input_part, 
-                                            flags=re.IGNORECASE)
-                        fill_flag = 1
-                        new_input.append(input_part)
-                        continue
-                    if not fill_flag:
-                        new_input.append(input_part)
-                    else:
-                        if input_part[:5] != '     ' or input_part.isspace():
-                            new_input.append(input_part)
-                            continue
-                        elif not input_part.isspace():
-                            for ch, char in enumerate(input_part):
-                                if char.isalpha():
-                                    modified_string = "     " + input_part[ch:]
-                                    new_input.append(modified_string)
-                                    break
-                            new_input.append('     ')
-                       # Stop after the first letter is found 
-                cell.input = new_input
+                renumber_dict[cell.values[0][0]] = i + renumber_from
+                # add here couple old id new id to dict
+            if not keep_universe and cell.values[0][0] in cells:
+                remove_u(new_cells_cards[_])
+            if not keep_fill and cell.values[0][0] in cells:
+                new_cells_cards[_].remove_fill()
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -630,6 +624,15 @@ class Input:
         #         for v, t in surf.values:
         #             if t == 'tr':
         #                 tset.add(v)
+        if renumber_from is not None:
+            for _, cell in new_cells_cards.items():
+                for l, (v, t) in enumerate(cell.values):
+                    if t == 'cel':
+                        cell.values[l] = (renumber_dict[v], t)
+        # re-iterate on all extracted cells to change the"cel" value
+        # according to map
+        if new_cells_cards is not None:
+            cells_cards = new_cells_cards
 
         logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:
@@ -1230,3 +1233,14 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key+' is not a valid tally ID')
 
     return int(num)
+
+def remove_u(cell: parser.Card):
+    new_input = []
+    for input_part in cell.input:
+        new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
+    cell.input = new_input
+    for b, (t, v) in enumerate(cell.values):
+        if v == 'u':
+            cell.values.pop(b)
+            break
+    return
