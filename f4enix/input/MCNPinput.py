@@ -1243,4 +1243,5 @@ def remove_u(cell: parser.Card):
         if v == 'u':
             cell.values.pop(b)
             break
+    cell.__u = None
     return
