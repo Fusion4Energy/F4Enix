@@ -231,6 +231,18 @@ class Input:
 
         return cls(cells, surfaces, data, header=header)
 
+    @staticmethod
+    def _renumber_cells(cells: dict[str, parser.Card],
+                        id_map: dict[int, int]) -> None:
+        """this acts directly on cells, make copies before use.
+        Also, ID in F4Enix dict will not be changed, name will not be
+        changed"""
+
+        for cell in cells.values():
+            for l, (v, t) in enumerate(cell.values):
+                if t == 'cel':
+                    cell.values[l] = (id_map[v], t)
+
     def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
         """write the input to a file
 
@@ -404,13 +416,17 @@ class Input:
 
         return selected_cards
 
-    def get_cells_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
+    def get_cells_by_id(self, ids: list[int],
+                        make_copy: bool = False) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
         ----------
         ids : list[int]
             cells id to be extracted
+        make_copy : bool
+            if True, makes a deepcopy of the cells instead of working on the
+            original ones. Default is False.
 
         Returns
         -------
@@ -420,7 +436,10 @@ class Input:
         str_ids = []
         for id in ids:
             str_ids.append(str(id))
-        return self._get_cards_by_id(str_ids, self.cells)
+        if make_copy:
+            return deepcopy(self._get_cards_by_id(str_ids, self.cells))
+        else:
+            return self._get_cards_by_id(str_ids, self.cells)
 
     def get_surfs_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
         """given a list of surfaces id return a dictionary of such surfaces
@@ -545,11 +564,7 @@ class Input:
             Default is None, no renumbering is applied.
         """
         logging.info('Collecting the cells, surfaces, materials and transf.')
-        # make sure these are str
-        cset = []
-        for cell in cells:
-            cset.append(str(cell))
-        cset = set(cset)
+        cset = set(cells)
 
         # first, get all surfaces needed to represent the cn cell.
         sset = set()  # surfaces
@@ -561,14 +576,24 @@ class Input:
         while again:
             again = False
             for key, c in self.cells.items():
-                if key in cset:
+                if int(key) in cset:
                     cref = c.get_refcells()
                     if cref.difference(cset):
                         again = True
                         cset = cset.union(cref)
+        
+        # sort the set
+        cset = list(cset)
+        cset.sort()
+
+        # create a copy if modifications are needed on the cells
+        if renumber_from is not None:
+            cells_cards = self.get_cells_by_id(cset, make_copy=True)
+        else:
+            cells_cards = self.get_cells_by_id(cset)
 
         # Get all surfaces and materials
-        cells_cards = self.get_cells_by_id(cset)
+        renumber_map = {}  # used only if renumbering
         for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
                 if t == 'sur':
@@ -577,12 +602,15 @@ class Input:
                     if int(v) != 0:  # void material is not defined in a card
                         mset.add('M'+str(v))
             if renumber_from is not None:
-                cell._set_value_by_type('cel', i+renumber_from)
+                renumber_map[cell.values[0][0]] = i + renumber_from
             if not keep_universe:
                 new_input = []
                 for input_part in cell.input:
                     new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
                 cell.input = new_input
+        
+        if renumber_from is not None:
+            self._renumber_cells(cells_cards, renumber_map)
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -596,6 +624,9 @@ class Input:
         #         for v, t in surf.values:
         #             if t == 'tr':
         #                 tset.add(v)
+        # order surfaces
+        sset = list(sset)
+        sset.sort()
 
         logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:

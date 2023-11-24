@@ -158,7 +158,8 @@ class TestInput:
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
-        assert list(inp2.cells.keys()) == ['1', '2', '3', '4', '5']
+        assert list(inp2.cells.keys()) == ['1', '2', '3', '4', '5'] 
+        assert inp2.cells['3'].values[-2][0] == 1
 
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath('test_universe.i')) as FILE:
