@@ -544,7 +544,8 @@ class Input:
         return MatCardsList(materials), transformations, other_data
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None, keep_universe:bool = True):
+                      renumber_from: int = None, keep_universe:bool = True, 
+                      extract_fillers:bool = True):
         """given a list of cells, dumps a minimum MCNP working file that
         includes all the requested cells, defined surfaces, materials and
         translations.
@@ -571,23 +572,47 @@ class Input:
         mset = set()  # material
         # tset = set()  # transformations
 
+        # duplicate the final set and work on a dynamic set that contains only 
+        # new cells at each loop
+        cell_set = deepcopy(cset)
+
         # next runs: find all other cells:
         again = True
         while again:
             again = False
-            for key, c in self.cells.items():
-                if int(key) in cset:
-                    cref = c.get_refcells()
-                    if cref.difference(cset):
-                        again = True
-                        cset = cset.union(cref)
+            new_set = set()
+            uni_set = set()
+            # loop over cells to extract
+            for cell_num in cell_set:
+                c = self.cells[str(cell_num)]
+                # get hash cells in the cells that have to be extracted
+                cref = c.get_refcells()
+                # add the hash cells to extraction list
+                new_set |= cref
+                # collect universes in the definition of cells
+                if extract_fillers:
+                    fill = c.get_f()
+                    if fill is not None:
+                        uni_set.add(fill)
+            # if one wants to extract also lower levels, loop over universes 
+            # and collect their cells
+            if extract_fillers:
+                for key, c in self.cells.items():
+                    if c.get_u() in uni_set:
+                        new_set.add(c.values[0][0])
+            # get the new set with the cells to be checked
+            cell_set = new_set - cell_set
+            # check if loop is to be repeated
+            if cell_set:
+                again = True
+                cset |= cell_set
         
         # sort the set
         cset = list(cset)
         cset.sort()
 
         # create a copy if modifications are needed on the cells
-        if renumber_from is not None:
+        if renumber_from is not None or not keep_universe:
             cells_cards = self.get_cells_by_id(cset, make_copy=True)
         else:
             cells_cards = self.get_cells_by_id(cset)
@@ -603,11 +628,8 @@ class Input:
                         mset.add('M'+str(v))
             if renumber_from is not None:
                 renumber_map[cell.values[0][0]] = i + renumber_from
-            if not keep_universe:
-                new_input = []
-                for input_part in cell.input:
-                    new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
-                cell.input = new_input
+            if not keep_universe and cell.values[0][0] in cells:
+                remove_u(cells_cards[_])
         
         if renumber_from is not None:
             self._renumber_cells(cells_cards, renumber_map)
@@ -644,7 +666,8 @@ class Input:
             outfile.write('\n')
             # Add materials
             materials = self.get_materials_subset(mset)
-            outfile.write(materials.to_text()+'\n')
+            if len(materials.matdic) > 0:
+                outfile.write(materials.to_text()+'\n')
             outfile.writelines(self._print_cards(self.transformations))
 
         logging.info('input written correctly')
@@ -667,7 +690,7 @@ class Input:
             cell_universe = cell.get_u()
 
             if cell_universe == universe:
-                cell_ids_to_extract.append(cell_id)
+                cell_ids_to_extract.append(cell.values[0][0])
                 
         self.extract_cells(
             cells=cell_ids_to_extract, 
@@ -1226,3 +1249,30 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key+' is not a valid tally ID')
 
     return int(num)
+
+def remove_u(cell: parser.Card) -> None:
+    """given a cell, it removes the universe option from its definition.
+
+    Parameters
+    ----------
+    cell : parser.Card
+        cell from which the universe has to be removed
+
+    """
+    # initialize new input list
+    new_input = []
+    # remove universe option from input template
+    for input_part in cell.input:
+        new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))
+
+    # assign new input to cell   
+    cell.input = new_input
+    # remove value associated to the universe in 'values'
+    for b, (t, v) in enumerate(cell.values):
+        if v == 'u':
+            cell.values.pop(b)
+            break
+    # reset universe private value (i know this is not a good practice, tbd)
+    cell.__u = None
+
+    return

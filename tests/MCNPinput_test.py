@@ -160,6 +160,22 @@ class TestInput:
         assert len(inp2.materials) == 3
         assert list(inp2.cells.keys()) == ['1', '2', '3', '4', '5'] 
         assert inp2.cells['3'].values[-2][0] == 1
+        
+        with as_file(resources_inp.joinpath('test_1.i')) as FILE:
+            mcnp_input = Input.from_input(FILE)
+
+        outfile = os.path.join(os.path.dirname(outfile), 'extract_fillers.i')
+
+        
+        mcnp_input.extract_cells([50], outfile, extract_fillers=True, 
+                                 renumber_from=500)
+
+        # re-read
+        result = Input.from_input(outfile)
+
+        assert len(result.cells) == 7
+        assert mcnp_input.cells['10'].values[0][0] == 10
+
 
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath('test_universe.i')) as FILE:
@@ -178,6 +194,7 @@ class TestInput:
         assert len(result.materials) == 1 
         for _, cell in result.cells.items():
             assert cell.get_u() is None
+        assert mcnp_input.cells['21'].get_u() == universe
 
     def test_duplicated_nums(self):
         # There was a bug reading material 101
