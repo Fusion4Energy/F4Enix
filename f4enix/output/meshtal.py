@@ -1585,7 +1585,8 @@ class Meshtal:
 
     def collapse_grids(self, name_dict: dict[int, list[str, str]]
                        ) -> pv.DataSet:
-        """If the all the fmeshes in the meshtal are defined on the same
+        """If the all the fmeshes indicated in the dictionary are defined on
+        the same
         structured grid, returns a grid onto which all the fmeshes are
         collapsed. That is, the returned grid will have all the field data that
         are stored in the different fmeshes.
@@ -1617,7 +1618,8 @@ class Meshtal:
 
         try:
             # check that the collapse is doable
-            for i, (_, fmesh) in enumerate(self.mesh.items()):
+            for i, key in enumerate(list(name_dict.keys())):
+                fmesh = self.mesh[key]
                 # Check they are all same size
                 if i == 0:
                     try:
@@ -1633,13 +1635,15 @@ class Meshtal:
 
         try:
             # check that the collapse is doable
-            for i, (_, fmesh) in enumerate(self.mesh.items()):
+            for i, key in enumerate(list(name_dict.keys())):
+                fmesh = self.mesh[key]
                 # check that there are only the two usual values, no binning
                 assert fmesh.grid.array_names == ids
         except AssertionError:
             raise RuntimeError('no binning allowed for the collapse')
 
-        for i, (key, fmesh) in enumerate(self.mesh.items()):
+        for i, key in enumerate(list(name_dict.keys())):
+            fmesh = self.mesh[key]
             if i == 0:
                 grid = deepcopy(fmesh.grid)
                 for old_name, new_name in zip(grid.array_names,
