@@ -33,6 +33,44 @@ from copy import deepcopy
 
 ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
 ALLOWED_OUTPUT_FORMATS = ['point_cloud', 'ip_fluent', 'csv', 'vtk']
+ALLOWED_PARTICLES = [
+    "Aneutron",
+    "Alambda0",
+    "Asigma+",
+    "Asigma-",
+    "Axi0",
+    "Anu_e",
+    "Anu_m",
+    "Aproton",
+    "Aomega-",
+    "neutron",
+    "photon",
+    "electron",
+    "mu_minus",
+    "nu_e",
+    "nu_m",
+    "VALID",
+    "proton",
+    "lambda0",
+    "sigma+",
+    "sigma-",
+    "xi0",
+    "xi_minus",
+    "omega",
+    "mu_plus",
+    "pi_plus",
+    "pi_zero",
+    "k_plus",
+    "k0_short",
+    "k0_long",
+    "xi_plus",
+    "deuteron",
+    "triton",
+    "helion",
+    "alpha",
+    "pi_minus",
+    "k_minus",
+    "heavyion"]
 
 
 # convert character to float
@@ -97,7 +135,7 @@ class Fmesh:
     dtype = np.float64
     cvarsCart = ("Z", "Y", "X")
     cvarsCyl = ("Theta", "Z", "R")
-    IPT = ("neutron", "photon", "electron")
+    # IPT = ("neutron", "photon", "electron")
 
     # Reads from opened file
     def __init__(self, mshtl: Meshtal) -> None:
@@ -175,7 +213,7 @@ class Fmesh:
             self.comment = self.comment.strip("\n")
 
         # read particle type
-        for p in ("neutron", "photon", "electron"):
+        for p in ALLOWED_PARTICLES:
             if p in line:
                 self.part = p
                 break
