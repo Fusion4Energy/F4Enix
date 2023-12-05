@@ -217,7 +217,7 @@ class WW:
         # This line will trigger the setter, which will update the ratios and geometry
         self.values = values
 
-    def add_particle(self, norm: float, soft: float):
+    def add_particle(self, norm: float = 1, soft: float = 1):
         if len(self.particles) == 2:
             raise ValueError("There are already two particles...")
 
@@ -296,3 +296,6 @@ class WW:
         file_path = Path(file_path)
 
         self.geometry.export_as_vtk(file_path)
+
+    def plot(self) -> None:
+        self.geometry.plot()
