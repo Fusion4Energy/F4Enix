@@ -1,5 +1,5 @@
 from copy import deepcopy
-from enum import StrEnum, auto
+from enum import Enum
 import os
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -31,25 +31,25 @@ OPERATE_MENU = """
 """
 
 
-class Command(StrEnum):
-    OPEN = auto()
-    INFO = auto()
-    WRITE = auto()
-    VTK = auto()
-    PLOT = auto()
-    OPERATE = auto()
-    GVR = auto()
-    END = auto()
-    EMPTY = auto()
+class Command(Enum):
+    OPEN = "open"
+    INFO = "info"
+    WRITE = "write"
+    VTK = "vtk"
+    PLOT = "plot"
+    OPERATE = "operate"
+    GVR = "gvr"
+    END = "end"
+    EMPTY = "empty"
 
 
-class CommandOperate(StrEnum):
-    SOFT = auto()
-    ADD = auto()
-    REMOVE = auto()
-    MITIGATE = auto()
-    END = auto()
-    EMPTY = auto()
+class CommandOperate(Enum):
+    SOFT = "soft"
+    ADD = "add"
+    REMOVE = "remove"
+    MITIGATE = "mitigate"
+    END = "end"
+    EMPTY = "empty"
 
 
 class Menu:

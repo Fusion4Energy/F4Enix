@@ -11,3 +11,4 @@ docs/jupyter_execute
 examples/**
 example_testing/**
 .pytest_cache/**
+build/

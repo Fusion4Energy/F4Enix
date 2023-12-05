@@ -1,8 +1,10 @@
 import numpy as np
 
+from f4enix.input.ww_gvr.models import ParticleType
+
 
 expected_values = {
-    "neutron": {
+    ParticleType.NEUTRON: {
         1.1: np.array(
             [
                 [
@@ -187,7 +189,7 @@ expected_values = {
             ]
         ),
     },
-    "photon": {
+    ParticleType.PHOTON: {
         1.2: np.array(
             [
                 [

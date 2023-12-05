@@ -20,7 +20,7 @@ def test_init_ww_from_ww_file_cart_simple():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
     assert ww.file_path == WW_SIMPLE_CART
     assert ww.particles == [ParticleType.NEUTRON]
-    assert ww.geometry.coordinate_type == "cartesian"
+    assert ww.geometry.coordinate_type == CoordinateType.CARTESIAN
     assert ww.geometry.director_1 is None
     assert ww.geometry.director_2 is None
     assert ww.geometry._coarse_vectors == Vectors(
@@ -64,8 +64,8 @@ def test_init_ww_from_ww_complex_cart():
     assert ww.particles == [ParticleType.NEUTRON, ParticleType.PHOTON]
 
     expected_energies = {
-        "neutron": [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 100.0],
-        "photon": [1.2, 2.3],
+        ParticleType.NEUTRON: [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 100.0],
+        ParticleType.PHOTON: [1.2, 2.3],
     }
     assert ww.energies == expected_energies
 

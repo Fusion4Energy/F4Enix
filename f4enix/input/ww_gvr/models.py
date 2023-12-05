@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import StrEnum, auto
+from enum import Enum
 from pathlib import Path
 from typing import Dict, List
 
@@ -7,14 +7,14 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-class CoordinateType(StrEnum):
-    CARTESIAN = auto()
-    CYLINDRICAL = auto()
+class CoordinateType(Enum):
+    CARTESIAN = "cartesian"
+    CYLINDRICAL = "cylindrical"
 
 
-class ParticleType(StrEnum):
-    NEUTRON = auto()
-    PHOTON = auto()
+class ParticleType(Enum):
+    NEUTRON = "neutron"
+    PHOTON = "photon"
 
 
 @dataclass(kw_only=True)
