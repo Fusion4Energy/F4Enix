@@ -544,13 +544,12 @@ class Input:
         return MatCardsList(materials), transformations, other_data
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None, keep_universe:bool = True, 
-                      extract_fillers:bool = True):
-        """given a list of cells, dumps a minimum MCNP working file that
-        includes all the requested cells, defined surfaces, materials and
-        translations.
-        TODO: if keep_universe is False: the cell definitions of the original input
-         class will be modified. This may be undesirable.
+                      renumber_from: int = None, keep_universe: bool = True, 
+                      extract_fillers: bool = True):
+        """given a list of cells, dumps a minimum MCNP working file.
+
+        The file will includes all the requested cells, defined surfaces,
+        materials and translations.
 
         Parameters
         ----------
@@ -563,7 +562,15 @@ class Input:
             specified int. It is important to notice that this renumbering
             DOES NOT SUPPORT # operator for the moment being.
             Default is None, no renumbering is applied.
+        keep_universe: bool
+            If True keeps the 'U=' key in the cell cards, otherwise that is
+            removed. Default is True.
+        extract_fillers: bool
+            if True extract also the cells belonging to a universe that is
+            used in a 'FILL=' keyword. This happens recursively. default is
+            True.
         """
+
         logging.info('Collecting the cells, surfaces, materials and transf.')
         cset = set(cells)
 
@@ -1273,6 +1280,4 @@ def remove_u(cell: parser.Card) -> None:
             cell.values.pop(b)
             break
     # reset universe private value (i know this is not a good practice, tbd)
-    cell.__u = None
-
-    return
+    cell._Card__u = None
