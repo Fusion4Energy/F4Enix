@@ -1,0 +1,17 @@
+ ww_simple_cart weight window
+       ----From---- -----To----- --No. Bins--
+ I -->    -15.0         15.0          2      
+ J -->    -15.0         16.0          3      
+ K -->    -15.0         20.0          1      
+
+ Cartesian coordinates, 6 voxels.
+
+ The weight window contains 1 particle/s
+
+ ---------------------Neutron----------------------
+ Energy bins:         [100.0]
+ Min value:           8.98E-02
+ Max value:           6.73E-01
+ No.Bins > 0 [%]:     100.0%
+ Average ratio:       5.97E+00
+ Max ratio:           6.74E+00
