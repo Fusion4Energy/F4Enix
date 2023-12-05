@@ -33,6 +33,44 @@ from copy import deepcopy
 
 ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
 ALLOWED_OUTPUT_FORMATS = ['point_cloud', 'ip_fluent', 'csv', 'vtk']
+ALLOWED_PARTICLES = [
+    "Aneutron",
+    "Alambda0",
+    "Asigma+",
+    "Asigma-",
+    "Axi0",
+    "Anu_e",
+    "Anu_m",
+    "Aproton",
+    "Aomega-",
+    "neutron",
+    "photon",
+    "electron",
+    "mu_minus",
+    "nu_e",
+    "nu_m",
+    "VALID",
+    "proton",
+    "lambda0",
+    "sigma+",
+    "sigma-",
+    "xi0",
+    "xi_minus",
+    "omega",
+    "mu_plus",
+    "pi_plus",
+    "pi_zero",
+    "k_plus",
+    "k0_short",
+    "k0_long",
+    "xi_plus",
+    "deuteron",
+    "triton",
+    "helion",
+    "alpha",
+    "pi_minus",
+    "k_minus",
+    "heavyion"]
 
 
 # convert character to float
@@ -97,7 +135,7 @@ class Fmesh:
     dtype = np.float64
     cvarsCart = ("Z", "Y", "X")
     cvarsCyl = ("Theta", "Z", "R")
-    IPT = ("neutron", "photon", "electron")
+    # IPT = ("neutron", "photon", "electron")
 
     # Reads from opened file
     def __init__(self, mshtl: Meshtal) -> None:
@@ -175,7 +213,7 @@ class Fmesh:
             self.comment = self.comment.strip("\n")
 
         # read particle type
-        for p in ("neutron", "photon", "electron"):
+        for p in ALLOWED_PARTICLES:
             if p in line:
                 self.part = p
                 break
@@ -1585,7 +1623,8 @@ class Meshtal:
 
     def collapse_grids(self, name_dict: dict[int, list[str, str]]
                        ) -> pv.DataSet:
-        """If the all the fmeshes in the meshtal are defined on the same
+        """If the all the fmeshes indicated in the dictionary are defined on
+        the same
         structured grid, returns a grid onto which all the fmeshes are
         collapsed. That is, the returned grid will have all the field data that
         are stored in the different fmeshes.
@@ -1617,7 +1656,8 @@ class Meshtal:
 
         try:
             # check that the collapse is doable
-            for i, (_, fmesh) in enumerate(self.mesh.items()):
+            for i, key in enumerate(list(name_dict.keys())):
+                fmesh = self.mesh[key]
                 # Check they are all same size
                 if i == 0:
                     try:
@@ -1633,13 +1673,15 @@ class Meshtal:
 
         try:
             # check that the collapse is doable
-            for i, (_, fmesh) in enumerate(self.mesh.items()):
+            for i, key in enumerate(list(name_dict.keys())):
+                fmesh = self.mesh[key]
                 # check that there are only the two usual values, no binning
                 assert fmesh.grid.array_names == ids
         except AssertionError:
             raise RuntimeError('no binning allowed for the collapse')
 
-        for i, (key, fmesh) in enumerate(self.mesh.items()):
+        for i, key in enumerate(list(name_dict.keys())):
+            fmesh = self.mesh[key]
             if i == 0:
                 grid = deepcopy(fmesh.grid)
                 for old_name, new_name in zip(grid.array_names,
