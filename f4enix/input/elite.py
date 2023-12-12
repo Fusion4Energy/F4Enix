@@ -101,6 +101,13 @@ class ELite_Input(Input):
 
         cset = set(cells)
 
+        self.L0_sset = set()
+
+        for i, (_, cell) in enumerate(self.cells.items()):
+            if cell.values[0][0] in cset:
+                for v, t in cell.values:
+                    if t == 'sur':
+                        self.L0_sset.add(v)
         # first, get all surfaces needed to represent the cn cell.
         sset = set()  # surfaces
         mset = set()  # material
@@ -138,7 +145,7 @@ class ELite_Input(Input):
             if cell_set:
                 again = True
                 cset |= cell_set
-        
+
         # sort the set
         cset = list(cset)
         cset.sort()
@@ -155,22 +162,21 @@ class ELite_Input(Input):
                         mset.add('M'+str(v))
 
         # order surfaces
-        sset = list(sset)
-        sset.sort()
-
+        self.L1_sset = sset - self.L0_sset
+        # For tally extraction
         self.modified_data_cards = copy.deepcopy(self.other_data)
-        pattern_str = '|'.join(self.tally_cards_types)
-        pattern = re.compile(f'^({pattern_str})\d+$')
-        # for now remove all tally cards
-        for key in self.other_data.keys():  
+        # pattern_str = '|'.join(self.tally_cards_types)
+        # pattern = re.compile(f'^({pattern_str})\d+$')
+        # # for now remove all tally cards
+        # for key in self.other_data.keys():  
             
-            # Explanation of the pattern:
-            # ^           - Start of the string
-            # (pattern)   - A group containing possible patterns
-            # \d+         - One or more digits
-            # $           - End of the string
-            if pattern.match(key):
-                self.modified_data_cards.pop(key)
+        #     # Explanation of the pattern:
+        #     # ^           - Start of the string
+        #     # (pattern)   - A group containing possible patterns
+        #     # \d+         - One or more digits
+        #     # $           - End of the string
+        #     if pattern.match(key):
+        #         self.modified_data_cards.pop(key)
 
         self.modified_surfaces = copy.deepcopy(self.surfs)
         # Future implementation
@@ -181,9 +187,18 @@ class ELite_Input(Input):
         self._set_periodic_boundaries()
         # extract tallies based on comments
         # self._extract_tallies(sectors)
+
         # logging.info('write MCNP reduced input')
-        self._modify_graveyard()
+        self._modify_graveyard(sectors)
         # logging.info('write MCNP reduced input')
+        for i, (_, cell) in enumerate(self.new_gy_outer.items()):
+            for v, t in cell.values:
+                if t == 'sur':
+                    sset.add(v)
+
+        sset = list(sset)
+        sset.sort()
+
         with open(outfile, 'w') as outfile:
             # Add the header lines
             for line in self.header:
@@ -194,7 +209,7 @@ class ELite_Input(Input):
             # Add a break
             outfile.write('\n')
             # Add the surfaces
-            surfs = self.get_surfs_by_id(sset)
+            surfs = self._get_cards_by_id(set(map(str, sset)), self.modified_surfaces)
             outfile.writelines(self._print_cards(surfs))
             # Add a break
             outfile.write('\n')
@@ -202,8 +217,10 @@ class ELite_Input(Input):
             materials = self.get_materials_subset(mset)
             outfile.write(materials.to_text()+'\n')
             outfile.writelines(self._print_cards(self.transformations))
-            # Add the rest of the datacards
+
+            # # Add the rest of the datacards
             outfile.writelines(self._print_cards(self.modified_data_cards, wrap=True))
+
             # Add a break
             outfile.write('\n')
         # logging.info('input written correctly')
@@ -215,11 +232,11 @@ class ELite_Input(Input):
         for k, sector in enumerate(sectors):
             new_si = new_si + str(self.plasma_cells[sector]) + ' '
             if sector != '2 & 3':
-                new_sp += '1 '
+                new_sp = new_sp + '1 '
             else:
-                new_sp += '2 '
-        self.modified_data_cards['SI70'].input = new_si[:-1]
-        self.modified_data_cards['SP70'].input = new_sp[:-1]
+                new_sp = new_si + '2 '
+        self.modified_data_cards['SI70'].input = [new_si]
+        self.modified_data_cards['SP70'].input = [new_sp]
         return
     
     def _set_boundaries(self, angle_dic):
@@ -239,39 +256,107 @@ class ELite_Input(Input):
         # these dicts will group the planes parallel to each reference cutting plane
         self.boundary_surfs = {num: [] for num in self.boundary_angles}
         self.boundary_surfs_names = {num: [] for num in self.boundary_angles}
-        
         # For each angle, fulfill the list of parallel planes
         for l, angle in enumerate(self.boundary_angles):
             # Check all surfaces for each angle
-            for surf in self.surfs.values():
+            for surf in self.modified_surfaces.values():
+                if surf.values[0][0] in self.L0_sset:
                 # check if the surface is a plane
-                if surf.stype == 'p':
-                    # check if the surface is a plane parallel to z
-                    if surf.scoefs[2] == 0 and surf.scoefs[3] == 0:
-                        # check if the plane has a transformation
-                        try:
-                            # if so, apply it and check if it's a plane parallel to
-                            # the boundary
-                            tr = surf._get_value_by_type('tr')
-                            tr_name = 'TR' + str(tr)
-                            trans = self.transformations[tr_name]
-                            # check if it's only a translation
-                            if len(trans.values) < 12:
-                                continue
-                            if trans.unit == '*':
-                                p_x_coeff = (surf.scoefs[0]*math.cos(math.radians(trans.values[4][0]))-surf.scoefs[1]*math.cos(math.radians(trans.values[5][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-                                p_y_coeff = (-surf.scoefs[0]*math.cos(math.radians(trans.values[7][0]))+surf.scoefs[1]*math.cos(math.radians(trans.values[8][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-                            else:
-                                p_x_coeff = (surf.scoefs[0]*trans.values[4][0]-surf.scoefs[1]*trans.values[5][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-                                p_y_coeff = (-surf.scoefs[0]*trans.values[7][0]+surf.scoefs[1]*trans.values[8][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-                            if self.coeff_x[l]-self.tol <= (p_x_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (p_y_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)<= self.coeff_y[l] + self.tol:
+                    if surf.stype == 'p':
+                        # check if the surface is a plane parallel to z
+                        if abs(surf.scoefs[2]) <= self.tol and abs(surf.scoefs[3]) <= self.tol:
+                            # check if the plane has a transformation
+                            try:
+                                # if so, apply it and check if it's a plane parallel to
+                                # the boundary
+                                tr = surf._get_value_by_type('tr')
+                                tr_name = 'TR' + str(tr)
+                                trans = self.transformations[tr_name]
+                                # check if it's only a translation
+                                if len(trans.values) < 12:
+                                    continue
+                                if trans.unit == '*':
+                                    p_x_coeff = (surf.scoefs[0]*math.cos(math.radians(trans.values[4][0]))-surf.scoefs[1]*math.cos(math.radians(trans.values[5][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                    p_y_coeff = (-surf.scoefs[0]*math.cos(math.radians(trans.values[7][0]))+surf.scoefs[1]*math.cos(math.radians(trans.values[8][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                else:
+                                    p_x_coeff = (surf.scoefs[0]*trans.values[4][0]-surf.scoefs[1]*trans.values[5][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                    p_y_coeff = (-surf.scoefs[0]*trans.values[7][0]+surf.scoefs[1]*trans.values[8][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                if self.coeff_x[l]-self.tol <= (p_x_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (p_y_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)<= self.coeff_y[l] + self.tol:
+                                        self.boundary_surfs[angle].append(surf)
+                                        self.boundary_surfs_names[angle].append(surf.name)
+                            except UnboundLocalError:
+                                # if not, just check if it's parallel to the boundary
+                                if self.coeff_x[l]-self.tol <= (surf.scoefs[0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (surf.scoefs[1])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_y[l]+self.tol:
                                     self.boundary_surfs[angle].append(surf)
                                     self.boundary_surfs_names[angle].append(surf.name)
-                        except UnboundLocalError:
-                            # if not, just check if it's parallel to the boundary
-                            if self.coeff_x[l]-self.tol <= (surf.scoefs[0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (surf.scoefs[1])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_y[l]+self.tol:
-                                self.boundary_surfs[angle].append(surf)
-                                self.boundary_surfs_names[angle].append(surf.name)
+                elif surf.values[0][0] in self.L1_sset:
+                    if surf.stype == 'p':
+                        # check if the surface is a plane parallel to z
+                        if abs(surf.scoefs[2]) <= self.tol and abs(surf.scoefs[3]) <= self.tol:
+                            # check if the plane has a transformation
+                            try:
+                                # if so, apply it and check if it's a plane parallel to
+                                # the boundary
+                                tr = surf._get_value_by_type('tr')
+                                tr_name = 'TR' + str(tr)
+                                trans = self.transformations[tr_name]
+                                # check if it's only a translation
+                                if len(trans.values) < 12:
+                                    continue
+                                if trans.unit == '*':
+                                    p_x_coeff = (surf.scoefs[0]*math.cos(math.radians(trans.values[4][0]))-surf.scoefs[1]*math.cos(math.radians(trans.values[5][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                    p_y_coeff = (-surf.scoefs[0]*math.cos(math.radians(trans.values[7][0]))+surf.scoefs[1]*math.cos(math.radians(trans.values[8][0])))/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                else:
+                                    p_x_coeff = (surf.scoefs[0]*trans.values[4][0]-surf.scoefs[1]*trans.values[5][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                    p_y_coeff = (-surf.scoefs[0]*trans.values[7][0]+surf.scoefs[1]*trans.values[8][0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
+                                if self.coeff_x[l]-self.tol <= (p_x_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (p_y_coeff)/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)<= self.coeff_y[l] + self.tol:
+                                    if l == 0:  
+                                        if angle > 90 or angle < -90:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] += self.tol
+                                            else:
+                                                surf.scoefs[3] -= self.tol
+                                        else:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] -= self.tol
+                                            else:
+                                                surf.scoefs[3] += self.tol
+                                    else:
+                                        if angle > 90 or angle < -90:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] -= self.tol
+                                            else:
+                                                surf.scoefs[3] += self.tol
+                                        else:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] += self.tol
+                                            else:
+                                                surf.scoefs[3] -= self.tol
+                            except UnboundLocalError:
+                                # if not, just check if it's parallel to the boundary
+                                if self.coeff_x[l]-self.tol <= (surf.scoefs[0])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_x[l]+self.tol and self.coeff_y[l]-self.tol <= (surf.scoefs[1])/math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2) <= self.coeff_y[l]+self.tol:
+                                    if l == 0:
+                                        if angle > 90 or angle < -90:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] += self.tol
+                                            else:
+                                                surf.scoefs[3] -= self.tol
+                                        else:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] -= self.tol
+                                            else:
+                                                surf.scoefs[3] += self.tol
+                                    else:
+                                        if angle > 90 or angle < -90:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] -= self.tol
+                                            else:
+                                                surf.scoefs[3] += self.tol
+                                        else:
+                                            if surf.scoefs[1] > 0:
+                                                surf.scoefs[3] += self.tol
+                                            else:
+                                                surf.scoefs[3] -= self.tol                        
         surfs_lis = []                     
         for ang_bounds in angle_dic.values():
             for ang_bound in ang_bounds:
@@ -327,16 +412,13 @@ class ELite_Input(Input):
             if k == 0:
                 self.new_gy = union_cell(self.cells['801'], -self.sector_boundaries[sector][0], None)
                 self.new_outercell = cut_cell(self.cells['800'], self.sector_boundaries[sector][0], None)
-            elif k == len(sectors) - 1:
+            if k == len(sectors) - 1:
                 self.new_gy = union_cell(self.new_gy, -self.sector_boundaries[sector][1], None)
                 self.new_outercell = cut_cell(self.new_outercell, self.sector_boundaries[sector][1], None)
             else:
                 continue
         self.new_gy_outer = {'800': self.new_outercell,
                              '801': self.new_gy}
-        return
-        
-            
 
 
 # initialize cut_cell function
