@@ -24,7 +24,6 @@ import json
 import re
 from numjuggler import parser
 import pandas as pd
-import copy
 
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
@@ -269,10 +268,8 @@ class Input:
             outfile.writelines(self._print_cards(self.surfs, wrap=wrap))
             # Add a break
             outfile.write('\n')
-            
-            if len(self.materials.matdic) > 0:
             # Add the material section (they exit without the \n)
-                outfile.write(self.materials.to_text()+'\n')
+            outfile.write(self.materials.to_text()+'\n')
             # Add the translations
             outfile.writelines(self._print_cards(self.transformations,
                                                  wrap=wrap))
@@ -573,6 +570,50 @@ class Input:
             used in a 'FILL=' keyword. This happens recursively. default is
             True.
         """
+        header = self.header
+
+        cells_cards, surfs, \
+            materials = self._extraction_function(cells, renumber_from,
+                                                  keep_universe,
+                                                  extract_fillers)
+
+        Input._write_blocks(outfile, False, header, cells_cards, surfs, 
+                            materials, self.transformations)
+
+    @staticmethod
+    def _write_blocks(outfile: os.PathLike, wrap:bool, **kwargs):
+        
+        logging.info('write MCNP reduced input')
+        with open(outfile, 'w') as outfile:
+            # Add the header lines                
+            if 'header' in kwargs.keys():
+                for line in kwargs['header']:
+                    outfile.write(line)
+            else:
+                outfile.write('C\n')
+            # Add the cells
+            outfile.writelines(Input._print_cards(kwargs['cells_cards'], 
+                                                  wrap=wrap))
+            # Add a break
+            outfile.write('\n')
+            # Add the surfaces
+            outfile.writelines(Input._print_cards(kwargs['surfs'], wrap=wrap))
+            # Add a break
+            outfile.write('\n')
+            # Add materials
+            if len(kwargs['materials'].matdic) > 0:
+                outfile.write(kwargs['materials'].to_text()+'\n')
+            # other data is not mandatory to be written
+            if 'other_data' in kwargs.keys():
+                outfile.writelines(Input._print_cards(kwargs['other_data'], 
+                                                      wrap=wrap))
+            outfile.writelines(Input._print_cards(kwargs['trans']))
+
+        logging.info('input written correctly')
+
+    def _extraction_function(self, cells: list[int], renumber_from: int = None, 
+                             keep_universe: bool = True, 
+                             extract_fillers: bool = True):
 
         logging.info('Collecting the cells, surfaces, materials and transf.')
         cset = set(cells)
@@ -581,42 +622,7 @@ class Input:
         sset = set()  # surfaces
         mset = set()  # material
         # tset = set()  # transformations
-        cell_set = copy.deepcopy(cset)
-
-        # duplicate the final set and work on a dynamic set that contains only 
-        # new cells at each loop
-        cell_set = deepcopy(cset)
-
-        # next runs: find all other cells:
-        again = True
-        while again:
-            again = False
-            new_set = set()
-            uni_set = set()
-            # loop over cells to extract
-            for cell_num in cell_set:
-                c = self.cells[str(cell_num)]
-                # get hash cells in the cells that have to be extracted
-                cref = c.get_refcells()
-                # add the hash cells to extraction list
-                new_set |= cref
-                # collect universes in the definition of cells
-                if extract_fillers:
-                    fill = c.get_f()
-                    if fill is not None:
-                        uni_set.add(fill)
-            # if one wants to extract also lower levels, loop over universes 
-            # and collect their cells
-            if extract_fillers:
-                for key, c in self.cells.items():
-                    if c.get_u() in uni_set:
-                        new_set.add(c.values[0][0])
-            # get the new set with the cells to be checked
-            cell_set = new_set - cell_set
-            # check if loop is to be repeated
-            if cell_set:
-                again = True
-                cset |= cell_set
+        self._collect_hash_uni(cset, extract_fillers)
         
         # sort the set
         cset = list(cset)
@@ -660,28 +666,49 @@ class Input:
         # order surfaces
         sset = list(sset)
         sset.sort()
+        # get surfaces dict
+        surfs = self.get_surfs_by_id(sset)
+        # get materials dict
+        materials = self.get_materials_subset(mset)
 
-        logging.info('write MCNP reduced input')
-        with open(outfile, 'w') as outfile:
-            # Add the header lines
-            for line in self.header:
-                outfile.write(line)
-            # Add the cells
-            outfile.writelines(self._print_cards(cells_cards))
-            # Add a break
-            outfile.write('\n')
-            # Add the surfaces
-            surfs = self.get_surfs_by_id(sset)
-            outfile.writelines(self._print_cards(surfs))
-            # Add a break
-            outfile.write('\n')
-            # Add materials
-            materials = self.get_materials_subset(mset)
-            if len(materials.matdic) > 0:
-                outfile.write(materials.to_text()+'\n')
-            outfile.writelines(self._print_cards(self.transformations))
+        return cells_cards, surfs, materials
 
-        logging.info('input written correctly')
+
+    def _collect_hash_uni(self, cset: set, extract_fillers: bool):
+        # duplicate the final set and work on a dynamic set that contains only 
+        # new cells at each loop
+        cell_set = deepcopy(cset)
+
+        # next runs: find all other cells:
+        again = True
+        while again:
+            again = False
+            new_set = set()
+            uni_set = set()
+            # loop over cells to extract
+            for cell_num in cell_set:
+                c = self.cells[str(cell_num)]
+                # get hash cells in the cells that have to be extracted
+                cref = c.get_refcells()
+                # add the hash cells to extraction list
+                new_set |= cref
+                # collect universes in the definition of cells
+                if extract_fillers:
+                    fill = c.get_f()
+                    if fill is not None:
+                        uni_set.add(fill)
+            # if one wants to extract also lower levels, loop over universes 
+            # and collect their cells
+            if extract_fillers:
+                for key, c in self.cells.items():
+                    if c.get_u() in uni_set:
+                        new_set.add(c.values[0][0])
+            # get the new set with the cells to be checked
+            cell_set = new_set - cell_set
+            # check if loop is to be repeated
+            if cell_set:
+                again = True
+                cset |= cell_set
 
     def extract_universe(self, universe: int, outfile: os.PathLike):
         """Dumps a minimum MCNP working file that
