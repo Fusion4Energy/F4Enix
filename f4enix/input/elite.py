@@ -9,7 +9,7 @@ import re
 class ELite_Input(Input):
     
     def initialize_elite(self, inpfile: os.PathLike, 
-                         check_Elite: bool = True):
+                         check_Elite: bool = True, tol: int = 1e-5):
         # checks if the input is actually e-lite and initializes some variables
         # check is optional
         self.block_structure = pd.read_excel(inpfile)
@@ -84,7 +84,8 @@ class ELite_Input(Input):
                             7:       475001,
                             8:       483001,
                             9:       491001,}
-        return
+        # set a tolerance to coefficients' values to check if the planes are equal
+        self.__tol = tol
 
     def extract_sector(self, sectors, outfile: os.PathLike = 'sector'):
         
@@ -238,7 +239,7 @@ class ELite_Input(Input):
     
     def _set_boundaries(self, boundaries_angles):
         # define the angles at which there are the planes cutting the sectors\
-        self.boundary_angles = []
+        boundary_angles = []
         self._tol_sign = {True: 1,
                           False: -1}
         for angle in boundaries_angles:
@@ -246,21 +247,19 @@ class ELite_Input(Input):
                 rev_angle = angle - 180
             else:
                 rev_angle = angle + 180
-            self.boundary_angles.append(angle)
-            self.boundary_angles.append(rev_angle)
+            boundary_angles.append(angle)
+            boundary_angles.append(rev_angle)
 
-        # set a tolerance to coefficients' values to check if the planes are equal
-        self.tol = 1e-5
         # these dicts will group the planes parallel to each reference cutting plane
-        self.boundary_surfs = {num: [] for num in self.boundary_angles}
-        self.boundary_surfs_names = {num: [] for num in self.boundary_angles}
+        self.boundary_surfs = {num: [] for num in boundary_angles}
+        self.boundary_surfs_names = {num: [] for num in boundary_angles}
         # For each angle, fulfill the list of parallel planes
-        for l, angle in enumerate(self.boundary_angles):
+        for l, angle in enumerate(boundary_angles):
             coeff_x = - math.sin(math.radians(angle))
             coeff_y = math.cos(math.radians(angle))
             # Check all surfaces for each angle
             for surf in self.modified_surfaces.values():
-
+                # check if the surface belongs to L0 or L1 of the sector(s)
                 if surf.values[0][0] in self.L0_sset:
                     bound_opt = 1
                 elif surf.values[0][0] in self.L1_sset:
@@ -273,8 +272,9 @@ class ELite_Input(Input):
                 # check if the surface is a plane
                 if surf.stype == 'p':
                     # check if the surface is a plane parallel to z
-                    if self._check_tol([abs(surf.scoefs[2]), 
-                                        abs(surf.scoefs[3])], [0, 0]):
+                    if self._check_tol(list(zip([abs(surf.scoefs[2]), 
+                                                 abs(surf.scoefs[3])], 
+                                                 [0, 0]))):
                         # check if the plane has a transformation
                         try:
                             # if so, apply it and check if it's a plane parallel to
@@ -293,7 +293,8 @@ class ELite_Input(Input):
                             p_x_coeff = surf.scoefs[0] / norm
                             p_y_coeff = surf.scoefs[1] / norm
                             
-                        if self._check_tol([p_x_coeff, p_y_coeff], [coeff_x, coeff_y]):
+                        if self._check_tol(list(zip([p_x_coeff, p_y_coeff], 
+                                                    [coeff_x, coeff_y]))):
                             self._modify_boundary(surf, bound_opt, angle, l)
          
         return
@@ -337,9 +338,9 @@ class ELite_Input(Input):
         return new_gy_outer
     
     def _transform_z_plane(self, trans, surf):
-
+        # Get the module of plane's parallel vector
         norm = math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-
+        # compute rotation matrix coefficients
         a11 = trans.values[4][0]
         a12 = trans.values[5][0]
         a21 = trans.values[7][0]
@@ -350,16 +351,18 @@ class ELite_Input(Input):
             a12 = math.cos(math.radians(a12))
             a21 = math.cos(math.radians(a21))
             a22 = math.cos(math.radians(a22))
-
+        # compute rotated plane's coefficients to be checked
         p_x_coeff = (surf.scoefs[0]*a11-surf.scoefs[1]*a12)/norm
         p_y_coeff = (-surf.scoefs[0]*a21+surf.scoefs[1]*a22)/norm
 
         return p_x_coeff, p_y_coeff
     
-    def _check_tol(self, n_coeff, n_check):
+    def _check_tol(self, n_coeff):
+
         in_tol = True
-        for n, coeff in enumerate(n_coeff):
-            if not n_check[n]-self.tol <= coeff <= n_check[n]+self.tol:
+        # loop over the first list
+        for coeff in enumerate(n_coeff):
+            if not coeff[1]-self.__tol <= coeff[0] <= coeff[1]+self.__tol:
                 in_tol = False
                 break
         return in_tol
@@ -380,7 +383,7 @@ class ELite_Input(Input):
             angle_quadr = (90 < angle < 270 or -270 < angle < -90)
             y_coeff = (surf.scoefs[1] > 0)
             sign = self._tol_sign[y_plus]*self._tol_sign[angle_quadr]*self._tol_sign[y_coeff]
-            words[-1] = "{:.8f}".format(float(words[-1]) + sign*self.tol)
+            words[-1] = "{:.8f}".format(float(words[-1]) + sign*self.__tol)
             surf.lines = [' '.join(words) + '\n']
             surf.get_input()    
 
