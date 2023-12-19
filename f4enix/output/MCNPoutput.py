@@ -381,8 +381,14 @@ class Output:
         if found:
             skiprows = i+5
             nrows = 3
-            df = pd.read_csv(self.filepath, skiprows=skiprows, nrows=nrows,
-                             header=None, sep=r'\s+')
+            # df = pd.read_csv(self.filepath, skiprows=skiprows, nrows=nrows,
+            #                  header=None, sep=r'\s+')
+            rows = []
+            for i in range(nrows):
+                line = self.lines[skiprows+i]
+                rows.append(line.split())
+            df = pd.DataFrame(rows)
+
             df.columns = STAT_CHECKS_COLUMNS
             df.set_index('TFC bin behaviour', inplace=True)
 

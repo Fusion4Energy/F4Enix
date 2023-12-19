@@ -232,6 +232,18 @@ class Input:
 
         return cls(cells, surfaces, data, header=header)
 
+    @staticmethod
+    def _renumber_cells(cells: dict[str, parser.Card],
+                        id_map: dict[int, int]) -> None:
+        """this acts directly on cells, make copies before use.
+        Also, ID in F4Enix dict will not be changed, name will not be
+        changed"""
+
+        for cell in cells.values():
+            for l, (v, t) in enumerate(cell.values):
+                if t == 'cel':
+                    cell.values[l] = (id_map[v], t)
+
     def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
         """write the input to a file
 
@@ -407,13 +419,17 @@ class Input:
 
         return selected_cards
 
-    def get_cells_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
+    def get_cells_by_id(self, ids: list[int],
+                        make_copy: bool = False) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
         ----------
         ids : list[int]
             cells id to be extracted
+        make_copy : bool
+            if True, makes a deepcopy of the cells instead of working on the
+            original ones. Default is False.
 
         Returns
         -------
@@ -423,7 +439,10 @@ class Input:
         str_ids = []
         for id in ids:
             str_ids.append(str(id))
-        return self._get_cards_by_id(str_ids, self.cells)
+        if make_copy:
+            return deepcopy(self._get_cards_by_id(str_ids, self.cells))
+        else:
+            return self._get_cards_by_id(str_ids, self.cells)
 
     def get_surfs_by_id(self, ids: list[int]) -> dict[str, parser.Card]:
         """given a list of surfaces id return a dictionary of such surfaces
@@ -528,13 +547,12 @@ class Input:
         return MatCardsList(materials), transformations, other_data
 
     def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None, keep_universe:bool = True,
-                      keep_fill:bool = True, extract_fillers:bool = True):
-        """given a list of cells, dumps a minimum MCNP working file that
-        includes all the requested cells, defined surfaces, materials and
-        translations.
-        TODO: if keep_universe is False: the cell definitions of the original input
-         class will be modified. This may be undesirable.
+                      renumber_from: int = None, keep_universe: bool = True, 
+                      extract_fillers: bool = True):
+        """given a list of cells, dumps a minimum MCNP working file.
+
+        The file will includes all the requested cells, defined surfaces,
+        materials and translations.
 
         Parameters
         ----------
@@ -547,13 +565,17 @@ class Input:
             specified int. It is important to notice that this renumbering
             DOES NOT SUPPORT # operator for the moment being.
             Default is None, no renumbering is applied.
+        keep_universe: bool
+            If True keeps the 'U=' key in the cell cards, otherwise that is
+            removed. Default is True.
+        extract_fillers: bool
+            if True extract also the cells belonging to a universe that is
+            used in a 'FILL=' keyword. This happens recursively. default is
+            True.
         """
+
         logging.info('Collecting the cells, surfaces, materials and transf.')
-        # make sure these are str
-        cset = []
-        for cell in cells:
-            cset.append(str(cell))
-        cset = set(cset)
+        cset = set(cells)
 
         # first, get all surfaces needed to represent the cn cell.
         sset = set()  # surfaces
@@ -561,42 +583,53 @@ class Input:
         # tset = set()  # transformations
         cell_set = copy.deepcopy(cset)
 
+        # duplicate the final set and work on a dynamic set that contains only 
+        # new cells at each loop
+        cell_set = deepcopy(cset)
+
         # next runs: find all other cells:
         again = True
         while again:
             again = False
             new_set = set()
             uni_set = set()
+            # loop over cells to extract
             for cell_num in cell_set:
-                c = self.cells[cell_num]
-                cref_i = c.get_refcells()
-                cref = {str(integer) for integer in cref_i}
+                c = self.cells[str(cell_num)]
+                # get hash cells in the cells that have to be extracted
+                cref = c.get_refcells()
+                # add the hash cells to extraction list
                 new_set |= cref
+                # collect universes in the definition of cells
                 if extract_fillers:
                     fill = c.get_f()
                     if fill is not None:
                         uni_set.add(fill)
-            
+            # if one wants to extract also lower levels, loop over universes 
+            # and collect their cells
             if extract_fillers:
                 for key, c in self.cells.items():
                     if c.get_u() in uni_set:
-                        new_set.add(key)
-
+                        new_set.add(c.values[0][0])
+            # get the new set with the cells to be checked
             cell_set = new_set - cell_set
+            # check if loop is to be repeated
             if cell_set:
                 again = True
                 cset |= cell_set
+        
+        # sort the set
+        cset = list(cset)
+        cset.sort()
+
+        # create a copy if modifications are needed on the cells
+        if renumber_from is not None or not keep_universe:
+            cells_cards = self.get_cells_by_id(cset, make_copy=True)
+        else:
+            cells_cards = self.get_cells_by_id(cset)
 
         # Get all surfaces and materials
-        # define dict holding map old IDs new IDs for cell renumbering
-        # only way to protect old cells is to copy them
-        
-        cells_cards = self.get_cells_by_id(cset)
-        new_cells_cards = None
-        if not keep_universe or not keep_fill or renumber_from is not None:
-            new_cells_cards = copy.deepcopy(cells_cards)
-            renumber_dict = {}
-
+        renumber_map = {}  # used only if renumbering
         for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
                 if t == 'sur':
@@ -605,12 +638,12 @@ class Input:
                     if int(v) != 0:  # void material is not defined in a card
                         mset.add('M'+str(v))
             if renumber_from is not None:
-                renumber_dict[cell.values[0][0]] = i + renumber_from
-                # add here couple old id new id to dict
+                renumber_map[cell.values[0][0]] = i + renumber_from
             if not keep_universe and cell.values[0][0] in cells:
-                remove_u(new_cells_cards[_])
-            if not keep_fill and cell.values[0][0] in cells:
-                new_cells_cards[_].remove_fill()
+                remove_u(cells_cards[_])
+        
+        if renumber_from is not None:
+            self._renumber_cells(cells_cards, renumber_map)
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -624,15 +657,9 @@ class Input:
         #         for v, t in surf.values:
         #             if t == 'tr':
         #                 tset.add(v)
-        if renumber_from is not None:
-            for _, cell in new_cells_cards.items():
-                for l, (v, t) in enumerate(cell.values):
-                    if t == 'cel':
-                        cell.values[l] = (renumber_dict[v], t)
-        # re-iterate on all extracted cells to change the"cel" value
-        # according to map
-        if new_cells_cards is not None:
-            cells_cards = new_cells_cards
+        # order surfaces
+        sset = list(sset)
+        sset.sort()
 
         logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:
@@ -652,7 +679,7 @@ class Input:
             materials = self.get_materials_subset(mset)
             if len(materials.matdic) > 0:
                 outfile.write(materials.to_text()+'\n')
-            outfile.writelines(self._print_cards(self.transformations, wrap=True))
+            outfile.writelines(self._print_cards(self.transformations))
 
         logging.info('input written correctly')
 
@@ -674,7 +701,7 @@ class Input:
             cell_universe = cell.get_u()
 
             if cell_universe == universe:
-                cell_ids_to_extract.append(cell_id)
+                cell_ids_to_extract.append(cell.values[0][0])
                 
         self.extract_cells(
             cells=cell_ids_to_extract, 
@@ -1234,14 +1261,27 @@ def _get_num_tally(key: str) -> int:
 
     return int(num)
 
-def remove_u(cell: parser.Card):
+def remove_u(cell: parser.Card) -> None:
+    """given a cell, it removes the universe option from its definition.
+
+    Parameters
+    ----------
+    cell : parser.Card
+        cell from which the universe has to be removed
+
+    """
+    # initialize new input list
     new_input = []
+    # remove universe option from input template
     for input_part in cell.input:
-        new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))    
+        new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))
+
+    # assign new input to cell   
     cell.input = new_input
+    # remove value associated to the universe in 'values'
     for b, (t, v) in enumerate(cell.values):
         if v == 'u':
             cell.values.pop(b)
             break
-    cell.__u = None
-    return
+    # reset universe private value (i know this is not a good practice, tbd)
+    cell._Card__u = None

@@ -39,6 +39,29 @@ class Header:
     def __init__(self):
         """Header class. Contains a bunch of general information on the mctal
         file
+
+        Attributes
+        ----------
+        kod : str
+            name of the code that was used
+        ver : str
+            name of the version that was used
+        probid : np.ndarray
+            date and time when the problem was run
+        knod : int
+            dump number
+        nps : int
+            number of histories that were run
+        rnr : int
+            Number of pseudoradom numbers that were used
+        title : str
+            Problem identification line
+        ntal : int
+            number of tallies present in the file
+        ntals : np.ndarray
+            arrays of tally numbers
+        npert : int
+            number of perturbation
         """
         self.kod = ""  # Name of the code
         self.ver = ""  # Code version
@@ -489,6 +512,38 @@ class Tally:
 
 class Mctal:
     def __init__(self, filepath: os.PathLike) -> None:
+        """Object responsible for the parsing of MCNP mctal files.
+
+        Parameters
+        ----------
+        filepath : os.PathLike
+            path to the mctal file to be parsed
+        
+        Attributes
+        ----------
+        tallydata : dict[int, pd.DataFrame]
+            dictionary that at each tally id associate a pandas dataframe
+            containing the results. It supports multi-binning tallies.
+        header : Header
+            it is the parsed data of the mctal file. See the Header doc to
+            understand how to access the data.
+        
+        Examples
+        --------
+        Parse the mctal file and access the data
+        >>> # Import the mctal module
+        ... from f4enix.output.mctal import Mctal
+        ... # Parse the Mctal file
+        ... file = 'mctal'
+        ... mctal = Mctal(file)
+        ... # get a summary of the min and max errors across tallies
+        ... mctal.get_error_summary().sort_values(by='tally num')
+            tally num	min rel error	max rel error
+        0	    4	        NaN	            1.0000
+        22	    6	        0.0007	        0.0272
+        19	    14	        NaN	            1.0000
+        1	    16	        0.0008	        0.0381
+        """
         self.tallies = []
         self.thereAreNaNs = False
         self.header = Header()
@@ -936,7 +991,7 @@ class Mctal:
    
 
     def _get_dfs(self, collapse: bool=False
-                 ) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
+                 ) -> tuple[dict[int, pd.DataFrame], dict[int, pd.DataFrame]]:
         """
         Retrieve and organize mctal data into a DataFrame.
 
@@ -948,9 +1003,9 @@ class Mctal:
 
         Returns
         -------
-        tallydata : dict[str, pd.DataFrame]
+        tallydata : dict[int, pd.DataFrame]
             organized tally data.
-        totalbin : dict[str, pd.DataFrame]
+        totalbin : dict[int, pd.DataFrame]
             organized tally data (only total bins).
 
         """

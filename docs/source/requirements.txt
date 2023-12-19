@@ -25,6 +25,7 @@ kiwisolver
 matplotlib
 matplotlib-inline
 nest-asyncio
+numba
 numjuggler
 numpy
 openpyxl

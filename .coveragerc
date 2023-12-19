@@ -6,3 +6,5 @@ omit =
     **/__init__.py
     f4enix/__version__.py
     f4enix/constants.py
+    # Do not attempt to cover numba compiled functions
+    f4enix/input/ww_gvr/ratios_calculation.py

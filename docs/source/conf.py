@@ -53,6 +53,9 @@ napoleon_use_ivar = True  # Avoid conflicts between attributes and params
 napoleon_include_init_with_doc = False  # do not document __init__ separately
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 
+# force re-excution of notebooks
+nb_execution_mode = "force"
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 

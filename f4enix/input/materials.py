@@ -763,7 +763,12 @@ class Material:
         """
         zaid_list = []
         for zaid, fraction in zaids:
-            zaid = str(zaid)
+            # first assume it was given as str
+            try:
+                zaid = libman.get_zaidnum(str(zaid))
+            # else assume it was given as normal zaid
+            except ValueError:
+                zaid = str(zaid)
             zaid_list.append(Zaid(fraction, zaid[:-3], zaid[-3:], None))
 
         submat = SubMaterial('', zaid_list)
@@ -1187,6 +1192,10 @@ class MatCardsList(Sequence):
             # Rebuild elements
             for submat in material.submaterials:
                 submat._collapse_zaids()
+        
+        # this is a lazy fix, if performance issues are encountered the
+        # update_zaid_info method of submaterials should be looked at
+        self.update_info(lib_manager)
 
     def update_info(self, lib_manager: LibManager) -> None:
         """
