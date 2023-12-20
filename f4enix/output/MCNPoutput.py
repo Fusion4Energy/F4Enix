@@ -31,6 +31,7 @@ from f4enix.input.MCNPinput import Input
 SURFACE_ID = 'currently being tracked has reached surface'
 CELL_ID = 'other side of the surface from cell'
 POINT_ID = 'x,y,z coordinates:'
+TOTAL_LP = 'particles got lost'
 # -- Patterns --
 PAT_NPS_LINE = re.compile(r' source')
 # patComments = re.compile(r'(?i)C\s+')
@@ -125,6 +126,30 @@ class Output:
             for line in infile:
                 lines.append(line)
         return lines
+
+    def get_tot_lp(self) -> int:
+        """Get the total lost particle number
+
+        Returns
+        -------
+        int
+            total lost particle number
+        """
+        lp = None
+        for line in self.lines[::-1]:
+            if TOTAL_LP in line:
+                try:
+                    lp = PAT_DIGIT.search(line).group()
+                    return int(lp)
+                except AttributeError:
+                    # then the match was not found
+                    logging.warning(
+                        "The LP number was impossible to determine from this line '{}'".format(line)
+                    )
+                return None
+
+        logging.warning('No identifier for lost particle was found in output')
+        return None
 
     def get_NPS(self, particle: str = 'neutron') -> int:
         """Get the number of particles simulated.
