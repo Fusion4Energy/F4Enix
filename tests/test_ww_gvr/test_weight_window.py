@@ -140,6 +140,11 @@ def test_info():
     assert ww.info == expected
 
 
+def test_repr():
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    assert repr(ww) == ww.info
+
+
 @pytest.mark.parametrize(
     "ww_file",
     [WW_SIMPLE_CART, WW_SIMPLE_CYL, WW_COMPLEX_CART],
@@ -149,6 +154,19 @@ def test_write_to_ww_file(tmp_path, ww_file):
     original_ww.write_to_ww_file(tmp_path / "test.ww")
 
     result_ww = WW.load_from_ww_file(tmp_path / "test.ww")
+
+    for particle in original_ww.particles:
+        for energy in original_ww.energies[particle]:
+            assert_array_almost_equal(
+                original_ww.values[particle][energy], result_ww.values[particle][energy]
+            )
+
+
+def test_write_to_ww_file_no_path(tmp_path):
+    original_ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    original_ww.write_to_ww_file()
+
+    result_ww = WW.load_from_ww_file(str(WW_SIMPLE_CART) + "_written")
 
     for particle in original_ww.particles:
         for energy in original_ww.energies[particle]:
@@ -183,6 +201,24 @@ def test_write_to_ww_file_gvr(tmp_path, ww_file):
 def test_export_as_vtk(tmp_path, ww_file):
     ww = WW.load_from_ww_file(ww_file)
     ww.export_as_vtk(tmp_path / "test.vts")
+
+    written_grid = pv.read(tmp_path / "test.vts")
+
+    assert written_grid == ww.geometry._grid
+
+
+def test_export_as_vtk_no_path():
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    ww.export_as_vtk()
+
+    written_grid = pv.read(str(WW_SIMPLE_CART) + ".vts")
+
+    assert written_grid == ww.geometry._grid
+
+
+def test_export_as_vtk_wrong_suffix(tmp_path):
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    ww.export_as_vtk(tmp_path / "test.wrong")
 
     written_grid = pv.read(tmp_path / "test.vts")
 
@@ -229,6 +265,16 @@ def test_multiply():
     assert_array_almost_equal(ww.values[ParticleType.NEUTRON][100.0], expected_values)
 
 
+def test_multiply_quick_return():
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+
+    expected_values = np.array(
+        [[[0.11576, 0.093197], [0.67316, 0.5], [0.099821, 0.0898]]]
+    )
+    ww.multiply(1)
+    assert_array_almost_equal(ww.values[ParticleType.NEUTRON][100.0], expected_values)
+
+
 def test_add_particle_identical():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
     ww.add_particle(norm=1, soft=1)
@@ -246,6 +292,13 @@ def test_add_particle_identical():
             ww.ratios[ParticleType.NEUTRON][energy],
             ww.ratios[ParticleType.PHOTON][energy],
         )
+
+
+def test_add_particle_already_exists():
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    ww.add_particle(norm=1, soft=1)
+    with pytest.raises(ValueError):
+        ww.add_particle(norm=1, soft=1)
 
 
 def test_add_particle_different():
@@ -269,6 +322,12 @@ def test_remove_particle():
 
     assert len(ww.values) == 1
 
+
+def test_remove_particle_only_one():
+    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    with pytest.raises(ValueError):
+        ww.remove_particle()
+    
 
 def test_mitigate_long_histories():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
