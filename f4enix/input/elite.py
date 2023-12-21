@@ -1,3 +1,4 @@
+from numjuggler.parser import Card
 from f4enix.input.MCNPinput import Input
 import os
 import pandas as pd
@@ -5,164 +6,80 @@ import math
 import copy
 from numjuggler import parser
 import re
+import logging
+from f4enix.constants import *
 
-class ELite_Input(Input):
+class Elite_Input(Input):
+
+    def __init__(self, cells: list[Card], surfs: list[Card], data: list[Card],
+                 header: list = None) -> None:
+        super().__init__(cells, surfs, data, header)
+        self.__initialized = False
     
-    def initialize_elite(self, inpfile: os.PathLike, 
-                         check_Elite: bool = True, tol: int = 1e-5):
+    def _initialize_elite(self, excel_file: os.PathLike, 
+                          check_Elite: bool = True):
+        
         # checks if the input is actually e-lite and initializes some variables
         # check is optional
-        self.block_structure = pd.read_excel(inpfile)
-        self.elite_cells_list = list(self.cells.keys())
+        self.block_structure = pd.read_excel(excel_file)
 
         # check the envelopes
-        # if set(self.elite_cells_list) != set(self.block_structure['Cell'
-        #                                                             ].tolist()):
-        #     msg = 'MCNP input is not an E-Lite file, or the Excel Block' + \
-        #             ' Structure file is not compatible'
-        #     print(msg)
-        #     exit(0)
-        
-        self.sectors_env_cells_names = {}
-        self.sectors_universes = {}
-        self.sectors_names = [1, '2 & 3', 4, 5, 6, 7, 8, 9]
-        self.sectors_cells = {}
-        self.sectors_cells_names = {}
-        self.sectors_L0_cells = {}
+        if check_Elite:
+            inp_cells = self.get_cells_summary()
+            inp_L0_cells = inp_cells[inp_cells['universe'] == None]['cell']
+            if set(inp_L0_cells) != set(self.block_structure['Cell'].tolist()):
+                msg = 'MCNP input is not an E-Lite file, or the Excel Block' + \
+                        ' Structure file is not compatible'
+                print(msg)
+                exit(0)
+
         self.sectors_L0_cells_names = {}
-        self.tally_cards_types = ['F', '+F', '*F', 'FC', 'E', 'T', 'C', 'FQ',
-                                  'FM', 'DE', 'DF', 'EM', 'TM', 'CM', 'CF',
-                                  'SF', 'FS', 'SD', 'FU', 'FT', 'TF', 'NOTRN']
         
-        for sec in self.sectors_names:
+        for sec in SECTOR_NAMES:
             # you will have to modify outer cell to put them in the sectors
-            self.sectors_env_cells_names[sec] = self.block_structure[self.block_structure['Sector'] == sec]['Cell'].tolist()
-            self.sectors_universes[sec] = self.block_structure[self.block_structure['Sector'] == sec]['Universe ID'].tolist()
-            self.sectors_cells[sec] = []
-            self.sectors_cells_names[sec] = []
-            self.sectors_L0_cells[sec] = []
-            self.sectors_L0_cells_names[sec] = []     
+            self.sectors_L0_cells_names[sec] = self.block_structure[self.block_structure['Sector'] == sec]['Cell'].tolist()
+        
+        self.__initialized = True
 
-        for cell in self.cells.values():
-            try:
-                uni = cell._get_value_by_type('u')
-                for sec in self.sectors_names:
-                    if uni in self.sectors_universes[sec]:
-                        self.sectors_cells[sec].append(cell)
-                        self.sectors_cells_names[sec].append(cell.name)
-            except:
-                for sec in self.sectors_names:
-                    if cell.name in self.sectors_env_cells_names[sec]:
-                        self.sectors_cells[sec].append(cell)
-                        self.sectors_cells_names[sec].append(cell.name)
-                        self.sectors_L0_cells[sec].append(cell)
-                        self.sectors_L0_cells_names[sec].append(cell.name)
+    def extract_sector(self, sectors, excel_file: os.PathLike,
+                       outfile: os.PathLike = 'sector', tol: int = 1e-5, 
+                       check_Elite: bool = False):
 
-        self.sector_boundaries = {1:       [427016, 427024],
-                                '2 & 3': [437543, -437544],
-                                4:       [451016, 451024],
-                                5:       [459016, 459024],
-                                6:       [467016, 467024],
-                                7:       [475016, 475024],
-                                8:       [483016, 483024],
-                                9:       [491016, 491024],}
+        if not self.__initialized:
+            self._initialize_elite(excel_file, check_Elite)
 
-        self.sector_boundaries_angles = {1:      [50, 10],
-                                        '2 & 3': [130, 50],
-                                        4:      [170, 130], 
-                                        5:      [-150, 170],
-                                        6:      [-110, -150],
-                                        7:      [-70, -110],
-                                        8:      [-30, -70], 
-                                        9:      [10, -30],}
-        # this can be refined
-        self.plasma_cells = {1:       427001,      
-                            '2 & 3': 435001,
-                            4:       451001,
-                            5:       459001,
-                            6:       467001,
-                            7:       475001,
-                            8:       483001,
-                            9:       491001,}
         # set a tolerance to coefficients' values to check if the planes are equal
         self.__tol = tol
 
-    def extract_sector(self, sectors, outfile: os.PathLike = 'sector'):
-        
+        # build list of sectors to be extracted
         if not isinstance(sectors, list):
             sectors = [sectors]
 
-        # logging.info('Collecting the cells, surfaces, materials and transf.')
-        # make sure these are str
+        logging.info('Collecting the cells, surfaces, materials and transf.')
+        # collect L0 cells to be extracted
         cells = []
         for sector in sectors:
             cells += self.sectors_L0_cells_names[sector]
-
-        cset = set(cells)
-
+        # collect L0 surfaces, needed for later
+        L0_cells = set(cells)
         self.L0_sset = set()
-
         for i, (_, cell) in enumerate(self.cells.items()):
-            if cell.values[0][0] in cset:
+            if cell.values[0][0] in L0_cells:
                 for v, t in cell.values:
                     if t == 'sur':
                         self.L0_sset.add(v)
-        # first, get all surfaces needed to represent the cn cell.
-        sset = set()  # surfaces
-        mset = set()  # material
-        # tset = set()  # transformations
-        
-        # duplicate the final set and work on a dynamic set that contains only 
-        # new cells at each loop
-        cell_set = copy.deepcopy(cset)
+        # backup copy graveyard and outercell, that will be modified
+        # append gy and outerell manually as they don't belong to a sector
+        cells.append(800)
+        cells.append(801)
+        # get cells, surfaces and materials to be extracted
+        cells_cards, surf_dic, \
+            materials = self._extraction_function(cells, None, True, True)
+        # copy the surfaces, because they will be modified
+        self.modified_surfaces = None
+        self.modified_surfaces = copy.deepcopy(surf_dic)
 
-        # next runs: find all other cells:
-        again = True
-        while again:
-            again = False
-            new_set = set()
-            uni_set = set()
-            # loop over cells to extract
-            for cell_num in cell_set:
-                c = self.cells[str(cell_num)]
-                # get hash cells in the cells that have to be extracted
-                cref = c.get_refcells()
-                # add the hash cells to extraction list
-                new_set |= cref
-                # collect universes in the definition of cells
-                fill = c.get_f()
-                if fill is not None:
-                    uni_set.add(fill)
-            # if one wants to extract also lower levels, loop over universes 
-            # and collect their cells
-            for key, c in self.cells.items():
-                if c.get_u() in uni_set:
-                    new_set.add(c.values[0][0])
-            # get the new set with the cells to be checked
-            cell_set = new_set - cell_set
-            # check if loop is to be repeated
-            if cell_set:
-                again = True
-                cset |= cell_set
-
-        # sort the set
-        cset = list(cset)
-        cset.sort()
-
-
-        # Get all surfaces and materials
-        cells_cards = self.get_cells_by_id(cset)
-        for i, (_, cell) in enumerate(cells_cards.items()):
-            for v, t in cell.values:
-                if t == 'sur':
-                    sset.add(v)
-                elif t == 'mat':
-                    if int(v) != 0:  # void material is not defined in a card
-                        mset.add('M'+str(v))
-
-        # order surfaces
-        self.L1_sset = sset - self.L0_sset
-        # For tally extraction
+        # Falso tallies and other data
         self.modified_data_cards = copy.deepcopy(self.other_data)
         # pattern_str = '|'.join(self.tally_cards_types)
         # pattern = re.compile(f'^({pattern_str})\d+$')
@@ -176,59 +93,29 @@ class ELite_Input(Input):
         #     # $           - End of the string
         #     if pattern.match(key):
         #         self.modified_data_cards.pop(key)
-        self.modified_surfaces = None
-        self.modified_surfaces = copy.deepcopy(self.surfs)
-        # Future implementation
+        # modify sdef
         self._set_sdef(sectors)
-
+        # set L0 as periodic and modify L1 planes
         self._set_boundaries(self._get_boundaries_angles(sectors))
-
+        # modify graveyard and outercell
+        new_outercell, new_gy = self._modify_graveyard(sectors)
+        cells_cards['800'] = new_outercell
+        cells_cards['801'] = new_gy
         # extract tallies based on comments
         # self._extract_tallies(sectors)
-
-        # logging.info('write MCNP reduced input')
-        new_gy_outer = self._modify_graveyard(sectors)
-        # logging.info('write MCNP reduced input')
-        for i, (_, cell) in enumerate(new_gy_outer.items()):
-            for v, t in cell.values:
-                if t == 'sur':
-                    sset.add(v)
-
-        sset = list(sset)
-        sset.sort()
-
-        with open(outfile, 'w') as outfile:
-            # Add the header lines
-            for line in self.header:
-                outfile.write(line)
-            # Add the cells
-            outfile.writelines(self._print_cards(cells_cards))
-            outfile.writelines(self._print_cards(new_gy_outer))
-            # Add a break
-            outfile.write('\n')
-            # Add the surfaces
-            surfs = self._get_cards_by_id(set(map(str, sset)), self.modified_surfaces)
-            outfile.writelines(self._print_cards(surfs))
-            # Add a break
-            outfile.write('\n')
-            # Add materials
-            materials = self.get_materials_subset(mset)
-            outfile.write(materials.to_text()+'\n')
-            outfile.writelines(self._print_cards(self.transformations))
-
-            # # Add the rest of the datacards
-            outfile.writelines(self._print_cards(self.modified_data_cards, wrap=True))
-
-            # Add a break
-            outfile.write('\n')
-        # logging.info('input written correctly')
-        return
+        # write final MCNP input
+        Input.write_blocks(outfile, False, cells_cards, self.modified_surfaces,
+                           materials, self.header, self.transformations, 
+                           self.modified_data_cards)
+        logging.info('input written correctly')
 
     def _set_sdef(self, sectors):
+        # write new SI and SD cards, directly in input attribute
+        # the copies are modified, original input is preserved
         new_si = 'SI70 L '
         new_sp = 'SP70 '
         for sector in sectors:
-            new_si = new_si + str(self.plasma_cells[sector]) + ' '
+            new_si = new_si + str(PLASMA_CELLS[sector]) + ' '
             if sector != '2 & 3':
                 new_sp = new_sp + '1 '
             else:
@@ -253,7 +140,7 @@ class ELite_Input(Input):
         # these dicts will group the planes parallel to each reference cutting plane
         self.boundary_surfs = {num: [] for num in boundary_angles}
         self.boundary_surfs_names = {num: [] for num in boundary_angles}
-        # For each angle, fulfill the list of parallel planes
+
         for l, angle in enumerate(boundary_angles):
             coeff_x = - math.sin(math.radians(angle))
             coeff_y = math.cos(math.radians(angle))
@@ -262,13 +149,8 @@ class ELite_Input(Input):
                 # check if the surface belongs to L0 or L1 of the sector(s)
                 if surf.values[0][0] in self.L0_sset:
                     bound_opt = 1
-                elif surf.values[0][0] in self.L1_sset:
-                    bound_opt = 2
                 else:
-                    bound_opt = 0
-
-                if bound_opt == 0:
-                    continue
+                    bound_opt = 2
                 # check if the surface is a plane
                 if surf.stype == 'p':
                     # check if the surface is a plane parallel to z
@@ -292,20 +174,17 @@ class ELite_Input(Input):
                             norm = math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
                             p_x_coeff = surf.scoefs[0] / norm
                             p_y_coeff = surf.scoefs[1] / norm
-                            
+                        # if the plane is similar to boundary planes, modify it
                         if self._check_tol(list(zip([p_x_coeff, p_y_coeff], 
                                                     [coeff_x, coeff_y]))):
-                            self._modify_boundary(surf, bound_opt, angle, l)
-         
-        return
-    
+                            self._modify_boundary(surf, bound_opt, angle, l)    
     
     def _get_boundaries_angles(self, sectors):
-
+        # get the angles of the two boundary surfaces, counterclockwise
         boundaries_angles = []
 
         for k, sec in enumerate(sectors):
-            bounds = self.sector_boundaries_angles[sec]
+            bounds = SECTOR_BOUNDARIES_ANGLES[sec]
             if k == 0:
                 boundaries_angles.append(bounds[1])
             if k == (len(sectors)-1):
@@ -323,19 +202,18 @@ class ELite_Input(Input):
     #     return
 
     def _modify_graveyard(self, sectors):
-
+        # cut/ union graveyard and outercell with planes
         for k, sector in enumerate(sectors):
             if k == 0:
-                self.new_gy = union_cell(self.cells['801'], -self.sector_boundaries[sector][0], None)
-                self.new_outercell = cut_cell(self.cells['800'], self.sector_boundaries[sector][0], None)
+                new_gy = union_cell(self.cells['801'], -SECTOR_BOUNDARIES[sector][0], None)
+                new_outercell = cut_cell(self.cells['800'], SECTOR_BOUNDARIES[sector][0], None)
             if k == len(sectors) - 1:
-                self.new_gy = union_cell(self.new_gy, -self.sector_boundaries[sector][1], None)
-                self.new_outercell = cut_cell(self.new_outercell, self.sector_boundaries[sector][1], None)
+                new_gy = union_cell(new_gy, -SECTOR_BOUNDARIES[sector][1], None)
+                new_outercell = cut_cell(new_outercell, SECTOR_BOUNDARIES[sector][1], None)
             else:
                 continue
-        new_gy_outer = {'800': self.new_outercell,
-                        '801': self.new_gy}
-        return new_gy_outer
+        # put the newly created cells in F4Enix dict, they will be replaced
+        return new_outercell, new_gy
     
     def _transform_z_plane(self, trans, surf):
         # Get the module of plane's parallel vector
@@ -345,7 +223,7 @@ class ELite_Input(Input):
         a12 = trans.values[5][0]
         a21 = trans.values[7][0]
         a22 = trans.values[8][0]
-
+        # apply cosines if degrees rotation type
         if trans.unit == '*':
             a11 = math.cos(math.radians(a11))
             a12 = math.cos(math.radians(a12))
@@ -358,10 +236,11 @@ class ELite_Input(Input):
         return p_x_coeff, p_y_coeff
     
     def _check_tol(self, n_coeff):
-
+        # for all tuples in the list, checks if the elements in the tuples 
+        # are within the tolerance
         in_tol = True
         # loop over the first list
-        for coeff in enumerate(n_coeff):
+        for coeff in n_coeff:
             if not coeff[1]-self.__tol <= coeff[0] <= coeff[1]+self.__tol:
                 in_tol = False
                 break
@@ -371,23 +250,29 @@ class ELite_Input(Input):
         # if in L0, set periodic
         if bound_opt == 1:
             surf.input[0] = '*' + surf.input[0]
-        # if L1, translate to avoid fatal errors
+        # if L1, translate outwards to avoid fatal errors
         elif bound_opt == 2:
+            # only way is to modify 'lines' and recompute input and template
             surf_desc = []
+            # skip comment lines
             for line in surf.lines:
                 if not line.lower().startswith('c'):
                     surf_desc.append(line)
+            # get plane coefficients
             words = ' '.join(string.rstrip('\n') for string in surf_desc)
             words = words.split()
+            # put the correct sign to the translation
+            # check if y+ or y- boundary
             y_plus = (l < 2)
+            # check in which quadrant the plane is
             angle_quadr = (90 < angle < 270 or -270 < angle < -90)
+            # check the sign of the y coefficient of the plane
             y_coeff = (surf.scoefs[1] > 0)
+            # translate the plane and recompute template and input
             sign = self._tol_sign[y_plus]*self._tol_sign[angle_quadr]*self._tol_sign[y_coeff]
             words[-1] = "{:.8f}".format(float(words[-1]) + sign*self.__tol)
             surf.lines = [' '.join(words) + '\n']
             surf.get_input()    
-
-
 
 # initialize cut_cell function
 def union_cell(cell:parser.Card, union_surface:int, new_cell_num:int = None):

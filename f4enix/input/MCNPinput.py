@@ -255,28 +255,9 @@ class Input:
         """
         logging.info('Writing to {}'.format(outfilepath))
 
-        with open(outfilepath, 'w') as outfile:
-
-            # Add the header lines
-            for line in self.header:
-                outfile.write(line)
-            # Add the cells
-            outfile.writelines(self._print_cards(self.cells, wrap=wrap))
-            # Add a break
-            outfile.write('\n')
-            # Add the surfaces
-            outfile.writelines(self._print_cards(self.surfs, wrap=wrap))
-            # Add a break
-            outfile.write('\n')
-            # Add the material section (they exit without the \n)
-            outfile.write(self.materials.to_text()+'\n')
-            # Add the translations
-            outfile.writelines(self._print_cards(self.transformations,
-                                                 wrap=wrap))
-            # Add the rest of the datacards
-            outfile.writelines(self._print_cards(self.other_data, wrap=wrap))
-            # Add a break
-            outfile.write('\n')
+        self.write_blocks(outfilepath, wrap, self.cells, self.surfs,
+                          self.materials, self.header, self.transformations,
+                          self.other_data)
 
         logging.info('File was written correctly')
 
@@ -570,46 +551,72 @@ class Input:
             used in a 'FILL=' keyword. This happens recursively. default is
             True.
         """
+        logging.info('write MCNP reduced input')
+
         header = self.header
 
         cells_cards, surfs, \
             materials = self._extraction_function(cells, renumber_from,
                                                   keep_universe,
                                                   extract_fillers)
-
-        Input._write_blocks(outfile, False, header, cells_cards, surfs, 
-                            materials, self.transformations)
+        trans = self.transformations
+        Input.write_blocks(outfile, False, cells_cards, surfs, materials,
+                           header, trans)
 
     @staticmethod
-    def _write_blocks(outfile: os.PathLike, wrap:bool, **kwargs):
+    def write_blocks(outfile: os.PathLike, wrap:bool, 
+                     cells_cards: dict[str, parser.Card],
+                     surfs: dict[str, parser.Card], materials: MatCardsList,
+                     header:list[str] = None,
+                     trans: dict[str, parser.Card] = None, 
+                     other_data: dict[str, parser.Card] = None):
+        """The method receives cells, surfaces, materials F4Enix dicts and 
+        optionally header, transformation and other data F4Enix dicts and 
+        prints the MCNP input
+
+        Parameters
+        ----------
+        outfile : os.PathLike
+            path of the MCNP input that will be printed
+        wrap : bool
+            flag to check if the input should be wrapped to 80 characters per 
+            line
+        cells_cards : dict[str, parser.Card]
+            F4Enix dict of cells
+        surfs : dict[str, parser.Card]
+            F4Enix dict of surfaces
+        materials : MatCardsList
+           MatCardsList object including the materials objects to be printed
+        header : list[str], optional
+            list of lines of header of MCNP input, by default None
+        trans : dict[str, parser.Card], optional
+            F4Enix dict of transformations, by default None
+        other_data : dict[str, parser.Card], optional
+            fEnix dict of MCNP data cards, by default None
+        """
         
-        logging.info('write MCNP reduced input')
         with open(outfile, 'w') as outfile:
             # Add the header lines                
-            if 'header' in kwargs.keys():
-                for line in kwargs['header']:
+            if header is not None:
+                for line in header:
                     outfile.write(line)
             else:
                 outfile.write('C\n')
             # Add the cells
-            outfile.writelines(Input._print_cards(kwargs['cells_cards'], 
-                                                  wrap=wrap))
+            outfile.writelines(Input._print_cards(cells_cards, wrap=wrap))
             # Add a break
             outfile.write('\n')
             # Add the surfaces
-            outfile.writelines(Input._print_cards(kwargs['surfs'], wrap=wrap))
+            outfile.writelines(Input._print_cards(surfs, wrap=wrap))
             # Add a break
             outfile.write('\n')
             # Add materials
-            if len(kwargs['materials'].matdic) > 0:
-                outfile.write(kwargs['materials'].to_text()+'\n')
+            if materials is not None and len(materials.matdic) > 0:
+                outfile.write(materials.to_text()+'\n')
             # other data is not mandatory to be written
-            if 'other_data' in kwargs.keys():
-                outfile.writelines(Input._print_cards(kwargs['other_data'], 
-                                                      wrap=wrap))
-            outfile.writelines(Input._print_cards(kwargs['trans']))
-
-        logging.info('input written correctly')
+            if other_data is not None:
+                outfile.writelines(Input._print_cards(other_data, wrap=wrap))
+            outfile.writelines(Input._print_cards(trans))
 
     def _extraction_function(self, cells: list[int], renumber_from: int = None, 
                              keep_universe: bool = True, 
