@@ -26,7 +26,7 @@ class Elite_Input(Input):
         # check the envelopes
         if check_Elite:
             inp_cells = self.get_cells_summary()
-            inp_L0_cells = inp_cells[inp_cells['universe'] == None]['cell']
+            inp_L0_cells = inp_cells[inp_cells['universe'].isna()].index.tolist()
             if set(inp_L0_cells) != set(self.block_structure['Cell'].tolist()):
                 msg = 'MCNP input is not an E-Lite file, or the Excel Block' + \
                         ' Structure file is not compatible'
