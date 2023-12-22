@@ -43,8 +43,49 @@ class Elite_Input(Input):
 
     def extract_sector(self, sectors, excel_file: os.PathLike,
                        outfile: os.PathLike = 'sector', tol: int = 1e-5, 
-                       check_Elite: bool = False):
+                       check_Elite: bool = False) -> None:
+        """Writes a working input of a user-selected E-Lite sector.
+        The user can provide a sector number or a list of contiguous sector
+        numbers in counterclockwise direction (e.g. 1, "2 & 3", [4,5], [9, 1]).
+        Currently there is no check of the correctness of the input, the user
+        must be careful in providing the correct sector number(s), in the 
+        correct order.
+        The method will extract a working input of the selected sector(s), by 
+        replacing the boundaries with reflecting surfaces.
+        The method is based on an auxiliary Excel file that lists all E-Lite 
+        envelope containers and their respective sector. The method follows
+        these steps:
+        - Excel file initialization and model check. If there's no 
+        correspondence between the envelope structure of E-Lite model and excel 
+        file, the method aborts. The method can't check if the correct sector 
+        number is assigned to the envelope container.
+        - Collection of all envelope containers and fillers to be extracted
+        - Graveyard and outer cell modification
+        - Source term fixing
+        - L0 surfaces which are enough close to the boundary will be set as
+          reflective
+        - L1 surfaces which are too close to the boundary will be translated 
+          "outwards" with respect to the sector(s), to avoid the arising of
+          fatal errors
 
+        Parameters
+        ----------
+        sectors : int or list
+            sector number, or list of contiguous sector numbers in 
+            counterclockwise direction that will be extracted
+        excel_file : os.PathLike
+            path to the Excel file that describes the sector structure of the
+            version of E-Lite in use
+        outfile : os.PathLike, optional
+            name of the input file that will be written, by default 'sector'
+        tol : int, optional
+            determines the maximum distance for two planes to be considered
+            equal, and determines the magnitude of the translation of L1 cells.
+            It should be chosen basedon the value used in DBCN card, by default 1e-5
+        check_Elite : bool, optional
+            Automatically checks if the envelope structure of the model is
+            consistent with the one reported in the Excel, by default False
+        """
         if not self.__initialized:
             self._initialize_elite(excel_file, check_Elite)
 
@@ -125,7 +166,7 @@ class Elite_Input(Input):
         return
     
     def _set_boundaries(self, boundaries_angles):
-        # define the angles at which there are the planes cutting the sectors\
+        # define the angles at which there are the planes cutting the sectors
         boundary_angles = []
         self._tol_sign = {True: 1,
                           False: -1}
@@ -205,11 +246,18 @@ class Elite_Input(Input):
         # cut/ union graveyard and outercell with planes
         for k, sector in enumerate(sectors):
             if k == 0:
-                new_gy = union_cell(self.cells['801'], -SECTOR_BOUNDARIES[sector][0], None)
-                new_outercell = cut_cell(self.cells['800'], SECTOR_BOUNDARIES[sector][0], None)
+                new_gy = Input.add_surface(self.cells['801'], 
+                                     -SECTOR_BOUNDARIES[sector][0], None,
+                                     'union', False)
+                new_outercell = Input.add_surface(self.cells['800'], 
+                                            SECTOR_BOUNDARIES[sector][0], None,
+                                            'intersect', False)
             if k == len(sectors) - 1:
-                new_gy = union_cell(new_gy, -SECTOR_BOUNDARIES[sector][1], None)
-                new_outercell = cut_cell(new_outercell, SECTOR_BOUNDARIES[sector][1], None)
+                new_gy = Input.add_surface(new_gy, -SECTOR_BOUNDARIES[sector][1],
+                                     None, 'union', False)
+                new_outercell = Input.add_surface(new_outercell, 
+                                            SECTOR_BOUNDARIES[sector][1], None,
+                                            'intersect', False)
             else:
                 continue
         # put the newly created cells in F4Enix dict, they will be replaced
@@ -270,114 +318,6 @@ class Elite_Input(Input):
             y_coeff = (surf.scoefs[1] > 0)
             # translate the plane and recompute template and input
             sign = self._tol_sign[y_plus]*self._tol_sign[angle_quadr]*self._tol_sign[y_coeff]
-            words[-1] = "{:.8f}".format(float(words[-1]) + sign*self.__tol)
+            words[-1] = "{:.8f}".format(float(words[-1]) + sign*2*self.__tol)
             surf.lines = [' '.join(words) + '\n']
             surf.get_input()    
-
-# initialize cut_cell function
-def union_cell(cell:parser.Card, union_surface:int, new_cell_num:int = None):
-
-    if new_cell_num is None:
-        new_cell_num = cell.name
-
-    new_cell = copy.deepcopy(cell)
-    # Introduce parentheses before the third word in the first row
-    first_row = new_cell.input[0].split()
-
-    if new_cell._get_value_by_type('mat') == 0:
-        first_row[2] = '(' + first_row[2]
-    else:
-        first_row[3] = '(' + first_row[3]
-
-    new_cell.input[0] = ' '.join(first_row)
-
-    # Check all rows if there are letters in the row
-    for i in range(len(new_cell.input)):
-
-        row = new_cell.input[i].split()
-        param_cards_idx = -1
-
-        for m, words in enumerate(row):
-            if any(c.isalpha() for c in words):
-                param_cards_idx = m
-                break
-
-        if param_cards_idx != -1:
-            if union_surface >= 0:
-                row.insert(param_cards_idx, 
-                           ') :{:<' + str(len(str(union_surface))) + '} ' )
-            else:
-                row.insert(param_cards_idx, 
-                           ') :-{:<' + str(len(str(union_surface))) + '} ' )
-                
-            new_cell.input[i] = ' '.join(row)
-
-            if new_cell.input[i][:5] != '     ' and i != 0:
-                new_cell.input[i] = '     ' + new_cell.input[i]
-            break
-
-    for k in range(len(new_cell.values)-1, -1, -1):
-        if new_cell.values[k][1] == 'sur' or new_cell.values[k][1] == 'cel':
-            last_sur_idx = k
-            break
-        
-    new_cell.values.insert(k+1, (abs(union_surface),'sur'))
-
-    new_cell.name = new_cell_num
-    new_cell._set_value_by_type('cel', new_cell_num)
-    
-    return new_cell
-
-# initialize cut_cell function
-def cut_cell(cell:parser.Card, split_surface:int, new_cell_num:int = None):
-
-    if new_cell_num is None:
-        new_cell_num = cell.name
-
-    new_cell = copy.deepcopy(cell)
-    # Introduce parentheses before the third word in the first row
-    first_row = new_cell.input[0].split()
-
-    if new_cell._get_value_by_type('mat') == 0:
-        first_row[2] = '(' + first_row[2]
-    else:
-        first_row[3] = '(' + first_row[3]
-
-    new_cell.input[0] = ' '.join(first_row)
-
-    # Check all rows if there are letters in the row
-    for i in range(len(new_cell.input)):
-
-        row = new_cell.input[i].split()
-        param_cards_idx = -1
-
-        for m, words in enumerate(row):
-            if any(c.isalpha() for c in words):
-                param_cards_idx = m
-                break
-
-        if param_cards_idx != -1:
-            if split_surface >= 0:
-                row.insert(param_cards_idx, 
-                           ') {:<' + str(len(str(split_surface))) + '} ' )
-            else:
-                row.insert(param_cards_idx, 
-                           ') -{:<' + str(len(str(split_surface))) + '} ' )
-                
-            new_cell.input[i] = ' '.join(row)
-
-            if new_cell.input[i][:5] != '     ' and i != 0:
-                new_cell.input[i] = '     ' + new_cell.input[i]
-            break
-
-    for k in range(len(new_cell.values)-1, -1, -1):
-        if new_cell.values[k][1] == 'sur' or new_cell.values[k][1] == 'cel':
-            last_sur_idx = k
-            break
-        
-    new_cell.values.insert(k+1, (abs(split_surface),'sur'))
-
-    new_cell.name = new_cell_num
-    new_cell._set_value_by_type('cel', new_cell_num)
-    
-    return new_cell

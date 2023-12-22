@@ -28,7 +28,8 @@ import pandas as pd
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
-from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP
+from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP, \
+    UNION_INTERSECT_SYMBOLS
 from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
 from copy import deepcopy
 
@@ -946,6 +947,84 @@ class Input:
                     cell._Card__m = new_mat_id  # necessary for the get val
                     cell.set_d(new_density)
 
+    @staticmethod
+    def add_surface(cell:parser.Card, add_surface:int, new_cell_num:int = None,
+                type: str = 'intersect', inplace: bool = True) -> parser.Card:
+
+        """Adds a surface to cell's definition as union or intersection.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            numjuggler cell card to which the surface will be added
+        add_surface : int
+            the surface number to be added to cell's definition
+        new_cell_num : int, optional
+            new number of the cell after the addition of the surface to cell's
+            definition, by default None
+        type : str, optional
+            can be 'union' or 'intersect', it tells the operation with which the
+            surface is added to cell's definition, by default 'intersect'
+        inplace : bool, optional
+            tells if the newly defined cell replaces the old one or a new object
+            with the modified definition is created, by default True
+
+        Returns
+        -------
+        parser.Card
+            numjuggler card of the modified cell
+        """
+        if not inplace:
+            if new_cell_num is None:
+                new_cell_num = cell.name
+            new_cell = deepcopy(cell)
+        else:
+            new_cell = cell
+        # Introduce parentheses before the third word in the first row
+        first_row = new_cell.input[0].split()
+
+        if new_cell._get_value_by_type('mat') == 0:
+            first_row[2] = '(' + first_row[2]
+        else:
+            first_row[3] = '(' + first_row[3]
+
+        new_cell.input[0] = ' '.join(first_row)
+
+        # Check all rows if there are letters in the row
+        for i in range(len(new_cell.input)):
+
+            row = new_cell.input[i].split()
+            param_cards_idx = -1
+
+            for m, words in enumerate(row):
+                if any(c.isalpha() for c in words):
+                    param_cards_idx = m
+                    break
+
+            if param_cards_idx != -1:
+                if add_surface >= 0:
+                    row.insert(param_cards_idx, 
+                            ') ' + UNION_INTERSECT_SYMBOLS[type] + '{:<' + str(len(str(add_surface))) + '} ' )
+                else:
+                    row.insert(param_cards_idx, 
+                            ') ' + UNION_INTERSECT_SYMBOLS[type] + '-{:<' + str(len(str(add_surface))) + '} ' )
+                    
+                new_cell.input[i] = ' '.join(row)
+
+                if new_cell.input[i][:5] != '     ' and i != 0:
+                    new_cell.input[i] = '     ' + new_cell.input[i]
+                break
+
+        for k in range(len(new_cell.values)-1, -1, -1):
+            if new_cell.values[k][1] == 'sur' or new_cell.values[k][1] == 'cel':
+                break
+            
+        new_cell.values.insert(k+1, (abs(add_surface),'sur'))
+
+        new_cell.name = new_cell_num
+        new_cell._set_value_by_type('cel', new_cell_num)
+        
+        return new_cell
 
 class D1S_Input(Input):
 

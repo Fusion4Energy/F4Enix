@@ -131,3 +131,6 @@ SECTOR_NAMES = [1, '2 & 3', 4, 5, 6, 7, 8, 9]
 TALLY_CARD_TYPES = ['F', '+F', '*F', 'FC', 'E', 'T', 'C', 'FQ',
                     'FM', 'DE', 'DF', 'EM', 'TM', 'CM', 'CF',
                     'SF', 'FS', 'SD', 'FU', 'FT', 'TF', 'NOTRN']
+
+UNION_INTERSECT_SYMBOLS = {'union': ':',
+                           'intersect': ''}
