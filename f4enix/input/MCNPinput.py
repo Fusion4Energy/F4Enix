@@ -571,7 +571,8 @@ class Input:
                      header:list[str] = None,
                      trans: dict[str, parser.Card] = None, 
                      other_data: dict[str, parser.Card] = None):
-        """The method receives cells, surfaces, materials F4Enix dicts and 
+        """Writes F4Enix dicts of cells, surfaces and data cards.
+        The method receives cells, surfaces, materials F4Enix dicts and 
         optionally header, transformation and other data F4Enix dicts and 
         prints the MCNP input
 
