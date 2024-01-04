@@ -1,3 +1,6 @@
+"""
+This file includes the main class of the ww_gvr package, the WW class.
+"""
 from pathlib import Path
 from typing import List, Optional
 
@@ -26,12 +29,41 @@ class WW:
         geometry: Geometry,
         values: ValuesByParticle,
     ):
+        """
+        The representation of a WW.
+
+        It should be created using the class methods WW.load_from_ww_file or
+            WW.create_gvr_from_meshtally_file.
+
+        Attributes
+        ----------
+        file_path : Path
+            Path to the MCNP weight window file.
+        geometry : Geometry
+            A Geometry object that contains the mesh and all geometrical information.
+        values : ValuesByParticle
+            A dictionary with the values of the weight window for each combination of
+            particle and energy.
+        """
         self.file_path = file_path
         self.geometry = geometry
         self.values = values
 
     @classmethod
     def load_from_ww_file(cls, file_path: Pathlike):
+        """
+        Create a WW object from a MCNP weight window file.
+
+        Parameters
+        ----------
+        file_path : Pathlike
+            Path to the MCNP weight window file.
+
+        Returns
+        -------
+        WW
+            A WW object.
+        """
         file_path = Path(file_path)
         parse_result = ww_parser.parse(file_path)
 
@@ -44,6 +76,22 @@ class WW:
     def create_gvr_from_meshtally_file(
         cls, file_path: Pathlike, maximum_splitting_ratio: float = 5.0
     ):
+        """
+        Create a WW object (a GVR) from a MCNP meshtally file using the Van Vick /
+            Andrew Davis / Magic algorithm.
+
+        Parameters
+        ----------
+        file_path : Pathlike
+            Path to the MCNP meshtally file.
+        maximum_splitting_ratio : float, optional
+            The maximum splitting ratio used in the formula, by default 5.0
+
+        Returns
+        -------
+        WW
+            A WW object.
+        """
         file_path = Path(file_path)
         parse_result = ww_parser.read_meshtally_file(file_path)
 
@@ -125,6 +173,12 @@ class WW:
 
     @property
     def values(self) -> ValuesByParticle:
+        """
+        The values of the weight window for each combination of particle and energy as
+            a nested dictionary.
+
+        Has the following format: {ParticleType: {energy(float): np.ndarray}}
+        """
         return self._values
 
     @values.setter
@@ -136,10 +190,19 @@ class WW:
 
     @property
     def ratios(self) -> ValuesByParticle:
+        """
+        Same format as values, but showing the maximum ratio of every voxel with its
+            neighbours.
+        """
         return self._ratios
 
     @property
     def energies(self) -> EnergiesByParticle:
+        """
+        The energies of the weight window for each particle as a dictionary.
+
+        Has the following format: {ParticleType: List[float]}
+        """
         energies = {}
         for particle in self.particles:
             energies[particle] = list(self._values[particle].keys())
@@ -147,6 +210,12 @@ class WW:
 
     @property
     def particles(self) -> List[ParticleType]:
+        """
+        List of ParticleType objects that are present in the weight window.
+
+        It will be either [ParticleType.NEUTRON] or [ParticleType.NEUTRON,
+            ParticleType.PHOTON].
+        """
         particles = [ParticleType.NEUTRON]
         if len(self.values) > 1:
             particles.append(ParticleType.PHOTON)
@@ -154,6 +223,9 @@ class WW:
 
     @property
     def info(self) -> str:
+        """
+        A string with the most important information of the weight window.
+        """
         text = f" {self.file_path.name} weight window\n"
 
         vi = self.geometry._coarse_vectors.vector_i
@@ -194,6 +266,18 @@ class WW:
         return self.info
 
     def multiply(self, factor: float) -> None:
+        """
+        Multiply all values of the weight window by a factor.
+
+        Parameters
+        ----------
+        factor : float
+            The factor to multiply the values.
+
+        Returns
+        -------
+        None
+        """
         if factor == 1.0:
             return
 
@@ -206,6 +290,22 @@ class WW:
         self.values = values
 
     def soften(self, softening_factor: float) -> None:
+        """
+        Soften the weight window values by raising them to a power.
+
+        This is useful to mitigate long histories and to reduce the aggressiveness of
+            the weight window if the softening factor is lower than 1. Softening factors
+            higher than 1 will have the opposite effect.
+
+        Parameters
+        ----------
+        softening_factor : float
+            The softening factor.
+
+        Returns
+        -------
+        None
+        """
         if softening_factor == 1.0:
             return
 
@@ -218,6 +318,23 @@ class WW:
         self.values = values
 
     def add_particle(self, norm: float = 1, soft: float = 1):
+        """
+        Add a second particle to a weight window that only has one (neutrons).
+
+        The new particle will be photons, and its values will be the same as the
+            neutron values but multiplied by a normalization factor and softened.
+
+        Parameters
+        ----------
+        norm : float, optional
+            The normalization factor, by default 1
+        soft : float, optional
+            The softening factor, by default 1
+
+        Returns
+        -------
+        None
+        """
         if len(self.particles) == 2:
             raise ValueError("There are already two particles...")
 
@@ -228,18 +345,41 @@ class WW:
 
         values = self.values
         values.update({ParticleType.PHOTON: values_photon})
+
         # This line will trigger the setter, which will update the ratios and geometry
         self.values = values
 
     def remove_particle(self):
+        """
+        Remove a particle from a weight window that has two (neutrons and photons).
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if len(self.particles) == 1:
             raise ValueError("There is only one particle already...")
 
         self.values = {ParticleType.NEUTRON: self.values[ParticleType.NEUTRON]}
 
     def mitigate_long_histories(self, max_ratio: float = 10.0) -> None:
-        """The weigth window voxels with a ratio higher than max_ratio will be set to
-        zero. This stopes the particle from over-splitting."""
+        """
+        The weigth window voxels with a ratio higher than max_ratio will be set to
+            zero. This stops the particle from over-splitting.
+
+        Parameters
+        ----------
+        max_ratio : float, optional
+            The maximum ratio allowed, by default 10.0
+
+        Returns
+        -------
+        None
+        """
         values = self.values
         for particle in self.particles:
             for energy in self.energies[particle]:
@@ -250,6 +390,20 @@ class WW:
         self.values = values
 
     def write_to_ww_file(self, file_path: Optional[Pathlike] = None) -> None:
+        """
+        Write the weight window to a file.
+
+        Parameters
+        ----------
+        file_path : Optional[Pathlike], optional
+            The path to the file, by default None. If None, the file will be written
+                with the same name as the original file but with "_written" added to the
+                name.
+
+        Returns
+        -------
+        None
+        """
         if file_path is None:
             file_path = self.file_path.parent / (self.file_path.stem + "_written")
         file_path = Path(file_path)
@@ -291,6 +445,19 @@ class WW:
         return header
 
     def export_as_vtk(self, file_path: Optional[Pathlike] = None) -> None:
+        """
+        Export the weight window to a VTK file.
+
+        Parameters
+        ----------
+        file_path : Optional[Pathlike], optional
+            The path to the file, by default None. If None, the file will be written
+                with the same name as the original file but with ".vtk" extension.
+
+        Returns
+        -------
+        None
+        """
         if file_path is None:
             file_path = self.file_path.parent / (self.file_path.stem)
         file_path = Path(file_path)
@@ -298,4 +465,18 @@ class WW:
         self.geometry.export_as_vtk(file_path)
 
     def plot(self) -> None:
+        """
+        Plot the weight window using the pyvista plotter.
+
+        The plot is interactive, so it will block the execution of the script until the
+            plot is closed.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         self.geometry.plot()

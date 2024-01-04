@@ -1,3 +1,8 @@
+"""
+This module contains the Geometry class, which is used to create a pyvista grid
+from the coarse and fine vectors of a WW file. It also contains the methods to
+fill the grid with the values of the WW file and to plot it.
+"""
 from pathlib import Path
 from f4enix.input.ww_gvr.meshgrids import create_cartesian_grid, create_cylindrical_grid
 from f4enix.input.ww_gvr.models import Vectors, CoordinateType, ValuesByParticle
@@ -18,6 +23,19 @@ class Geometry:
     def __init__(
         self, header: WWHeader, coarse_vectors: Vectors, fine_vectors: Vectors
     ):
+        """
+        Class that contains all the geometrical information and methods associated to
+            a WW file, including a pyvista mesh.
+
+        Parameters
+        ----------
+        header : WWHeader
+            The header of the WW file.
+        coarse_vectors : Vectors
+            The coarse vectors of the WW file.
+        fine_vectors : Vectors
+            The fine vectors of the WW file.
+        """
         self._coarse_vectors = coarse_vectors
         self._fine_vectors = fine_vectors
 
@@ -48,12 +66,35 @@ class Geometry:
             )
 
     def fill_grid_values(self, values_by_particle: ValuesByParticle) -> None:
+        """Fills the grid with the values of the WW file.
+
+        Parameters
+        ----------
+        values_by_particle : ValuesByParticle
+            The values of the WW file grouped by particle.
+
+        Returns
+        -------
+        None
+        """
         for particle in values_by_particle.keys():
             for energy in values_by_particle[particle].keys():
                 values = values_by_particle[particle][energy]
                 self.fill_grid_array(values, f"WW {particle}, {energy:.2f} MeV")
 
     def fill_grid_ratios(self, ratios_by_particle: ValuesByParticle) -> None:
+        """
+        Fills the grid with the ratios of the WW file.
+
+        Parameters
+        ----------
+        ratios_by_particle : ValuesByParticle
+            The ratios of the WW file grouped by particle.
+
+        Returns
+        -------
+        None
+        """
         for particle in ratios_by_particle.keys():
             for energy in ratios_by_particle[particle].keys():
                 ratios = ratios_by_particle[particle][energy]
@@ -63,7 +104,19 @@ class Geometry:
             self.fill_grid_array(max_ratios, f"Max Ratio {particle}")
 
     def fill_grid_array(self, array: NDArray, name: str) -> None:
-        """Fills the grid with an array given in K, J, I order"""
+        """
+        Fills the grid with an array given in K, J, I order.
+
+        If the grid is cylindrical, it properly manages the theta dimension even if it
+        was extended with _extend_theta_intervals from the meshgrids module.
+
+        Parameters
+        ----------
+        array : NDArray
+            The array to fill the grid with.
+        name : str
+            The name of the array, key.
+        """
         if self.coordinate_type == CoordinateType.CYLINDRICAL:
             array = self._prepare_values_for_cylindrical_grid(array)
 
@@ -94,14 +147,23 @@ class Geometry:
 
     @property
     def b2_vectors(self) -> Vectors:
+        """Returns a Vectors object of the vectors in the b2 format of the WW file"""
         return compose_b2_vectors(self._coarse_vectors, self._fine_vectors)
 
     @property
     def director_1(self) -> List[float] | None:
+        """
+        Returns the director 1 vector (axis) of the cylinder if the grid is
+            cylindrical.
+        """
         return self._director_1
 
     @property
     def director_2(self) -> List[float] | None:
+        """
+        Returns the director 2 vector (radius) of the cylinder if the grid is
+            cylindrical.
+        """
         return self._director_2
 
     @property
@@ -110,29 +172,36 @@ class Geometry:
 
     @property
     def i_ints(self) -> int:
+        """Returns the number of intervals in the i direction"""
         return np.sum(self._fine_vectors.vector_i)
 
     @property
     def j_ints(self) -> int:
+        """Returns the number of intervals in the j direction"""
         return np.sum(self._fine_vectors.vector_j)
 
     @property
     def k_ints(self) -> int:
+        """Returns the number of intervals in the k direction"""
         return np.sum(self._fine_vectors.vector_k)
 
     @property
     def i_coarse_ints(self) -> int:
+        """Returns the number of coarse intervals in the i direction"""
         return len(self._coarse_vectors.vector_i) - 1
 
     @property
     def j_coarse_ints(self) -> int:
+        """Returns the number of coarse intervals in the j direction"""
         return len(self._coarse_vectors.vector_j) - 1
 
     @property
     def k_coarse_ints(self) -> int:
+        """Returns the number of coarse intervals in the k direction"""
         return len(self._coarse_vectors.vector_k) - 1
 
     def plot(self) -> None:
+        """Plots the grid with the values of the WW file in an interactive window"""
         args_dict = self._decide_plot_parameters()
         plotter = Plotter()
         plotter.add_mesh_clip_plane(self._grid, **args_dict)
@@ -178,6 +247,14 @@ class Geometry:
         return args_dict
 
     def export_as_vtk(self, file_path: Path) -> None:
+        """
+        Exports the grid as a VTK file.
+
+        Parameters
+        ----------
+        file_path : Path
+            The path to create the VTK file.
+        """
         if file_path.suffix != ".vts":
             file_path = file_path.with_suffix(".vts")
 

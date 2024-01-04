@@ -3,11 +3,11 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 import pytest
 import pyvista as pv
 from f4enix.input.ww_gvr.meshgrids import (
-    correct_theta_vector,
+    _correct_theta_vector,
     create_cartesian_grid,
     create_cylindrical_grid,
-    create_cylindrical_grid_with_z_axis,
-    extend_theta_intervals,
+    _create_cylindrical_grid_with_z_axis,
+    _extend_theta_intervals,
 )
 
 
@@ -55,7 +55,7 @@ def test_create_cartesian_grid_translated():
 
 
 def test_create_cylindrical_grid_z_axis():
-    grid = create_cylindrical_grid_with_z_axis(
+    grid = _create_cylindrical_grid_with_z_axis(
         vector_i=np.array([0, 1, 2]),
         vector_j=np.array([10, 20, 30]),
         vector_k_revolutions=np.array([0, 0.25, 0.5]),
@@ -80,23 +80,23 @@ def test_create_cylindrical_grid_z_axis():
 
 
 def test_extend_theta_intervals_1_initial_int():
-    extended_vector = extend_theta_intervals(np.array([0.0, 1]), 4)
+    extended_vector = _extend_theta_intervals(np.array([0.0, 1]), 4)
     assert_array_almost_equal([0, 0.25, 0.5, 0.75, 1], extended_vector)
 
 
 def test_extend_theta_intervals_2_initial_ints():
-    extended_vector = extend_theta_intervals(np.array([0, 0.5, 1]), 4)
+    extended_vector = _extend_theta_intervals(np.array([0, 0.5, 1]), 4)
     assert_array_almost_equal([0, 0.25, 0.5, 0.75, 1], extended_vector)
 
 
 def test_extend_theta_intervals_3_initial_ints():
     with pytest.raises(ValueError):
-        extend_theta_intervals(np.array([0, 0.2, 0.4, 0.6]))
+        _extend_theta_intervals(np.array([0, 0.2, 0.4, 0.6]))
 
 
 def test_correct_theta_vector():
     wrong_vector = np.array([-0.0000000001, 0.5, 0.9999999999995])
-    corrected_vector = correct_theta_vector(wrong_vector)
+    corrected_vector = _correct_theta_vector(wrong_vector)
     assert_array_equal([0, 0.5, 1], corrected_vector)
 
 

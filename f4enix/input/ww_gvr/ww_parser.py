@@ -44,6 +44,20 @@ class ParseResult:
 
 
 def parse(path: Path) -> ParseResult:
+    """
+    Parse a WW file and return a ParseResult object containing all the information of
+        the file.
+
+    Parameters
+    ----------
+    path : Path
+        Path to the WW file.
+
+    Returns
+    -------
+    ParseResult
+        A ParseResult object containing all the information of the file.
+    """
     with open(path, "r") as infile:
         header = _parse_header(infile)
 
@@ -271,6 +285,26 @@ def write(
     energies: NestedList,
     values: NestedList,
 ) -> None:
+    """
+    Write a WW file from the given information.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file to be written.
+    header : WWHeader
+        The header information of the WW file.
+    b2_vectors : Vectors
+        The block 2 vectors of the WW file.
+    energies : NestedList
+        The energies of the WW file.
+    values : NestedList
+        The values of the WW file.
+
+    Returns
+    -------
+    None
+    """
     with open(file_path, "w") as infile:
         _write_header(infile, header)
         _write_block_2(infile, b2_vectors)
