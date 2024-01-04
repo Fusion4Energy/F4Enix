@@ -42,7 +42,7 @@ class Elite_Input(Input):
         self.__initialized = True
 
     def extract_sector(self, sectors, excel_file: os.PathLike,
-                       outfile: os.PathLike = 'sector', tol: int = 1e-5, 
+                       outfile: os.PathLike = 'sector', tol: float = 1e-5, 
                        check_Elite: bool = False) -> None:
         """Writes a working input of a user-selected E-Lite sector.
         The user can provide a sector number or a list of contiguous sector
@@ -110,7 +110,7 @@ class Elite_Input(Input):
                     if t == 'sur':
                         self.L0_sset.add(v)
         # backup copy graveyard and outercell, that will be modified
-        # append gy and outerell manually as they don't belong to a sector
+        # append gy and outercell manually as they don't belong to a sector
         cells.append(800)
         cells.append(801)
         # get cells, surfaces and materials to be extracted
@@ -120,7 +120,7 @@ class Elite_Input(Input):
         self.modified_surfaces = None
         self.modified_surfaces = copy.deepcopy(surf_dic)
 
-        # Falso tallies and other data
+        # Also tallies and other data
         self.modified_data_cards = copy.deepcopy(self.other_data)
         # pattern_str = '|'.join(self.tally_cards_types)
         # pattern = re.compile(f'^({pattern_str})\d+$')
@@ -160,7 +160,7 @@ class Elite_Input(Input):
             if sector != '2 & 3':
                 new_sp = new_sp + '1 '
             else:
-                new_sp = new_si + '2 '
+                new_sp = new_sp + '2 '
         self.modified_data_cards['SI70'].input = [new_si]
         self.modified_data_cards['SP70'].input = [new_sp]
         return
@@ -227,9 +227,11 @@ class Elite_Input(Input):
         for k, sec in enumerate(sectors):
             bounds = SECTOR_BOUNDARIES_ANGLES[sec]
             if k == 0:
-                boundaries_angles.append(bounds[1])
-            if k == (len(sectors)-1):
+                # get y- plane for first sector in list
                 boundaries_angles.append(bounds[0])
+            if k == (len(sectors)-1):
+                # get y+ plane for last sector in list
+                boundaries_angles.append(bounds[1])
 
         return boundaries_angles
 
