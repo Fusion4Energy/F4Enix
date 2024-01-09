@@ -923,7 +923,8 @@ class Input:
         cell : parser.Card
             numjuggler cell card to which the surface will be added
         add_surface : int
-            the surface number to be added to cell's definition
+            the surface number to be added to cell's definition. It should
+            include the sign.
         new_cell_num : int, optional
             new number of the cell after the addition of the surface to cell's
             definition, by default None. If a new number is specified, the
