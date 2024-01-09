@@ -4,8 +4,7 @@ import os
 import pandas as pd
 import math
 import copy
-from numjuggler import parser
-import re
+import numpy as np
 import logging
 from f4enix.constants import *
 
@@ -268,20 +267,22 @@ class Elite_Input(Input):
     def _transform_z_plane(self, trans, surf):
         # Get the module of plane's parallel vector
         norm = math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
-        # compute rotation matrix coefficients
-        a11 = trans.values[4][0]
-        a12 = trans.values[5][0]
-        a21 = trans.values[7][0]
-        a22 = trans.values[8][0]
-        # apply cosines if degrees rotation type
+        # compute rotation matrix
+        coeffs = [t[1] for t in trans.values]
         if trans.unit == '*':
-            a11 = math.cos(math.radians(a11))
-            a12 = math.cos(math.radians(a12))
-            a21 = math.cos(math.radians(a21))
-            a22 = math.cos(math.radians(a22))
+            coeffs = [math.cos(math.radians(v)) for v in coeffs]
+        # define rotation matrix
+        rot_matrix = np.array([[coeffs[4], coeffs[5], coeffs[6]],
+                              [coeffs[7], coeffs[8], coeffs[9]],
+                              [coeffs[10], coeffs[11], coeffs[12]]])
+        # compute inverse rotation matrix
+        inv_rot = np.linalg.inv(rot_matrix)
         # compute rotated plane's coefficients to be checked
-        p_x_coeff = (surf.scoefs[0]*a11-surf.scoefs[1]*a12)/norm
-        p_y_coeff = (-surf.scoefs[0]*a21+surf.scoefs[1]*a22)/norm
+        pl_coeff = np.array([surf.scoefs[0], surf.scoefs[1], surf.scoefs[2]])
+        dp = np.dot(inv_rot, pl_coeff)
+        
+        p_x_coeff = dp[0]/norm
+        p_y_coeff = dp[1]/norm
 
         return p_x_coeff, p_y_coeff
     
