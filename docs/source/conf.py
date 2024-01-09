@@ -199,3 +199,4 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+autosummary_ignore = ['f4enix.input.ww_gvr.ww_parser']
