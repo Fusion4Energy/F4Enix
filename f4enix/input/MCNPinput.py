@@ -28,7 +28,7 @@ import pandas as pd
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
-from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP
+from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP, UNION_INTERSECT_SYMBOLS
 from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
 from copy import deepcopy
 

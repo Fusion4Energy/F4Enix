@@ -96,3 +96,6 @@ SDDR_CATEGORIES = {
 
 # --- Constants ---
 ITER_PLASMA_360_500MW = 1.7757e20
+
+UNION_INTERSECT_SYMBOLS = {'union': ':',
+                           'intersect': ''}
