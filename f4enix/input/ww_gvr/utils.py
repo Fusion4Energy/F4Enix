@@ -21,7 +21,7 @@ EXPECTED_INFO_SIMPLE_CART = PATH_TO_RESOURCES / "expected_info_simple_cart.txt"
 def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
     """
     Takes a Vectors object with b2 format and returns two Vectors objects, one with the
-        coarse vectors and the other with the fine vectors.
+    coarse vectors and the other with the fine vectors.
 
     The b2 format of a WW MCNP file is:
     [mesh_position, fine_ints,
@@ -32,7 +32,7 @@ def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
 
     Coarse vectors have the format: [p1, p2, p3, ...]
     A fine vector shows how many intervals there are between each step of the coarse
-        vector's points: [n1, n2, n3, ...]
+    vector's points: [n1, n2, n3, ...]
 
     Parameters
     ----------

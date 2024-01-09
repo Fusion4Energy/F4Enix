@@ -24,7 +24,7 @@ class ParticleType(Enum):
 class Vectors:
     """
     A group of three vectors in the form of a Numpy NDArray. They are used to define 3D
-        meshes.
+    meshes.
     """
 
     vector_i: NDArray  # Vector defining i direction
