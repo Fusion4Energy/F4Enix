@@ -1,3 +1,6 @@
+"""
+Some utilities for the ww_gvr package.
+"""
 from pathlib import Path
 from typing import Tuple
 
@@ -17,14 +20,30 @@ EXPECTED_INFO_SIMPLE_CART = PATH_TO_RESOURCES / "expected_info_simple_cart.txt"
 
 def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
     """
-    Takes some b2_vectors with format:
+    Takes a Vectors object with b2 format and returns two Vectors objects, one with the
+        coarse vectors and the other with the fine vectors.
+
+    The b2 format of a WW MCNP file is:
     [mesh_position, fine_ints,
      mesh_position, 1.0000, fine_ints,
      mesh_position, 1.0000, fine_ints,
      ...
      mesh_position, 1.0000]
-    and returns two Vectors objects, one with the coarse vectors and the other with the
-     fine vectors.
+
+    Coarse vectors have the format: [p1, p2, p3, ...]
+    A fine vector shows how many intervals there are between each step of the coarse
+        vector's points: [n1, n2, n3, ...]
+
+    Parameters
+    ----------
+    b2_vectors : Vectors
+        Vectors object with b2 format.
+
+    Returns
+    -------
+    Tuple[Vectors, Vectors]
+        Two Vectors objects, one with the coarse vectors and the other with the
+        fine vectors.
     """
     coarse = []
     fine = []
@@ -56,14 +75,19 @@ def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
 
 def compose_b2_vectors(coarse_vectors: Vectors, fine_vectors: Vectors) -> Vectors:
     """
-    Takes two Vectors objects, one with the coarse vectors and the other with the
-     fine vectors which reprsent the amount of ints between each step of the coarse
-     vectors, and returns some b2_vectors with format:
-    [mesh_position, fine_ints,
-     mesh_position, 1.0000, fine_ints,
-     mesh_position, 1.0000, fine_ints,
-     ...
-     mesh_position, 1.0000]
+    The opposite of decompose_b2_vectors.
+
+    Parameters
+    ----------
+    coarse_vectors : Vectors
+        Vectors object with coarse vectors.
+    fine_vectors : Vectors
+        Vectors object with fine vectors.
+
+    Returns
+    -------
+    Vectors
+        Vectors object with b2 format.
     """
     b2_vectors = []
 
@@ -86,10 +110,24 @@ def compose_b2_vectors(coarse_vectors: Vectors, fine_vectors: Vectors) -> Vector
 
 def build_1d_vectors(coarse_vectors: Vectors, fine_vectors: Vectors) -> Vectors:
     """
+    Flatten coarse and fine vectors into 1D Vectors.
+
     Takes two Vectors objects, one with the coarse vectors and the other with the
-    fine vectors which reprsent the amount of ints between each step of the coarse
+    fine vectors which represent the amount of ints between each step of the coarse
     vectors, and returns some flattened vectors with format:
     [mesh_position, mesh_position, mesh_position, ...]
+
+    Parameters
+    ----------
+    coarse_vectors : Vectors
+        Vectors object with coarse vectors.
+    fine_vectors : Vectors
+        Vectors object with fine vectors.
+
+    Returns
+    -------
+    Vectors
+        Vectors object with 1D vectors.
     """
     b2_vectors = []
 

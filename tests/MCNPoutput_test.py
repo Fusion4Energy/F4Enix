@@ -45,6 +45,15 @@ class TestOutput:
         df = pd.read_excel(os.path.join(tmpdir, 'LPdebug_test_lp_u.xlsx'),
                            sheet_name='by universe')
         assert df['count'].values[-1] == 42
+    
+    def test_get_tot_lp(self):
+        with as_file(RESOURCES.joinpath('test_o')) as file:
+            outp = Output(file)
+        assert outp.get_tot_lp() is None
+
+        with as_file(RESOURCES.joinpath('test_lp_u.o')) as file:
+            outp = Output(file)
+        assert outp.get_tot_lp() == 677
 
     def test_get_NPS(self):
         with as_file(RESOURCES.joinpath('test_o')) as file:

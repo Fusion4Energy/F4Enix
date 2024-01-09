@@ -1,3 +1,6 @@
+"""
+Classes and types used throughout the package.
+"""
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -19,6 +22,11 @@ class ParticleType(Enum):
 
 @dataclass(kw_only=True)
 class Vectors:
+    """
+    A group of three vectors in the form of a Numpy NDArray. They are used to define 3D
+        meshes.
+    """
+
     vector_i: NDArray  # Vector defining i direction
     vector_j: NDArray  # Vector defining j direction
     vector_k: NDArray  # Vector defining k direction

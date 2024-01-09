@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<VTKFile type="StructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <StructuredGrid WholeExtent="0 2 0 3 0 1">
+  <Piece Extent="0 2 0 3 0 1">
+    <PointData>
+    </PointData>
+    <CellData Scalars="WW ParticleType.NEUTRON, 100.00 MeV">
+      <DataArray type="Float64" Name="WW ParticleType.NEUTRON, 100.00 MeV" format="binary" RangeMin="0.0898" RangeMax="0.67316">
+        AQAAAACAAAAwAAAANgAAAA==eJzritRvK1q0157puqjxodvb7dXM5K+3dT21ZwCDB/YpViVV93p32r/00Puv+HebPQDh8xRi
+      </DataArray>
+      <DataArray type="Float64" Name="Ratio ParticleType.NEUTRON, 100.00 MeV" format="binary" RangeMin="5.364979559427878" RangeMax="6.743671171396801">
+        AQAAAACAAAAwAAAALAAAAA==eJyrMb69fpOTuAPfubnGe0tFHYKbGt63/JRykOf8IN3vKuYQhMYHAPnTE6c=
+      </DataArray>
+      <DataArray type="Float64" Name="Max Ratio ParticleType.NEUTRON" format="binary" RangeMin="5.364979559427878" RangeMax="6.743671171396801">
+        AQAAAACAAAAwAAAALAAAAA==eJyrMb69fpOTuAPfubnGe0tFHYKbGt63/JRykOf8IN3vKuYQhMYHAPnTE6c=
+      </DataArray>
+    </CellData>
+    <Points>
+      <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="binary" RangeMin="5.0990195135927845" RangeMax="51.96152422706632">
+        AQAAAACAAAAgAQAAWwAAAA==eJxNjgEJwEAMA2NievYmOh2TMCODt/KOXsIIIc0KgYMGcsBe6Nw/5uVX9XYnDIT3uuroThgIM8+ZLTPP7MwRH7J9yPZRJ2wfdbSrTtg+6mjXW2b7zPEBDV1Zsw==
+        <InformationKey name="L2_NORM_RANGE" location="vtkDataArray" length="2">
+          <Value index="0">
+            5.0990195136
+          </Value>
+          <Value index="1">
+            51.961524227
+          </Value>
+        </InformationKey>
+      </DataArray>
+    </Points>
+  </Piece>
+  </StructuredGrid>
+</VTKFile>

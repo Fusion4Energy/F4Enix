@@ -1,9 +1,27 @@
+"""
+Includes some numba functions for improved performance of the ratios calculation.
+"""
+
 import numpy as np
 from numba import njit, prange
 
 
 @njit(cache=True)
 def calculate_max_ratio_array(array: np.ndarray) -> np.ndarray:
+    """
+    Calculate the maximum ratio of each value to its neighbours in a 3D array.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        The input 3D array.
+
+    Returns
+    -------
+    np.ndarray
+        A 3D array of the same shape as the input, where each value is the maximum
+        ratio of the corresponding value in the input array to its neighbours.
+    """
     ratios = np.ones_like(array)
     for k in prange(array.shape[0]):
         for j in prange(array.shape[1]):

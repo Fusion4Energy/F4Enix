@@ -1,3 +1,6 @@
+"""
+CLI for the ww_gvr package.
+"""
 from copy import deepcopy
 from enum import Enum
 import os
@@ -54,43 +57,48 @@ class CommandOperate(Enum):
 
 class Menu:
     def __init__(self) -> None:
+        """
+        Command-line interface for the ww_gvr package for handling weight windows (WW).
+
+        Running Menu() will start the CLI loop directly.
+        """
         self.weight_windows: Dict[str, WW] = dict()
         self.extra_text: str = ""
         self.command_map = {
-            Command.OPEN: self.handle_open,
-            Command.INFO: self.handle_info,
-            Command.WRITE: self.handle_write,
-            Command.VTK: self.handle_vtk,
-            Command.PLOT: self.handle_plot,
-            Command.OPERATE: self.handle_operate,
-            Command.GVR: self.handle_gvr,
+            Command.OPEN: self._handle_open,
+            Command.INFO: self._handle_info,
+            Command.WRITE: self._handle_write,
+            Command.VTK: self._handle_vtk,
+            Command.PLOT: self._handle_plot,
+            Command.OPERATE: self._handle_operate,
+            Command.GVR: self._handle_gvr,
             Command.END: exit,
         }
         self.command_operate_map = {
-            CommandOperate.SOFT: self.handle_soft,
-            CommandOperate.ADD: self.handle_add,
-            CommandOperate.REMOVE: self.handle_remove,
-            CommandOperate.MITIGATE: self.handle_mitigate,
-            CommandOperate.END: self.display_menu,
+            CommandOperate.SOFT: self._handle_soft,
+            CommandOperate.ADD: self._handle_add,
+            CommandOperate.REMOVE: self._handle_remove,
+            CommandOperate.MITIGATE: self._handle_mitigate,
+            CommandOperate.END: self._display_menu,
         }
-        self.main_menu_loop()
+        self._main_menu_loop()
 
-    def main_menu_loop(self):
+    def _main_menu_loop(self):
         while True:
-            self.display_menu()
-            self.get_command()
+            self._display_menu()
+            self._get_command()
 
-    def display_menu(self):
+    def _display_menu(self):
         self.clear_screen()
         print(MAIN_MENU)
         print(self.extra_text)
 
-    def display_operate_menu(self):
+    def _display_operate_menu(self):
         self.clear_screen()
         print(OPERATE_MENU)
         print(self.extra_text)
 
-    def get_command(self):
+    def _get_command(self):
         while True:
             attempt = input(" Enter command: ").lower()
             try:
@@ -100,12 +108,12 @@ class Menu:
             except ValueError:
                 print(" Invalid command...")
 
-    def handle_open(self):
+    def _handle_open(self):
         file_path = Path(input(" Enter file path: "))
 
         if file_path.stem in self.weight_windows:
             print(" Weight window already loaded...")
-            self.handle_open()
+            self._handle_open()
 
         try:
             weight_window = WW.load_from_ww_file(file_path)
@@ -114,42 +122,42 @@ class Menu:
         except FileNotFoundError:
             self.extra_text = " File not found..."
 
-    def handle_info(self):
-        ww_key = self.select_ww_key()
+    def _handle_info(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = self.weight_windows[ww_key]
         self.extra_text = ww.info
 
-    def handle_write(self):
-        ww_key = self.select_ww_key()
+    def _handle_write(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = self.weight_windows[ww_key]
         ww.write_to_ww_file()
         self.extra_text = f" {ww_key}_written saved!"
 
-    def handle_vtk(self):
-        ww_key = self.select_ww_key()
+    def _handle_vtk(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = self.weight_windows[ww_key]
         ww.export_as_vtk()
         self.extra_text = f" {ww_key}.vtk saved!"
 
-    def handle_plot(self):
-        ww_key = self.select_ww_key()
+    def _handle_plot(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = self.weight_windows[ww_key]
         ww.geometry.plot()
 
-    def handle_gvr(self):
+    def _handle_gvr(self):
         file_path = Path(input(" Enter Meshtally file path: "))
 
         if file_path.stem in self.weight_windows:
             print(" Weight window already loaded with that file name...")
-            self.handle_gvr()
+            self._handle_gvr()
 
         maximum_splitting, softening = self._ask_gvr_parameters()
 
@@ -163,7 +171,7 @@ class Menu:
         except FileNotFoundError:
             self.extra_text = " File not found..."
 
-    def select_ww_key(self) -> Optional[str]:
+    def _select_ww_key(self) -> Optional[str]:
         if len(self.weight_windows) == 0:
             self.extra_text = " No weight windows loaded..."
             return None
@@ -195,12 +203,12 @@ class Menu:
 
         return maximum_splitting, softening
 
-    def handle_operate(self):
+    def _handle_operate(self):
         self.extra_text = ""
-        self.display_operate_menu()
-        self.get_operate_command()
+        self._display_operate_menu()
+        self._get_operate_command()
 
-    def get_operate_command(self):
+    def _get_operate_command(self):
         while True:
             attempt = input(" Enter command: ").lower()
             try:
@@ -210,8 +218,8 @@ class Menu:
             except ValueError:
                 print(" Invalid command...")
 
-    def handle_soft(self):
-        ww_key = self.select_ww_key()
+    def _handle_soft(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = deepcopy(self.weight_windows[ww_key])
@@ -221,8 +229,8 @@ class Menu:
         self.weight_windows[ww.file_path.stem] = ww
         self.extra_text = f" {ww.file_path.stem} created..."
 
-    def handle_add(self):
-        ww_key = self.select_ww_key()
+    def _handle_add(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = deepcopy(self.weight_windows[ww_key])
@@ -233,8 +241,8 @@ class Menu:
         self.weight_windows[ww.file_path.stem] = ww
         self.extra_text = f" {ww.file_path.stem} created..."
 
-    def handle_remove(self):
-        ww_key = self.select_ww_key()
+    def _handle_remove(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = deepcopy(self.weight_windows[ww_key])
@@ -243,8 +251,8 @@ class Menu:
         self.weight_windows[ww.file_path.stem] = ww
         self.extra_text = f" {ww.file_path.stem} created..."
 
-    def handle_mitigate(self):
-        ww_key = self.select_ww_key()
+    def _handle_mitigate(self):
+        ww_key = self._select_ww_key()
         if ww_key is None:
             return
         ww = deepcopy(self.weight_windows[ww_key])
@@ -256,6 +264,9 @@ class Menu:
 
     @staticmethod
     def clear_screen():
+        """
+        Clears the terminal screen for Windows or Linux.
+        """
         if os.name == "nt":
             os.system("cls")
         else:
