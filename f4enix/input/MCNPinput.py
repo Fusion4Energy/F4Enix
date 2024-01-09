@@ -719,7 +719,9 @@ class Input:
                 again = True
                 cset |= cell_set
 
-    def extract_universe(self, universe: int, outfile: os.PathLike):
+    def extract_universe(self, universe: int, outfile: os.PathLike, 
+                         renumber_from: int = None, 
+                         keep_universe: bool = False):
         """Dumps a minimum MCNP working file that
         includes all the cells, surfaces, materials and
         translations of the universe. The resulting file doesn't have the universe
@@ -731,6 +733,12 @@ class Input:
             universe id to be extracted
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
+        renumber_from : int
+            number from which the cells of the universe are renumbered. Default
+            is None, which means that cells are not renumbered
+        keep_universe : bool
+            determines if the u=... card should be kept or not in cells' 
+            definitions. Defult is False.
         """
         cell_ids_to_extract = []
         for cell_id, cell in self.cells.items():
@@ -739,11 +747,9 @@ class Input:
             if cell_universe == universe:
                 cell_ids_to_extract.append(cell.values[0][0])
                 
-        self.extract_cells(
-            cells=cell_ids_to_extract, 
-            outfile=outfile, 
-            keep_universe=False
-            )
+        self.extract_cells(cells=cell_ids_to_extract, outfile=outfile, 
+                           renumber_from=renumber_from, 
+                           keep_universe=keep_universe)
 
     @staticmethod
     def _clean_card_name(key: str) -> str:
