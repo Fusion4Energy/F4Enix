@@ -1,3 +1,4 @@
+import shutil
 import pytest
 import pyvista as pv
 
@@ -163,10 +164,13 @@ def test_write_to_ww_file(tmp_path, ww_file):
 
 
 def test_write_to_ww_file_no_path(tmp_path):
-    original_ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    shutil.copy(WW_SIMPLE_CART, tmp_path)
+    tmp_ww_path = tmp_path / WW_SIMPLE_CART.name
+
+    original_ww = WW.load_from_ww_file(tmp_ww_path)
     original_ww.write_to_ww_file()
 
-    result_ww = WW.load_from_ww_file(str(WW_SIMPLE_CART) + "_written")
+    result_ww = WW.load_from_ww_file(str(tmp_ww_path) + "_written")
 
     for particle in original_ww.particles:
         for energy in original_ww.energies[particle]:
@@ -207,12 +211,15 @@ def test_export_as_vtk(tmp_path, ww_file):
     assert written_grid == ww.geometry._grid
 
 
-def test_export_as_vtk_no_path():
-    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+def test_export_as_vtk_no_path(tmp_path):
+    shutil.copy(WW_SIMPLE_CART, tmp_path)
+    tmp_ww_path = tmp_path / WW_SIMPLE_CART.name
+
+    ww = WW.load_from_ww_file(tmp_ww_path)
     ww.export_as_vtk()
 
-    written_grid = pv.read(str(WW_SIMPLE_CART) + ".vts")
-
+    written_grid = pv.read(str(tmp_ww_path) + ".vts")
+    
     assert written_grid == ww.geometry._grid
 
 
