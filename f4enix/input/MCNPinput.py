@@ -940,9 +940,10 @@ class Input:
             numjuggler card of the modified cell
         """
         if new_cell_num is None:
-            new_cell = deepcopy(cell)
-        else:
             new_cell = cell
+        else:
+            new_cell = deepcopy(cell)
+
         # Introduce parentheses before the third word in the first row
         first_row = new_cell.input[0].split()
 
