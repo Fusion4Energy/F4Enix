@@ -33,7 +33,7 @@ class WW:
         The representation of a WW.
 
         It should be created using the class methods WW.load_from_ww_file or
-            WW.create_gvr_from_meshtally_file.
+        WW.create_gvr_from_meshtally_file.
 
         Attributes
         ----------
@@ -78,7 +78,7 @@ class WW:
     ):
         """
         Create a WW object (a GVR) from a MCNP meshtally file using the Van Vick /
-            Andrew Davis / Magic algorithm.
+        Andrew Davis / Magic algorithm.
 
         Parameters
         ----------
@@ -175,7 +175,7 @@ class WW:
     def values(self) -> ValuesByParticle:
         """
         The values of the weight window for each combination of particle and energy as
-            a nested dictionary.
+        a nested dictionary.
 
         Has the following format: {ParticleType: {energy(float): np.ndarray}}
         """
@@ -192,7 +192,7 @@ class WW:
     def ratios(self) -> ValuesByParticle:
         """
         Same format as values, but showing the maximum ratio of every voxel with its
-            neighbours.
+        neighbours.
         """
         return self._ratios
 
@@ -214,7 +214,7 @@ class WW:
         List of ParticleType objects that are present in the weight window.
 
         It will be either [ParticleType.NEUTRON] or [ParticleType.NEUTRON,
-            ParticleType.PHOTON].
+        ParticleType.PHOTON].
         """
         particles = [ParticleType.NEUTRON]
         if len(self.values) > 1:
@@ -294,8 +294,8 @@ class WW:
         Soften the weight window values by raising them to a power.
 
         This is useful to mitigate long histories and to reduce the aggressiveness of
-            the weight window if the softening factor is lower than 1. Softening factors
-            higher than 1 will have the opposite effect.
+        the weight window if the softening factor is lower than 1. Softening factors
+        higher than 1 will have the opposite effect.
 
         Parameters
         ----------
@@ -322,7 +322,7 @@ class WW:
         Add a second particle to a weight window that only has one (neutrons).
 
         The new particle will be photons, and its values will be the same as the
-            neutron values but multiplied by a normalization factor and softened.
+        neutron values but multiplied by a normalization factor and softened.
 
         Parameters
         ----------
@@ -369,7 +369,7 @@ class WW:
     def mitigate_long_histories(self, max_ratio: float = 10.0) -> None:
         """
         The weigth window voxels with a ratio higher than max_ratio will be set to
-            zero. This stops the particle from over-splitting.
+        zero. This stops the particle from over-splitting.
 
         Parameters
         ----------
@@ -397,8 +397,8 @@ class WW:
         ----------
         file_path : Optional[Pathlike], optional
             The path to the file, by default None. If None, the file will be written
-                with the same name as the original file but with "_written" added to the
-                name.
+            with the same name as the original file but with "_written" added to the
+            name.
 
         Returns
         -------
@@ -452,7 +452,7 @@ class WW:
         ----------
         file_path : Optional[Pathlike], optional
             The path to the file, by default None. If None, the file will be written
-                with the same name as the original file but with ".vtk" extension.
+            with the same name as the original file but with ".vtk" extension.
 
         Returns
         -------
@@ -469,7 +469,7 @@ class WW:
         Plot the weight window using the pyvista plotter.
 
         The plot is interactive, so it will block the execution of the script until the
-            plot is closed.
+        plot is closed.
 
         Parameters
         ----------

@@ -955,8 +955,12 @@ class Input:
                     cell.set_d(new_density)
 
     @staticmethod
-    def add_surface(cell:parser.Card, add_surface:int, new_cell_num:int = None,
-                type: str = 'intersect', inplace: bool = True) -> parser.Card:
+    def add_surface(
+        cell:parser.Card,
+        add_surface:int,
+        new_cell_num:int = None,
+        mode:str = 'intersect',
+        ) -> parser.Card:
 
         """Adds a surface to cell's definition as union or intersection.
 
@@ -965,32 +969,31 @@ class Input:
         cell : parser.Card
             numjuggler cell card to which the surface will be added
         add_surface : int
-            the surface number to be added to cell's definition
+            the surface number to be added to cell's definition. It should
+            include the sign.
         new_cell_num : int, optional
             new number of the cell after the addition of the surface to cell's
-            definition, by default None
-        type : str, optional
+            definition, by default None. If a new number is specified, the
+            modifications are done on a copy of the original cell, otherwise
+            these are done inplace.
+        mode : str, optional
             can be 'union' or 'intersect', it tells the operation with which the
             surface is added to cell's definition, by default 'intersect'
-        inplace : bool, optional
-            tells if the newly defined cell replaces the old one or a new object
-            with the modified definition is created, by default True
 
         Returns
         -------
         parser.Card
             numjuggler card of the modified cell
         """
-        if not inplace:
-            if new_cell_num is None:
-                new_cell_num = cell.name
-            new_cell = deepcopy(cell)
-        else:
+        if new_cell_num is None:
             new_cell = cell
+        else:
+            new_cell = deepcopy(cell)
+
         # Introduce parentheses before the third word in the first row
         first_row = new_cell.input[0].split()
 
-        if new_cell._get_value_by_type('mat') == 0:
+        if new_cell.get_m() == 0:
             first_row[2] = '(' + first_row[2]
         else:
             first_row[3] = '(' + first_row[3]
@@ -998,9 +1001,9 @@ class Input:
         new_cell.input[0] = ' '.join(first_row)
 
         # Check all rows if there are letters in the row
-        for i in range(len(new_cell.input)):
+        for i, line in enumerate(new_cell.input):
 
-            row = new_cell.input[i].split()
+            row = line.split()
             param_cards_idx = -1
 
             for m, words in enumerate(row):
@@ -1011,10 +1014,10 @@ class Input:
             if param_cards_idx != -1:
                 if add_surface >= 0:
                     row.insert(param_cards_idx, 
-                            ') ' + UNION_INTERSECT_SYMBOLS[type] + '{:<' + str(len(str(add_surface))) + '} ' )
+                            ') ' + UNION_INTERSECT_SYMBOLS[mode] + '{:<' + str(len(str(add_surface))) + '} ' )
                 else:
                     row.insert(param_cards_idx, 
-                            ') ' + UNION_INTERSECT_SYMBOLS[type] + '-{:<' + str(len(str(add_surface))) + '} ' )
+                            ') ' + UNION_INTERSECT_SYMBOLS[mode] + '-{:<' + str(len(str(add_surface))) + '} ' )
                     
                 new_cell.input[i] = ' '.join(row)
 
@@ -1032,6 +1035,7 @@ class Input:
         new_cell._set_value_by_type('cel', new_cell_num)
         
         return new_cell
+
 
 class D1S_Input(Input):
 

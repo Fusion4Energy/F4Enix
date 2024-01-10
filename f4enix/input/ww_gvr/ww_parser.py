@@ -1,3 +1,6 @@
+"""
+Classes and functions to read WW files.
+"""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, TextIO
@@ -46,7 +49,7 @@ class ParseResult:
 def parse(path: Path) -> ParseResult:
     """
     Parse a WW file and return a ParseResult object containing all the information of
-        the file.
+    the file.
 
     Parameters
     ----------

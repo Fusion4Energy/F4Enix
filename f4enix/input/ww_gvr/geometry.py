@@ -25,7 +25,7 @@ class Geometry:
     ):
         """
         Class that contains all the geometrical information and methods associated to
-            a WW file, including a pyvista mesh.
+        a WW file, including a pyvista mesh.
 
         Parameters
         ----------
@@ -66,7 +66,8 @@ class Geometry:
             )
 
     def fill_grid_values(self, values_by_particle: ValuesByParticle) -> None:
-        """Fills the grid with the values of the WW file.
+        """
+        Fills the grid with the values of the WW file.
 
         Parameters
         ----------
@@ -154,7 +155,7 @@ class Geometry:
     def director_1(self) -> List[float] | None:
         """
         Returns the director 1 vector (axis) of the cylinder if the grid is
-            cylindrical.
+        cylindrical.
         """
         return self._director_1
 
@@ -162,7 +163,7 @@ class Geometry:
     def director_2(self) -> List[float] | None:
         """
         Returns the director 2 vector (radius) of the cylinder if the grid is
-            cylindrical.
+        cylindrical.
         """
         return self._director_2
 

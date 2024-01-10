@@ -1,6 +1,6 @@
 """
 This file contains functions to create and operate pyvista meshes of cartesian and
-    cylindrical grids.
+cylindrical grids.
 
 These meshes follow the convention of k, j, i vectors.
 j
