@@ -248,17 +248,22 @@ class Elite_Input(Input):
         for k, sector in enumerate(sectors):
             if k == 0:
                 new_gy = Input.add_surface(self.cells['801'], 
-                                     -SECTOR_BOUNDARIES[sector][0], None,
-                                     'union', False)
+                                           -SECTOR_BOUNDARIES[sector][0],
+                                           new_cell_num=801,
+                                           mode='union')
                 new_outercell = Input.add_surface(self.cells['800'], 
-                                            SECTOR_BOUNDARIES[sector][0], None,
-                                            'intersect', False)
+                                                  SECTOR_BOUNDARIES[sector][0],
+                                                  new_cell_num=800,
+                                                  mode='intersect')
             if k == len(sectors) - 1:
-                new_gy = Input.add_surface(new_gy, -SECTOR_BOUNDARIES[sector][1],
-                                     None, 'union', False)
+                new_gy = Input.add_surface(new_gy,
+                                           -SECTOR_BOUNDARIES[sector][1],
+                                           new_cell_num=None,
+                                           mode='union')
                 new_outercell = Input.add_surface(new_outercell, 
-                                            SECTOR_BOUNDARIES[sector][1], None,
-                                            'intersect', False)
+                                                  SECTOR_BOUNDARIES[sector][1],
+                                                  new_cell_num=None,
+                                                  mode='intersect')
             else:
                 continue
         # put the newly created cells in F4Enix dict, they will be replaced
