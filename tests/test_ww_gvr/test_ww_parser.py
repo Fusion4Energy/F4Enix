@@ -1,4 +1,5 @@
 import numpy as np
+
 from f4enix.input.ww_gvr.models import Vectors
 from f4enix.input.ww_gvr.utils import (
     MESHTALLY_CART,
@@ -7,7 +8,6 @@ from f4enix.input.ww_gvr.utils import (
     WW_SIMPLE_CART,
     WW_SIMPLE_CYL,
 )
-
 from f4enix.input.ww_gvr.ww_parser import (
     WWHeader,
     WWHeaderCyl,
@@ -232,11 +232,11 @@ def test_write_simple_cart(tmp_path):
     energies = [[100.0]]
     values = [[0.11576, 0.093197, 0.67316, 0.5, 0.099821, 0.0898]]
 
-    with open(WW_SIMPLE_CART, "r") as infile:
+    with open(WW_SIMPLE_CART) as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
-    with open(tmp_path / "test.ww", "r") as outfile:
+    with open(tmp_path / "test.ww") as outfile:
         result = outfile.read()
 
     assert expected == result
@@ -268,11 +268,11 @@ def test_write_simple_cyl(tmp_path):
     energies = [[100.0]]
     values = [[0.5, 0.10463, 0.52965, 0.084479, 0.14258, 0.03275]]
 
-    with open(WW_SIMPLE_CYL, "r") as infile:
+    with open(WW_SIMPLE_CYL) as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
-    with open(tmp_path / "test.ww", "r") as outfile:
+    with open(tmp_path / "test.ww") as outfile:
         result = outfile.read()
 
     assert expected == result
@@ -318,11 +318,11 @@ def test_write_complex_cart(tmp_path):
         [123, 3],
     ]
 
-    with open(WW_COMPLEX_CART, "r") as infile:
+    with open(WW_COMPLEX_CART) as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
-    with open(tmp_path / "test.ww", "r") as outfile:
+    with open(tmp_path / "test.ww") as outfile:
         result = outfile.read()
 
     assert expected[0:680] == result[0:680]

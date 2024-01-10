@@ -4,19 +4,17 @@ from the coarse and fine vectors of a WW file. It also contains the methods to
 fill the grid with the values of the WW file and to plot it.
 """
 from pathlib import Path
-from f4enix.input.ww_gvr.meshgrids import create_cartesian_grid, create_cylindrical_grid
-from f4enix.input.ww_gvr.models import Vectors, CoordinateType, ValuesByParticle
-from f4enix.input.ww_gvr.utils import build_1d_vectors, compose_b2_vectors
-from f4enix.input.ww_gvr.ww_parser import WWHeader, WWHeaderCyl
-
+from typing import Dict, List
 
 import numpy as np
-from numpy.typing import NDArray
 import pyvista as pv
-from pyvista.plotting.plotter import Plotter as Plotter
+from numpy.typing import NDArray
+from pyvista.plotting.plotter import Plotter
 
-
-from typing import Dict, List
+from f4enix.input.ww_gvr.meshgrids import create_cartesian_grid, create_cylindrical_grid
+from f4enix.input.ww_gvr.models import CoordinateType, ValuesByParticle, Vectors
+from f4enix.input.ww_gvr.utils import build_1d_vectors, compose_b2_vectors
+from f4enix.input.ww_gvr.ww_parser import WWHeader, WWHeaderCyl
 
 
 class Geometry:

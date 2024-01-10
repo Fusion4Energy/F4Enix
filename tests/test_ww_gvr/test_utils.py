@@ -1,9 +1,10 @@
 import numpy as np
+
 from f4enix.input.ww_gvr.utils import (
     Vectors,
-    decompose_b2_vectors,
-    compose_b2_vectors,
     build_1d_vectors,
+    compose_b2_vectors,
+    decompose_b2_vectors,
 )
 
 

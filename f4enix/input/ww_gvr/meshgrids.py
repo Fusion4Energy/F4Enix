@@ -13,8 +13,9 @@ j
 The values are given in an array of shape (k, j, i).
 """
 from typing import Optional
-import pyvista as pv
+
 import numpy as np
+import pyvista as pv
 from numpy.typing import NDArray
 
 

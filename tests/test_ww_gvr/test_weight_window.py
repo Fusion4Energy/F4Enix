@@ -1,5 +1,9 @@
+import shutil
+
+import numpy as np
 import pytest
 import pyvista as pv
+from numpy.testing import assert_array_almost_equal
 
 from f4enix.input.ww_gvr.models import CoordinateType, ParticleType, Vectors
 from f4enix.input.ww_gvr.utils import (
@@ -12,8 +16,6 @@ from f4enix.input.ww_gvr.utils import (
 )
 from f4enix.input.ww_gvr.weight_window import WW
 from tests.test_ww_gvr.resources import expected_values_ww_complex_cart
-import numpy as np
-from numpy.testing import assert_array_almost_equal
 
 
 def test_init_ww_from_ww_file_cart_simple():
@@ -134,7 +136,7 @@ def test_create_gvr_from_meshtally_file_cart():
 def test_info():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
 
-    with open(EXPECTED_INFO_SIMPLE_CART, "r") as infile:
+    with open(EXPECTED_INFO_SIMPLE_CART) as infile:
         expected = infile.read()
 
     assert ww.info == expected
@@ -163,10 +165,13 @@ def test_write_to_ww_file(tmp_path, ww_file):
 
 
 def test_write_to_ww_file_no_path(tmp_path):
-    original_ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+    shutil.copy(WW_SIMPLE_CART, tmp_path)
+    tmp_ww_path = tmp_path / WW_SIMPLE_CART.name
+
+    original_ww = WW.load_from_ww_file(tmp_ww_path)
     original_ww.write_to_ww_file()
 
-    result_ww = WW.load_from_ww_file(str(WW_SIMPLE_CART) + "_written")
+    result_ww = WW.load_from_ww_file(str(tmp_ww_path) + "_written")
 
     for particle in original_ww.particles:
         for energy in original_ww.energies[particle]:
@@ -207,12 +212,15 @@ def test_export_as_vtk(tmp_path, ww_file):
     assert written_grid == ww.geometry._grid
 
 
-def test_export_as_vtk_no_path():
-    ww = WW.load_from_ww_file(WW_SIMPLE_CART)
+def test_export_as_vtk_no_path(tmp_path):
+    shutil.copy(WW_SIMPLE_CART, tmp_path)
+    tmp_ww_path = tmp_path / WW_SIMPLE_CART.name
+
+    ww = WW.load_from_ww_file(tmp_ww_path)
     ww.export_as_vtk()
 
-    written_grid = pv.read(str(WW_SIMPLE_CART) + ".vts")
-
+    written_grid = pv.read(str(tmp_ww_path) + ".vts")
+    
     assert written_grid == ww.geometry._grid
 
 

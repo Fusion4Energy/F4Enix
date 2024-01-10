@@ -1,13 +1,14 @@
 import numpy as np
-from numpy.testing import assert_array_almost_equal, assert_array_equal
 import pytest
 import pyvista as pv
+from numpy.testing import assert_array_almost_equal, assert_array_equal
+
 from f4enix.input.ww_gvr.meshgrids import (
     _correct_theta_vector,
-    create_cartesian_grid,
-    create_cylindrical_grid,
     _create_cylindrical_grid_with_z_axis,
     _extend_theta_intervals,
+    create_cartesian_grid,
+    create_cylindrical_grid,
 )
 
 
