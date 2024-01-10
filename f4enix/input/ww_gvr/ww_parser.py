@@ -5,14 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, TextIO
 
-from numpy.typing import NDArray
-from numpy import float64
 import numpy as np
+from numpy import float64
+from numpy.typing import NDArray
 
-from f4enix.output.meshtal import Meshtal, Fmesh
 from f4enix.input.ww_gvr.models import NestedList, Vectors
-
 from f4enix.input.ww_gvr.utils import compose_b2_vectors
+from f4enix.output.meshtal import Fmesh, Meshtal
 
 
 @dataclass(kw_only=True)
@@ -61,7 +60,7 @@ def parse(path: Path) -> ParseResult:
     ParseResult
         A ParseResult object containing all the information of the file.
     """
-    with open(path, "r") as infile:
+    with open(path) as infile:
         header = _parse_header(infile)
 
         b2_vectors = Vectors(

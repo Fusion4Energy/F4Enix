@@ -4,7 +4,6 @@ This file includes the main class of the ww_gvr package, the WW class.
 from pathlib import Path
 from typing import List, Optional
 
-
 import numpy as np
 
 from f4enix.input.ww_gvr import ww_parser
@@ -17,9 +16,9 @@ from f4enix.input.ww_gvr.models import (
     Pathlike,
     ValuesByParticle,
 )
-from f4enix.input.ww_gvr.ww_parser import ParseResult, WWHeader, WWHeaderCyl
 from f4enix.input.ww_gvr.ratios_calculation import calculate_max_ratio_array
 from f4enix.input.ww_gvr.utils import decompose_b2_vectors
+from f4enix.input.ww_gvr.ww_parser import ParseResult, WWHeader, WWHeaderCyl
 
 
 class WW:

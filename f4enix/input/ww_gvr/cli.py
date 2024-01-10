@@ -1,14 +1,13 @@
 """
 CLI for the ww_gvr package.
 """
+import os
 from copy import deepcopy
 from enum import Enum
-import os
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from f4enix.input.ww_gvr import WW
-
 
 MAIN_MENU = """
  ***********************************************
@@ -62,7 +61,7 @@ class Menu:
 
         Running Menu() will start the CLI loop directly.
         """
-        self.weight_windows: Dict[str, WW] = dict()
+        self.weight_windows: Dict[str, WW] = {}
         self.extra_text: str = ""
         self.command_map = {
             Command.OPEN: self._handle_open,

@@ -1,6 +1,9 @@
 import shutil
+
+import numpy as np
 import pytest
 import pyvista as pv
+from numpy.testing import assert_array_almost_equal
 
 from f4enix.input.ww_gvr.models import CoordinateType, ParticleType, Vectors
 from f4enix.input.ww_gvr.utils import (
@@ -13,8 +16,6 @@ from f4enix.input.ww_gvr.utils import (
 )
 from f4enix.input.ww_gvr.weight_window import WW
 from tests.test_ww_gvr.resources import expected_values_ww_complex_cart
-import numpy as np
-from numpy.testing import assert_array_almost_equal
 
 
 def test_init_ww_from_ww_file_cart_simple():
@@ -135,7 +136,7 @@ def test_create_gvr_from_meshtally_file_cart():
 def test_info():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
 
-    with open(EXPECTED_INFO_SIMPLE_CART, "r") as infile:
+    with open(EXPECTED_INFO_SIMPLE_CART) as infile:
         expected = infile.read()
 
     assert ww.info == expected
