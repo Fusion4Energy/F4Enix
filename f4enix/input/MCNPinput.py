@@ -945,7 +945,7 @@ class Input:
         # Introduce parentheses before the third word in the first row
         first_row = new_cell.input[0].split()
 
-        if new_cell.get_m('mat') == 0:
+        if new_cell.get_m() == 0:
             first_row[2] = '(' + first_row[2]
         else:
             first_row[3] = '(' + first_row[3]
