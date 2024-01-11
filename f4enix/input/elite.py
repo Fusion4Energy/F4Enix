@@ -268,7 +268,7 @@ class Elite_Input(Input):
         # Get the module of plane's parallel vector
         norm = math.sqrt(surf.scoefs[0]**2 + surf.scoefs[1]**2)
         # compute rotation matrix
-        coeffs = [t[1] for t in trans.values]
+        coeffs = [t[0] for t in trans.values]
         if trans.unit == '*':
             coeffs = [math.cos(math.radians(v)) for v in coeffs]
         # define rotation matrix
