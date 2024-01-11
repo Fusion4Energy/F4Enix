@@ -960,6 +960,7 @@ class Input:
         add_surface:int,
         new_cell_num:int = None,
         mode:str = 'intersect',
+        inplace:bool = True
         ) -> parser.Card:
 
         """Adds a surface to cell's definition as union or intersection.
@@ -979,13 +980,15 @@ class Input:
         mode : str, optional
             can be 'union' or 'intersect', it tells the operation with which the
             surface is added to cell's definition, by default 'intersect'
+        inplace: bool
+            if False a deepcopy is created. By default is True.
 
         Returns
         -------
         parser.Card
             numjuggler card of the modified cell
         """
-        if new_cell_num is None:
+        if inplace:
             new_cell = cell
         else:
             new_cell = deepcopy(cell)
@@ -1031,8 +1034,9 @@ class Input:
             
         new_cell.values.insert(k+1, (abs(add_surface),'sur'))
 
-        new_cell.name = new_cell_num
-        new_cell._set_value_by_type('cel', new_cell_num)
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type('cel', new_cell_num)
         
         return new_cell
 
