@@ -1,24 +1,16 @@
 import os
-import numpy as np
-import pytest
 from copy import deepcopy
 from importlib.resources import files, as_file
-from numjuggler import parser
-import f4enix.resources as pkg_res
-import tests.resources.input as input_res
-import tests.resources.libmanager as lib_res
+# import tests.resources.input as input_res
+import tests.resources.elite as elite_res
 
 from f4enix.input.MCNPinput import Input
 from f4enix.input.elite import Elite_Input
 
-
-resources_inp = files(input_res)
-resources_lib = files(lib_res)
-resources_pkg = files(pkg_res)
-
+resources_elite = files(elite_res)
 
 class TestElite_Input:
-    with as_file(resources_inp.joinpath('E-Lite_dummy.i')) as FILE1:
+    with as_file(resources_elite.joinpath('E-Lite_dummy.i')) as FILE1:
         testInput = Elite_Input.from_input(FILE1)
 
     def test_extract_sector(self, tmpdir):
@@ -27,7 +19,7 @@ class TestElite_Input:
         inp = deepcopy(self.testInput)
         outfile = tmpdir.mkdir('sub').join('sector1.i')
 
-        inp.extract_sector(1, excel_file=resources_inp.joinpath(excel_name),
+        inp.extract_sector(1, excel_file=resources_elite.joinpath(excel_name),
                            outfile=outfile, tol=tol, check_Elite=True)
         # re-read
         inp_sec1 = Input.from_input(outfile)
@@ -44,7 +36,7 @@ class TestElite_Input:
 
         outfile = os.path.join(os.path.dirname(outfile), 'NBI.i')
 
-        inp.extract_sector('2 & 3', excel_file=resources_inp.joinpath(excel_name),
+        inp.extract_sector('2 & 3', excel_file=resources_elite.joinpath(excel_name),
                            outfile=outfile, tol=tol, check_Elite=False)
 
         inp_NBI = Input.from_input(outfile)
@@ -61,7 +53,7 @@ class TestElite_Input:
 
         outfile = os.path.join(os.path.dirname(outfile), 'sectors6_7.i')
 
-        inp.extract_sector([6, 7], excel_file=resources_inp.joinpath(excel_name),
+        inp.extract_sector([6, 7], excel_file=resources_elite.joinpath(excel_name),
                            outfile=outfile, tol=tol, check_Elite=False)
 
         inp_secs6_7 = Input.from_input(outfile)
