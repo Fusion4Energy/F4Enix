@@ -87,6 +87,7 @@ class Elite_Input(Input):
         check_Elite: bool = False,
     ) -> None:
         """Writes a working input of a user-selected E-Lite sector.
+
         The user can provide a sector number or a list of contiguous sector
         numbers in counterclockwise direction (e.g. 1, "2 & 3", [4,5], [9, 1]).
         Currently there is no check of the correctness of the input, the user
