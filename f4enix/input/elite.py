@@ -41,8 +41,9 @@ class Elite_Input(Input):
 
         Examples
         --------
-        read the input and the associated Excel file.
-        by calling extract_sector you'll be able to get a working MCNP input
+        Read the input and the associated Excel file.
+
+        By calling extract_sector you'll be able to get a working MCNP input
         file of the desired sector.
 
         >>> from f4enix.input.elite import Elite_Input
@@ -99,10 +100,10 @@ class Elite_Input(Input):
         envelope containers and their respective sector. The method follows
         these steps:
 
-        - Excel file initialization and model check. If there's no
-        correspondence between the envelope structure of E-Lite model and excel
-        file, the method aborts. The method can't check if the correct sector
-        number is assigned to the envelope container.
+        - Excel file initialization and model check. If there's no correspondence
+            between the envelope structure of E-Lite model and excel file, the
+            method aborts. The method can't check if the correct sector number
+            is assigned to the envelope container.
 
         - Collection of all envelope containers and fillers to be extracted
 
