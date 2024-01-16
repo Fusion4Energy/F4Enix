@@ -98,15 +98,20 @@ class Elite_Input(Input):
         The method is based on an auxiliary Excel file that lists all E-Lite
         envelope containers and their respective sector. The method follows
         these steps:
+
         - Excel file initialization and model check. If there's no
         correspondence between the envelope structure of E-Lite model and excel
         file, the method aborts. The method can't check if the correct sector
         number is assigned to the envelope container.
+
         - Collection of all envelope containers and fillers to be extracted
+
         - Graveyard and outer cell modification
+
         - Source term fixing
-        - L0 surfaces which are enough close to the boundary will be set as
-          reflective
+
+        - L0 surfaces which are enough close to the boundary will be set as reflective
+
         - L1 surfaces which are too close to the boundary will be translated
           "outwards" with respect to the sector(s), to avoid the arising of
           fatal errors
