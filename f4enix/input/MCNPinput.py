@@ -675,7 +675,7 @@ class Input:
             if renumber_from is not None:
                 renumber_map[cell.values[0][0]] = i + renumber_from
             if not keep_universe and cell.values[0][0] in cells:
-                remove_u(cells_cards[_])
+                Input.remove_u(cells_cards[_])
 
         if renumber_from is not None:
             self._renumber_cells(cells_cards, renumber_map)
@@ -1081,6 +1081,32 @@ class Input:
 
         return new_cell
 
+    @staticmethod
+    def remove_u(cell: parser.Card) -> None:
+        """given a cell, it removes the universe option from its definition.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            cell from which the universe has to be removed
+
+        """
+        # initialize new input list
+        new_input = []
+        # remove universe option from input template
+        for input_part in cell.input:
+            new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))
+
+        # assign new input to cell
+        cell.input = new_input
+        # remove value associated to the universe in 'values'
+        for b, (t, v) in enumerate(cell.values):
+            if v == "u":
+                cell.values.pop(b)
+                break
+        # reset universe private value (i know this is not a good practice, tbd)
+        cell._Card__u = None
+
 
 class D1S_Input(Input):
     def __init__(
@@ -1442,29 +1468,3 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key + " is not a valid tally ID")
 
     return int(num)
-
-
-def remove_u(cell: parser.Card) -> None:
-    """given a cell, it removes the universe option from its definition.
-
-    Parameters
-    ----------
-    cell : parser.Card
-        cell from which the universe has to be removed
-
-    """
-    # initialize new input list
-    new_input = []
-    # remove universe option from input template
-    for input_part in cell.input:
-        new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))
-
-    # assign new input to cell
-    cell.input = new_input
-    # remove value associated to the universe in 'values'
-    for b, (t, v) in enumerate(cell.values):
-        if v == "u":
-            cell.values.pop(b)
-            break
-    # reset universe private value (i know this is not a good practice, tbd)
-    cell._Card__u = None

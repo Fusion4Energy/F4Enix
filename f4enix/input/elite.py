@@ -23,6 +23,22 @@ class Elite_Input(Input):
         data: list[Card],
         header: list = None,
     ) -> None:
+        """Children of the :py:class:`Input`.
+
+        It features the methods for sectors extraction from ITER E-Lite 360
+        degree model
+
+        Parameters
+        ----------
+        cells : list[Card]
+            _description_
+        surfs : list[Card]
+            _description_
+        data : list[Card]
+            _description_
+        header : list, optional
+            _description_, by default None
+        """
         super().__init__(cells, surfs, data, header)
         self.__initialized = False
         self._block_structure = None
