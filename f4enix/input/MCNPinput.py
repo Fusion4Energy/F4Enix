@@ -5,6 +5,7 @@ The parser is built on the numjuggler python module.
 
 """
 from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -28,24 +29,30 @@ import pandas as pd
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
 from f4enix.input.auxiliary import debug_file_unicode
-from f4enix.constants import PAT_COMMENT, PAT_CARD_KEY, PAT_FMESH_KEY, PAT_NP, \
-    UNION_INTERSECT_SYMBOLS
+from f4enix.constants import (
+    PAT_COMMENT,
+    PAT_CARD_KEY,
+    PAT_FMESH_KEY,
+    PAT_NP,
+    UNION_INTERSECT_SYMBOLS,
+)
 from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
 from copy import deepcopy
 
 
-PAT_MT = re.compile(r'm[tx]\d+', re.IGNORECASE)
-PAT_BLANK_LINE = re.compile(r'\n[\s\t]*\n')
-ADD_LINE_FORMAT = '         {}\n'
+PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
+PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
+ADD_LINE_FORMAT = "         {}\n"
 
 
 class Input:
     def __init__(
-            self,
-            cells: list[parser.Card],
-            surfs: list[parser.Card],
-            data: list[parser.Card],
-            header: list = None) -> None:
+        self,
+        cells: list[parser.Card],
+        surfs: list[parser.Card],
+        data: list[parser.Card],
+        header: list = None,
+    ) -> None:
         """Class representing an MCNP input file.
 
         cells, surfaces, materials and transformations are handled explicitly.
@@ -192,8 +199,11 @@ class Input:
         self.cells = self._to_dict(cells)
         self.surfs = self._to_dict(surfs)
 
-        (self.materials, self.transformations,
-         self.other_data) = self._parse_data_section(data)
+        (
+            self.materials,
+            self.transformations,
+            self.other_data,
+        ) = self._parse_data_section(data)
 
         self.header = header
 
@@ -201,7 +211,7 @@ class Input:
         tally_keys = []
         fmesh_keys = []
         for key, card in self.other_data.items():
-            if card.dtype == 'Fn':
+            if card.dtype == "Fn":
                 tally_keys.append(card.name)
             elif PAT_FMESH_KEY.match(key):
                 fmesh_keys.append(card.name)
@@ -215,7 +225,7 @@ class Input:
 
     @classmethod
     def from_input(cls, inputfile: os.PathLike) -> Input:
-        """ Generate an Input object from an MCNP input text file using
+        """Generate an Input object from an MCNP input text file using
         numjuggler as a parser
 
         Parameters
@@ -233,15 +243,14 @@ class Input:
         return cls(cells, surfaces, data, header=header)
 
     @staticmethod
-    def _renumber_cells(cells: dict[str, parser.Card],
-                        id_map: dict[int, int]) -> None:
+    def _renumber_cells(cells: dict[str, parser.Card], id_map: dict[int, int]) -> None:
         """this acts directly on cells, make copies before use.
         Also, ID in F4Enix dict will not be changed, name will not be
         changed"""
 
         for cell in cells.values():
             for l, (v, t) in enumerate(cell.values):
-                if t == 'cel':
+                if t == "cel":
                     cell.values[l] = (id_map[v], t)
 
     def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
@@ -254,13 +263,20 @@ class Input:
         wrap : bool
             if true the text is wrapped at 80 char. May cause slowdowns
         """
-        logging.info('Writing to {}'.format(outfilepath))
+        logging.info("Writing to {}".format(outfilepath))
 
-        self.write_blocks(outfilepath, wrap, self.cells, self.surfs,
-                          self.materials, self.header, self.transformations,
-                          self.other_data)
+        self.write_blocks(
+            outfilepath,
+            wrap,
+            self.cells,
+            self.surfs,
+            self.materials,
+            self.header,
+            self.transformations,
+            self.other_data,
+        )
 
-        logging.info('File was written correctly')
+        logging.info("File was written correctly")
 
     def translate(self, newlib: str, libmanager: LibManager) -> None:
         """
@@ -291,7 +307,7 @@ class Input:
         """
 
         try:
-            if newlib[0] == '{':
+            if newlib[0] == "{":
                 # covert the dic
                 newlib = json.loads(newlib)
         except KeyError:
@@ -322,21 +338,19 @@ class Input:
     @staticmethod
     def set_cell_void(cell: parser.Card) -> None:
         if cell.ctype == 3 and cell.get_m() != 0:
-            cell.hidden['~'][0] = ''
-            cell._set_value_by_type('mat', 0)
+            cell.hidden["~"][0] = ""
+            cell._set_value_by_type("mat", 0)
             cell._Card__m = 0  # necessary for the get val
         else:
-            logging.warning(
-                f'cell {cell.name} is either already void or not a cell')
+            logging.warning(f"cell {cell.name} is either already void or not a cell")
 
     @staticmethod
-    def _print_cards(cards: dict[str, parser.Card],
-                     wrap: bool = False) -> list[str]:
+    def _print_cards(cards: dict[str, parser.Card], wrap: bool = False) -> list[str]:
         text = []
         for _, card in cards.items():
-            text_candidate = card.card(wrap=wrap).strip('\n')+'\n'
+            text_candidate = card.card(wrap=wrap).strip("\n") + "\n"
             # avoid blank lines
-            text_candidate = PAT_BLANK_LINE.sub('\n', text_candidate)
+            text_candidate = PAT_BLANK_LINE.sub("\n", text_candidate)
             text.append(text_candidate)
         return text
 
@@ -345,13 +359,12 @@ class Input:
         new_cards = {}
         flag_add = False
         for card in cards:
-
             card.get_values()
             try:
                 key = card.name
                 key = card.card().split()[0].upper()
                 if key in new_cards.keys():
-                    raise KeyError('Duplicated card entry: '+key)
+                    raise KeyError("Duplicated card entry: " + key)
 
             except AttributeError:
                 # This means that this is a fake card just made by comments
@@ -369,7 +382,7 @@ class Input:
                 else:
                     key = card.card().split()[0].upper()
                     if key in new_cards.keys():
-                        raise KeyError('Duplicated card entry: '+key)
+                        raise KeyError("Duplicated card entry: " + key)
 
             if flag_add:
                 comment.extend(card.lines)
@@ -383,8 +396,7 @@ class Input:
         return new_cards
 
     @staticmethod
-    def _get_cards_by_id(ids: list[str], cards: dict
-                         ) -> dict[str, parser.Card]:
+    def _get_cards_by_id(ids: list[str], cards: dict) -> dict[str, parser.Card]:
         selected_cards = {}
         for id_card in ids:
             try:
@@ -392,14 +404,15 @@ class Input:
             except KeyError:
                 try:
                     # sometimes it may be with an asterisk
-                    selected_cards['*'+id_card] = cards['*'+id_card]
+                    selected_cards["*" + id_card] = cards["*" + id_card]
                 except KeyError:
-                    raise KeyError('The card is not available in the input')
+                    raise KeyError("The card is not available in the input")
 
         return selected_cards
 
-    def get_cells_by_id(self, ids: list[int],
-                        make_copy: bool = False) -> dict[str, parser.Card]:
+    def get_cells_by_id(
+        self, ids: list[int], make_copy: bool = False
+    ) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
@@ -489,11 +502,9 @@ class Input:
 
         return cards
 
-    def _parse_data_section(self, cards: list[parser.Card]
-                            ) -> tuple[MatCardsList,
-                                       list[parser.Card],
-                                       list[parser.Card]]:
-
+    def _parse_data_section(
+        self, cards: list[parser.Card]
+    ) -> tuple[MatCardsList, list[parser.Card], list[parser.Card]]:
         # first of all correct numjuggler parser
         cards = self._to_dict(cards)
 
@@ -504,16 +515,15 @@ class Input:
         for key, card in cards.items():
             key = self._clean_card_name(key)
             try:
-                if card.values[0][1] == 'mat':
-                    if (PAT_MT.match(card.lines[0]) or
-                            PAT_MT.match(card.lines[-1])):
+                if card.values[0][1] == "mat":
+                    if PAT_MT.match(card.lines[0]) or PAT_MT.match(card.lines[-1]):
                         # mt or mx cards should be added to the previous
                         # material
                         materials[-1].add_mx(card)
                     else:
                         materials.append(Material.from_text(card.lines))
 
-                elif card.dtype == 'TRn':
+                elif card.dtype == "TRn":
                     transformations[key] = card
 
                 else:
@@ -525,9 +535,14 @@ class Input:
 
         return MatCardsList(materials), transformations, other_data
 
-    def extract_cells(self, cells: list[int], outfile: os.PathLike,
-                      renumber_from: int = None, keep_universe: bool = True, 
-                      extract_fillers: bool = True):
+    def extract_cells(
+        self,
+        cells: list[int],
+        outfile: os.PathLike,
+        renumber_from: int = None,
+        keep_universe: bool = True,
+        extract_fillers: bool = True,
+    ):
         """given a list of cells, dumps a minimum MCNP working file.
 
         The file will includes all the requested cells, defined surfaces,
@@ -540,7 +555,7 @@ class Input:
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
         renumber_from : int
-            apply a renumbering to the extracted cells starting from the 
+            apply a renumbering to the extracted cells starting from the
             specified int. It is important to notice that this renumbering
             DOES NOT SUPPORT # operator for the moment being.
             Default is None, no renumbering is applied.
@@ -552,28 +567,30 @@ class Input:
             used in a 'FILL=' keyword. This happens recursively. default is
             True.
         """
-        logging.info('write MCNP reduced input')
+        logging.info("write MCNP reduced input")
 
         header = self.header
 
-        cells_cards, surfs, \
-            materials = self._extraction_function(cells, renumber_from,
-                                                  keep_universe,
-                                                  extract_fillers)
+        cells_cards, surfs, materials = self._extraction_function(
+            cells, renumber_from, keep_universe, extract_fillers
+        )
         trans = self.transformations
-        Input.write_blocks(outfile, False, cells_cards, surfs, materials,
-                           header, trans)
+        Input.write_blocks(outfile, False, cells_cards, surfs, materials, header, trans)
 
     @staticmethod
-    def write_blocks(outfile: os.PathLike, wrap:bool, 
-                     cells_cards: dict[str, parser.Card],
-                     surfs: dict[str, parser.Card], materials: MatCardsList,
-                     header:list[str] = None,
-                     trans: dict[str, parser.Card] = None, 
-                     other_data: dict[str, parser.Card] = None):
+    def write_blocks(
+        outfile: os.PathLike,
+        wrap: bool,
+        cells_cards: dict[str, parser.Card],
+        surfs: dict[str, parser.Card],
+        materials: MatCardsList,
+        header: list[str] = None,
+        trans: dict[str, parser.Card] = None,
+        other_data: dict[str, parser.Card] = None,
+    ):
         """Writes F4Enix dicts of cells, surfaces and data cards.
-        The method receives cells, surfaces, materials F4Enix dicts and 
-        optionally header, transformation and other data F4Enix dicts and 
+        The method receives cells, surfaces, materials F4Enix dicts and
+        optionally header, transformation and other data F4Enix dicts and
         prints the MCNP input
 
         Parameters
@@ -581,7 +598,7 @@ class Input:
         outfile : os.PathLike
             path of the MCNP input that will be printed
         wrap : bool
-            flag to check if the input should be wrapped to 80 characters per 
+            flag to check if the input should be wrapped to 80 characters per
             line
         cells_cards : dict[str, parser.Card]
             F4Enix dict of cells
@@ -596,35 +613,38 @@ class Input:
         other_data : dict[str, parser.Card], optional
             fEnix dict of MCNP data cards, by default None
         """
-        
-        with open(outfile, 'w') as outfile:
-            # Add the header lines                
+
+        with open(outfile, "w") as outfile:
+            # Add the header lines
             if header is not None:
                 for line in header:
                     outfile.write(line)
             else:
-                outfile.write('C\n')
+                outfile.write("C\n")
             # Add the cells
             outfile.writelines(Input._print_cards(cells_cards, wrap=wrap))
             # Add a break
-            outfile.write('\n')
+            outfile.write("\n")
             # Add the surfaces
             outfile.writelines(Input._print_cards(surfs, wrap=wrap))
             # Add a break
-            outfile.write('\n')
+            outfile.write("\n")
             # Add materials
             if materials is not None and len(materials.matdic) > 0:
-                outfile.write(materials.to_text()+'\n')
+                outfile.write(materials.to_text() + "\n")
             # other data is not mandatory to be written
             if other_data is not None:
                 outfile.writelines(Input._print_cards(other_data, wrap=wrap))
             outfile.writelines(Input._print_cards(trans))
 
-    def _extraction_function(self, cells: list[int], renumber_from: int = None, 
-                             keep_universe: bool = True, 
-                             extract_fillers: bool = True):
-
-        logging.info('Collecting the cells, surfaces, materials and transf.')
+    def _extraction_function(
+        self,
+        cells: list[int],
+        renumber_from: int = None,
+        keep_universe: bool = True,
+        extract_fillers: bool = True,
+    ):
+        logging.info("Collecting the cells, surfaces, materials and transf.")
         cset = set(cells)
 
         # first, get all surfaces needed to represent the cn cell.
@@ -632,7 +652,7 @@ class Input:
         mset = set()  # material
         # tset = set()  # transformations
         self._collect_hash_uni(cset, extract_fillers)
-        
+
         # sort the set
         cset = list(cset)
         cset.sort()
@@ -647,16 +667,16 @@ class Input:
         renumber_map = {}  # used only if renumbering
         for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
-                if t == 'sur':
+                if t == "sur":
                     sset.add(v)
-                elif t == 'mat':
+                elif t == "mat":
                     if int(v) != 0:  # void material is not defined in a card
-                        mset.add('M'+str(v))
+                        mset.add("M" + str(v))
             if renumber_from is not None:
                 renumber_map[cell.values[0][0]] = i + renumber_from
             if not keep_universe and cell.values[0][0] in cells:
                 remove_u(cells_cards[_])
-        
+
         if renumber_from is not None:
             self._renumber_cells(cells_cards, renumber_map)
 
@@ -682,9 +702,8 @@ class Input:
 
         return cells_cards, surfs, materials
 
-
     def _collect_hash_uni(self, cset: set, extract_fillers: bool):
-        # duplicate the final set and work on a dynamic set that contains only 
+        # duplicate the final set and work on a dynamic set that contains only
         # new cells at each loop
         cell_set = deepcopy(cset)
 
@@ -706,7 +725,7 @@ class Input:
                     fill = c.get_f()
                     if fill is not None:
                         uni_set.add(fill)
-            # if one wants to extract also lower levels, loop over universes 
+            # if one wants to extract also lower levels, loop over universes
             # and collect their cells
             if extract_fillers:
                 for key, c in self.cells.items():
@@ -719,9 +738,13 @@ class Input:
                 again = True
                 cset |= cell_set
 
-    def extract_universe(self, universe: int, outfile: os.PathLike, 
-                         renumber_from: int = None, 
-                         keep_universe: bool = False):
+    def extract_universe(
+        self,
+        universe: int,
+        outfile: os.PathLike,
+        renumber_from: int = None,
+        keep_universe: bool = False,
+    ):
         """Dumps a minimum MCNP working file that
         includes all the cells, surfaces, materials and
         translations of the universe. The resulting file doesn't have the universe
@@ -737,7 +760,7 @@ class Input:
             number from which the cells of the universe are renumbered. Default
             is None, which means that cells are not renumbered
         keep_universe : bool
-            determines if the u=... card should be kept or not in cells' 
+            determines if the u=... card should be kept or not in cells'
             definitions. Defult is False.
         """
         cell_ids_to_extract = []
@@ -746,10 +769,13 @@ class Input:
 
             if cell_universe == universe:
                 cell_ids_to_extract.append(cell.values[0][0])
-                
-        self.extract_cells(cells=cell_ids_to_extract, outfile=outfile, 
-                           renumber_from=renumber_from, 
-                           keep_universe=keep_universe)
+
+        self.extract_cells(
+            cells=cell_ids_to_extract,
+            outfile=outfile,
+            renumber_from=renumber_from,
+            keep_universe=keep_universe,
+        )
 
     @staticmethod
     def _clean_card_name(key: str) -> str:
@@ -759,14 +785,14 @@ class Input:
         try:
             newkey = PAT_CARD_KEY.search(key).group()
         except AttributeError:
-            logging.debug('the following key was not cleaned: '+key)
+            logging.debug("the following key was not cleaned: " + key)
             newkey = key
 
         return newkey
 
-    def get_cells_by_matID(self, matID: int,
-                           deepcopy_flag: bool = True
-                           ) -> dict[str, parser.Card]:
+    def get_cells_by_matID(
+        self, matID: int, deepcopy_flag: bool = True
+    ) -> dict[str, parser.Card]:
         """Given a material ID return a dictionary {key, card} of all
         the cells to which that material is assigned to.
 
@@ -784,10 +810,10 @@ class Input:
         dict[int, parser.Card]
             cells to which the material is assigned to
         """
-        logging.debug('get cells for material {} requested'.format(matID))
+        logging.debug("get cells for material {} requested".format(matID))
         filtered_cells = {}
         for key, cell in self.cells.items():
-            if cell._get_value_by_type('mat') == int(matID):
+            if cell._get_value_by_type("mat") == int(matID):
                 if deepcopy_flag:
                     filtered_cells[key] = deepcopy(cell)
                 else:
@@ -805,9 +831,9 @@ class Input:
             scaling factors for the densities
         """
         for key, cell in self.cells.items():
-            if not cell._get_value_by_type('mat') == 0:
+            if not cell._get_value_by_type("mat") == 0:
                 density = cell.get_d()
-                newdensity = float('{:.5e}'.format(density*factor))
+                newdensity = float("{:.5e}".format(density * factor))
                 cell.set_d(newdensity)
 
     def get_cells_summary(self) -> pd.DataFrame:
@@ -823,20 +849,22 @@ class Input:
         """
         rows = []
         for key, cell in self.cells.items():
-            row = {'cell': int(key)}
-            row['material'] = cell.get_m()
-            row['density'] = cell.get_d()
-            row['universe'] = cell.get_u()
-            row['filler'] = cell.get_f()
+            row = {"cell": int(key)}
+            row["material"] = cell.get_m()
+            row["density"] = cell.get_d()
+            row["universe"] = cell.get_u()
+            row["filler"] = cell.get_f()
             rows.append(row)
 
         df = pd.DataFrame(rows)
-        return df.set_index('cell').sort_index()
+        return df.set_index("cell").sort_index()
 
-    def _get_tally_cards(self, idx: int,
-                         ) -> list[str]:
+    def _get_tally_cards(
+        self,
+        idx: int,
+    ) -> list[str]:
         keys = []
-        pat = re.compile(r'F[a-zA-Z]*{}$'.format(idx))
+        pat = re.compile(r"F[a-zA-Z]*{}$".format(idx))
         for key, _ in self.other_data.items():
             if pat.match(key) is not None:
                 keys.append(key)
@@ -845,8 +873,8 @@ class Input:
     def _retrieve_input(self, tag: str) -> str:
         # get the FC comment excluding the FC tag
         comment_line = self.other_data[tag].input[0]
-        inp = comment_line.replace(tag, '').strip()
-        inp = inp.replace(tag.lower(), '').strip()
+        inp = comment_line.replace(tag, "").strip()
+        inp = inp.replace(tag.lower(), "").strip()
         return inp
 
     def get_tally_summary(self, fmesh: bool = False) -> pd.DataFrame:
@@ -869,10 +897,10 @@ class Input:
         """
 
         if fmesh:
-            tag_tally = 'FMESH'
+            tag_tally = "FMESH"
             tallies = self.fmesh_keys
         else:
-            tag_tally = 'F'
+            tag_tally = "F"
             tallies = self.tally_keys
 
         rows = []
@@ -882,35 +910,37 @@ class Input:
             multiplier = None
             card_keys = self._get_tally_cards(key)
             for aux_key in card_keys:
-                if aux_key[:2] == 'FC':
+                if aux_key[:2] == "FC":
                     desc = self._retrieve_input(aux_key)
-                elif aux_key == tag_tally+str(key):
+                elif aux_key == tag_tally + str(key):
                     line = self.other_data[aux_key].input[0]
-                    particle = PAT_NP.search(line).group().upper().strip(':')
-                elif aux_key[:2] == 'FM':
+                    particle = PAT_NP.search(line).group().upper().strip(":")
+                elif aux_key[:2] == "FM":
                     multiplier = self._retrieve_input(aux_key).split()
 
-            row = {'Tally': key, 'Particle': particle, 'Description': desc}
+            row = {"Tally": key, "Particle": particle, "Description": desc}
 
             if multiplier is not None:
-                row['Normalization'] = multiplier[0]
+                row["Normalization"] = multiplier[0]
                 if len(multiplier) > 1:
-                    row['Other multipliers'] = multiplier[1:]
+                    row["Other multipliers"] = multiplier[1:]
                 else:
-                    row['Other multipliers'] = pd.NA
+                    row["Other multipliers"] = pd.NA
             else:
-                row['Normalization'] = pd.NA
-                row['Other multipliers'] = pd.NA
+                row["Normalization"] = pd.NA
+                row["Other multipliers"] = pd.NA
 
             rows.append(row)
 
         return pd.DataFrame(rows).set_index("Tally").sort_index()
 
-    def replace_material(self, new_mat_id: int,
-                         new_density: str,
-                         old_mat_id: int,
-                         u_list: list[int] = None
-                         ) -> None:
+    def replace_material(
+        self,
+        new_mat_id: int,
+        new_density: str,
+        old_mat_id: int,
+        u_list: list[int] = None,
+    ) -> None:
         """Replace a material and density in the input with other values.
 
         Parameters
@@ -932,7 +962,7 @@ class Input:
             implemented yet. Viceversa is possible.
         """
         if old_mat_id == 0:
-            raise NotImplementedError('Cannot change a void cell')
+            raise NotImplementedError("Cannot change a void cell")
 
         for _, cell in self.cells.items():
             in_universe = False
@@ -950,19 +980,18 @@ class Input:
                 if new_mat_id == 0:
                     Input.set_cell_void(cell)
                 else:
-                    cell._set_value_by_type('mat', new_mat_id)
+                    cell._set_value_by_type("mat", new_mat_id)
                     cell._Card__m = new_mat_id  # necessary for the get val
                     cell.set_d(new_density)
 
     @staticmethod
     def add_surface(
-        cell:parser.Card,
-        add_surface:int,
-        new_cell_num:int = None,
-        mode:str = 'intersect',
-        inplace:bool = True
-        ) -> parser.Card:
-
+        cell: parser.Card,
+        add_surface: int,
+        new_cell_num: int = None,
+        mode: str = "intersect",
+        inplace: bool = True,
+    ) -> parser.Card:
         """Adds a surface to cell's definition as union or intersection.
 
         Parameters
@@ -997,59 +1026,75 @@ class Input:
         first_row = new_cell.input[0].split()
 
         if new_cell.get_m() == 0:
-            first_row[2] = '(' + first_row[2]
+            first_row[2] = "(" + first_row[2]
         else:
-            first_row[3] = '(' + first_row[3]
+            first_row[3] = "(" + first_row[3]
 
-        new_cell.input[0] = ' '.join(first_row)
+        new_cell.input[0] = " ".join(first_row)
 
         # Check all rows if there are letters in the row
         for i, line in enumerate(new_cell.input):
-
             row = line.split()
-            param_cards_idx = -1
-
+            keywords = False
             for m, words in enumerate(row):
                 if any(c.isalpha() for c in words):
                     param_cards_idx = m
+                    keywords = True
                     break
-
-            if param_cards_idx != -1:
+            if not keywords:
+                param_cards_idx = len(row)
+            if keywords or (not keywords and i == len(new_cell.input) - 1):
                 if add_surface >= 0:
-                    row.insert(param_cards_idx, 
-                            ') ' + UNION_INTERSECT_SYMBOLS[mode] + '{:<' + str(len(str(add_surface))) + '} ' )
+                    row.insert(
+                        param_cards_idx,
+                        ") "
+                        + UNION_INTERSECT_SYMBOLS[mode]
+                        + "{:<"
+                        + str(len(str(add_surface)))
+                        + "} ",
+                    )
                 else:
-                    row.insert(param_cards_idx, 
-                            ') ' + UNION_INTERSECT_SYMBOLS[mode] + '-{:<' + str(len(str(add_surface))) + '} ' )
-                    
-                new_cell.input[i] = ' '.join(row)
+                    row.insert(
+                        param_cards_idx,
+                        ") "
+                        + UNION_INTERSECT_SYMBOLS[mode]
+                        + "-{:<"
+                        + str(len(str(add_surface)) - 1)
+                        + "} ",
+                    )
 
-                if new_cell.input[i][:5] != '     ' and i != 0:
-                    new_cell.input[i] = '     ' + new_cell.input[i]
+                new_cell.input[i] = " ".join(row)
+
+                if new_cell.input[i][:5] != "     " and i != 0:
+                    new_cell.input[i] = "     " + new_cell.input[i]
                 break
 
-        for k in range(len(new_cell.values)-1, -1, -1):
-            if new_cell.values[k][1] == 'sur' or new_cell.values[k][1] == 'cel':
+        for k in range(len(new_cell.values) - 1, -1, -1):
+            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
                 break
-            
-        new_cell.values.insert(k+1, (abs(add_surface),'sur'))
+
+        new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
 
         if new_cell_num is not None:
             new_cell.name = new_cell_num
-            new_cell._set_value_by_type('cel', new_cell_num)
-        
+            new_cell._set_value_by_type("cel", new_cell_num)
+
         return new_cell
 
 
 class D1S_Input(Input):
-
-    def __init__(self, cells: list[parser.Card], surfs: list[parser.Card],
-                 data: list[parser.Card], header: list = None,
-                 irrad_file: IrradiationFile = None,
-                 reac_file: ReactionFile = None) -> None:
+    def __init__(
+        self,
+        cells: list[parser.Card],
+        surfs: list[parser.Card],
+        data: list[parser.Card],
+        header: list = None,
+        irrad_file: IrradiationFile = None,
+        reac_file: ReactionFile = None,
+    ) -> None:
         """Children of the :py:class:`Input`.
 
-        it includes also the reaction and irradiation files necessary for a 
+        it includes also the reaction and irradiation files necessary for a
         D1S-UNED run and defines additional methods related to them.
 
         Parameters
@@ -1092,8 +1137,12 @@ class D1S_Input(Input):
         self.reac_file = reac_file
 
     @classmethod
-    def from_input(cls, inputfile: os.PathLike, irrad_file: os.PathLike = None,
-                   reac_file: os.PathLike = None) -> D1S_Input:
+    def from_input(
+        cls,
+        inputfile: os.PathLike,
+        irrad_file: os.PathLike = None,
+        reac_file: os.PathLike = None,
+    ) -> D1S_Input:
         """Generate a D1S-UNED input file.
 
         this includes also the reaction and irradiation files.
@@ -1118,11 +1167,16 @@ class D1S_Input(Input):
         if reac_file is not None:
             reac_file = ReactionFile.from_text(reac_file)
 
-        return D1S_Input(cells, surfaces, data, header=header,
-                         irrad_file=irrad_file, reac_file=reac_file)
+        return D1S_Input(
+            cells,
+            surfaces,
+            data,
+            header=header,
+            irrad_file=irrad_file,
+            reac_file=reac_file,
+        )
 
-    def get_potential_paths(self, libmanager: LibManager,
-                            lib: str) -> list[Reaction]:
+    def get_potential_paths(self, libmanager: LibManager, lib: str) -> list[Reaction]:
         """Given an activation library, return a list of all possible reactions
         paths foreseen by the libmanager that can originate from the material
         section of the input.
@@ -1144,7 +1198,7 @@ class D1S_Input(Input):
         for material in self.materials.materials:
             for submat in material.submaterials:
                 for zaid in submat.zaidList:
-                    parent = zaid.element+zaid.isotope
+                    parent = zaid.element + zaid.isotope
                     zaidreactions = libmanager.get_reactions(lib, parent)
                     # if len(zaidreactions) > 0:
                     #     # it is a parent only if reactions are available
@@ -1158,20 +1212,20 @@ class D1S_Input(Input):
         # --- Build the reactions and reaction file ---
         reaction_list = []
         for parent, MT, daughter in reactions:
-            parent = parent+'.'+lib
+            parent = parent + "." + lib
             # Build a comment
             _, parent_formula = libmanager.get_zaidname(parent)
             _, daughter_formula = libmanager.get_zaidname(daughter)
-            comment = '{} -> {}'.format(parent_formula, daughter_formula)
+            comment = "{} -> {}".format(parent_formula, daughter_formula)
 
             rx = Reaction(parent, MT, daughter, comment=comment)
             reaction_list.append(rx)
 
         return reaction_list
 
-    def get_reaction_file(self, libmanager: LibManager, lib: str,
-                          set_as_attribute: bool = True
-                          ) -> ReactionFile:
+    def get_reaction_file(
+        self, libmanager: LibManager, lib: str, set_as_attribute: bool = True
+    ) -> ReactionFile:
         """
         Get a reaction file suitable for the input.
 
@@ -1203,8 +1257,7 @@ class D1S_Input(Input):
         # irrad file is necessary for this operation
         # recover all available daughters
         if self.irrad_file is None:
-            raise ValueError(
-                'irrad_file attribute cannot be None for this operation')
+            raise ValueError("irrad_file attribute cannot be None for this operation")
         else:
             available_daughters = self.irrad_file.get_daughters()
 
@@ -1225,9 +1278,13 @@ class D1S_Input(Input):
 
         return reac_file
 
-    def smart_translate(self, activation_lib: str, transport_lib: str,
-                        libmanager: LibManager,
-                        fix_natural_zaid: bool = False) -> None:
+    def smart_translate(
+        self,
+        activation_lib: str,
+        transport_lib: str,
+        libmanager: LibManager,
+        fix_natural_zaid: bool = False,
+    ) -> None:
         """
         Translate the input to another library without relying on old libs.
 
@@ -1257,9 +1314,7 @@ class D1S_Input(Input):
 
         """
         if self.reac_file is None:
-            raise ValueError(
-                'reac_file cannot be None for this operation'
-            )
+            raise ValueError("reac_file cannot be None for this operation")
 
         if fix_natural_zaid:
             # get a first translation to avoid issues with old natural zaids
@@ -1270,7 +1325,7 @@ class D1S_Input(Input):
 
         for reaction in self.reac_file.reactions:
             # strip the lib from the parent
-            parent = reaction.parent.split('.')[0]
+            parent = reaction.parent.split(".")[0]
             active_zaids.append(parent)
             reaction.change_lib(activation_lib)
 
@@ -1279,9 +1334,8 @@ class D1S_Input(Input):
         for material in self.materials.materials:
             for submaterial in material.submaterials:
                 for zaid in submaterial.zaidList:
-                    zaidnum = zaid.element+zaid.isotope
-                    if (zaidnum not in active_zaids and
-                            zaidnum not in transp_zaids):
+                    zaidnum = zaid.element + zaid.isotope
+                    if zaidnum not in active_zaids and zaidnum not in transp_zaids:
                         transp_zaids.append(zaidnum)
 
         newlib = {activation_lib: active_zaids, transport_lib: transp_zaids}
@@ -1302,16 +1356,17 @@ class D1S_Input(Input):
         None.
 
         """
-        key = 'PIKMT'
-        lines = [key+'\n']
+        key = "PIKMT"
+        lines = [key + "\n"]
         for parent in self.reac_file.get_parents():
-            lines.append('         {}    {}\n'.format(parent, 0))
+            lines.append("         {}    {}\n".format(parent, 0))
 
         card = parser.Card(lines, 5, -1)
         self.other_data[key] = card  # should override other PKMT cards
 
-    def add_track_contribution(self, tallykey: str, zaids: list[str],
-                               who: str = 'parent'):
+    def add_track_contribution(
+        self, tallykey: str, zaids: list[str], who: str = "parent"
+    ):
         """
         Given a list of zaid add the FU bin in the requested tallies in order
         to collect the contribution of them to the tally.
@@ -1340,35 +1395,34 @@ class D1S_Input(Input):
         card = self.other_data[tallykey]
         num = str(_get_num_tally(tallykey))
 
-        card.lines.append('FU'+num+' 0\n')
+        card.lines.append("FU" + num + " 0\n")
 
-        if who == 'parent':
+        if who == "parent":
             for zaid in zaids:
-                card.lines.append(ADD_LINE_FORMAT.format('-'+str(zaid)))
-        elif who == 'daughter':
+                card.lines.append(ADD_LINE_FORMAT.format("-" + str(zaid)))
+        elif who == "daughter":
             for zaid in zaids:
                 card.lines.append(ADD_LINE_FORMAT.format(zaid))
         else:
-            raise ValueError(who+' is not an admissible "who" parameters')
+            raise ValueError(who + ' is not an admissible "who" parameters')
         card.get_input()
 
 
-def _get_input_arguments(inputfile: os.PathLike
-                            ) -> tuple:
+def _get_input_arguments(inputfile: os.PathLike) -> tuple:
     name = os.path.basename(inputfile).split(".")[0]
 
     # Get the blocks using numjuggler parser
-    logging.info('Reading file: {}'.format(name))
+    logging.info("Reading file: {}".format(name))
     jug_cards = parser.get_cards_from_input(inputfile)
     try:
         jug_cardsDic = parser.get_blocks(jug_cards)
     except UnicodeDecodeError as e:
-        logging.error('The file contains unicode errors, scan initiated')
+        logging.error("The file contains unicode errors, scan initiated")
         txt = debug_file_unicode(inputfile)
-        logging.error('The following error where encountered: \n'+txt)
+        logging.error("The following error where encountered: \n" + txt)
         raise e
 
-    logging.debug('Reading has finished')
+    logging.debug("Reading has finished")
 
     # Parse the different sections
     header = jug_cardsDic[2][0].lines
@@ -1380,14 +1434,15 @@ def _get_input_arguments(inputfile: os.PathLike
 
 
 def _get_num_tally(key: str) -> int:
-    patnum = re.compile(r'\d+')
+    patnum = re.compile(r"\d+")
     try:
         num = patnum.search(key).group()
     except AttributeError:
         # The pattern was not found
-        raise ValueError(key+' is not a valid tally ID')
+        raise ValueError(key + " is not a valid tally ID")
 
     return int(num)
+
 
 def remove_u(cell: parser.Card) -> None:
     """given a cell, it removes the universe option from its definition.
@@ -1404,11 +1459,11 @@ def remove_u(cell: parser.Card) -> None:
     for input_part in cell.input:
         new_input.append(re.sub(r"[uU]=\{:<\d+\}", "", input_part))
 
-    # assign new input to cell   
+    # assign new input to cell
     cell.input = new_input
     # remove value associated to the universe in 'values'
     for b, (t, v) in enumerate(cell.values):
-        if v == 'u':
+        if v == "u":
             cell.values.pop(b)
             break
     # reset universe private value (i know this is not a good practice, tbd)
