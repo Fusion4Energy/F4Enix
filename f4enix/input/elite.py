@@ -30,14 +30,25 @@ class Elite_Input(Input):
 
         Parameters
         ----------
-        cells : list[Card]
-            _description_
-        surfs : list[Card]
-            _description_
-        data : list[Card]
-            _description_
+        cells : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP cells.
+        surfs : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP surfaces.
+        data : list[parser.Card]
+            list of numjuggler.parser.Card objects containing MCNP data cards.
         header : list, optional
-            _description_, by default None
+            list of strings that compose the MCNP header, by default None
+
+        Examples
+        --------
+        read the input and the associated Excel file.
+        by calling extract_sector you'll be able to get a working MCNP input
+        file of the desired sector.
+
+        >>> from f4enix.input.elite import Elite_Input
+        ... elite_inp = Elite_Input.from_input('Elite.i')
+        ... elite_inp.extract_sector(1, 'Elite_excel.xlsx', 'sector1.i',
+                                     tol=1e-5, True)
         """
         super().__init__(cells, surfs, data, header)
         self.__initialized = False
