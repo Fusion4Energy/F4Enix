@@ -48,8 +48,7 @@ class Elite_Input(Input):
 
         >>> from f4enix.input.elite import Elite_Input
         ... elite_inp = Elite_Input.from_input('Elite.i')
-        ... elite_inp.extract_sector(1, 'Elite_excel.xlsx', 'sector1.i',
-                                     tol=1e-5, True)
+        ... elite_inp.extract_sector(1, 'Elite_excel.xlsx', 'sector1.i', tol=1e-5, True)
         """
         super().__init__(cells, surfs, data, header)
         self.__initialized = False
@@ -101,9 +100,9 @@ class Elite_Input(Input):
         these steps:
 
         - Excel file initialization and model check. If there's no correspondence
-            between the envelope structure of E-Lite model and excel file, the
-            method aborts. The method can't check if the correct sector number
-            is assigned to the envelope container.
+          between the envelope structure of E-Lite model and excel file, the
+          method aborts. The method can't check if the correct sector number is
+          assigned to the envelope container.
 
         - Collection of all envelope containers and fillers to be extracted
 
