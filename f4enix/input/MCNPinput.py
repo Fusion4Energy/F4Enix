@@ -833,7 +833,7 @@ class Input:
         for key, cell in self.cells.items():
             if not cell._get_value_by_type("mat") == 0:
                 density = cell.get_d()
-                newdensity = float("{:.5e}".format(density * factor))
+                newdensity = "{:.5e}".format(density * factor)
                 cell.set_d(newdensity)
 
     def get_cells_summary(self) -> pd.DataFrame:
