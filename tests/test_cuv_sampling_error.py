@@ -1,11 +1,14 @@
 from pathlib import Path
 
 import pytest
+import pyvista as pv
 
 from f4enix.output.cuv_sampling_error import (
+    add_sampling_error_to_vtk,
     calculate_volume_sampling_error,
     get_volume_sampling_error_from_cuv,
 )
+from f4enix.output.meshtal import Meshtal
 
 PATH_TO_CUV_FILE = (
     Path(__file__).parent / "resources" / "meshtal" / "test_CuV" / "cuvmsh"
@@ -37,3 +40,21 @@ def test_calculate_volume_sampling_error(
 ):
     result = calculate_volume_sampling_error(partial_volume, voxel_sampling_points)
     assert result == pytest.approx(expected_result)
+
+
+def test_add_sampling_error_to_vtk(tmpdir):
+    # Read a meshtal and create a VTK file
+    meshtal = Meshtal(PATH_TO_CUV_FILE)
+    meshtal.readMesh()
+    meshtal.mesh[44].write(tmpdir)
+    grid = pv.read(tmpdir / "cuvmsh_44_vtk.vtr")
+    assert type(grid) == pv.RectilinearGrid
+
+    grid_with_errors = add_sampling_error_to_vtk(
+        grid=grid, cuv_file_path=PATH_TO_CUV_FILE, voxel_sampling_points=1000
+    )
+
+    assert grid_with_errors["Volume Sampling Error"][0] == pytest.approx(0.0)  # type: ignore
+    assert grid_with_errors["Volume Sampling Error"][5] == pytest.approx(  # type: ignore
+        0.05121707142933009
+    )

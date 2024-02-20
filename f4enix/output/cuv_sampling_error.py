@@ -1,5 +1,8 @@
 from typing import IO, Dict, Tuple
 
+import numpy as np
+import pyvista as pv
+
 from f4enix.input.ww_gvr.models import Pathlike
 
 
@@ -36,7 +39,8 @@ def _read_cuv_data(
 
 def _read_voxel(infile: IO, voxel_sampling_points: int) -> Tuple[int, Dict[int, float]]:
     first_line_words = infile.readline().split()
-    voxel_id = int(first_line_words[0])
+    # 1-based index on the file, we want 0-based
+    voxel_id = int(first_line_words[0]) - 1  
     amount_of_cells = int(first_line_words[5])
 
     cell_errors = {}
@@ -61,3 +65,28 @@ def calculate_volume_sampling_error(
     return (
         (partial_volume - partial_volume**2) / (voxel_sampling_points)
     ) ** 0.5 / partial_volume
+
+
+pyvista_grid = (
+    pv.StructuredGrid | pv.UnstructuredGrid | pv.PolyData | pv.RectilinearGrid
+)
+
+
+def add_sampling_error_to_vtk(
+    grid: pyvista_grid, cuv_file_path: Pathlike, voxel_sampling_points: int
+) -> pyvista_grid:
+    """
+    Add a new array to the grid with the volume sampling error. In the case of a voxel
+    with more than one cell, the error is the biggest one.
+    """
+    voxel_cell_errors = get_volume_sampling_error_from_cuv(
+        cuv_file_path, voxel_sampling_points
+    )
+
+    vector_errors = np.zeros(grid.n_cells)
+    for i in range(grid.n_cells):
+        cell_error = max(voxel_cell_errors.get(i, {}).values(), default=0)
+        vector_errors[i] = cell_error
+
+    grid["Volume Sampling Error"] = vector_errors
+    return grid
