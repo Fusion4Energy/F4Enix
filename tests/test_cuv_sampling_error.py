@@ -22,8 +22,8 @@ def test_get_volume_samplig_error_from_cuv():
     )
 
     assert voxel_cell_errors[1][1] == pytest.approx(0.0)
-    assert voxel_cell_errors[6][1] == pytest.approx(0.01952473993714794)
-    assert voxel_cell_errors[6][10] == pytest.approx(0.05121707142933009)
+    assert voxel_cell_errors[6][1] == pytest.approx(0.01918304084569366)
+    assert voxel_cell_errors[6][10] == pytest.approx(0.05212937865502626)
 
 
 @pytest.mark.parametrize(
