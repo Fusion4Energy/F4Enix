@@ -46,7 +46,7 @@ jobs:
       # Run pytest
       - name: Testing
         run: |
-        pytest --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
+          pytest --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
       
       - name: Archive test coverage
         if: always()
