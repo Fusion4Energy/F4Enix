@@ -8,7 +8,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, developing ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -41,8 +41,16 @@ jobs:
       - name: Install the package
         run: |
           pip install .
+          pip install pytest pytest-cov
       
       # Run pytest
       - name: Testing
         run: |
-          pytest
+        pytest --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
+      
+      - name: Archive test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: htmlcov_${{matrix.python-version}}
+          path: htmlcov/
