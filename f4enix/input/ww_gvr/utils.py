@@ -1,6 +1,7 @@
 """
 Some utilities for the ww_gvr package.
 """
+
 from pathlib import Path
 from typing import Tuple
 
@@ -24,11 +25,11 @@ def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
     coarse vectors and the other with the fine vectors.
 
     The b2 format of a WW MCNP file is:
-    [mesh_position, fine_ints,
-     mesh_position, 1.0000, fine_ints,
-     mesh_position, 1.0000, fine_ints,
-     ...
-     mesh_position, 1.0000]
+            [mesh_position, fine_ints,
+            mesh_position, 1.0000, fine_ints,
+            mesh_position, 1.0000, fine_ints,
+            ...
+            mesh_position, 1.0000]
 
     Coarse vectors have the format: [p1, p2, p3, ...]
     A fine vector shows how many intervals there are between each step of the coarse

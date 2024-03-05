@@ -3,15 +3,16 @@ This file contains functions to create and operate pyvista meshes of cartesian a
 cylindrical grids.
 
 These meshes follow the convention of k, j, i vectors.
-j
- --- ---
-| 3 | 4 |
- --- ---
-| 1 | 2 |
- --- ---    i	 
+    j
+    --- ---
+    | 3 | 4 |
+    --- ---
+    | 1 | 2 |
+    --- ---    i	 
 
 The values are given in an array of shape (k, j, i).
 """
+
 from typing import Optional
 
 import numpy as np

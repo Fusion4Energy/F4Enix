@@ -7,5 +7,5 @@
     jupyters/meshtal
     jupyters/meshinfo
     jupyters/rssa
-    jupyters/eout
+    jupyters/eeout
     jupyters/fispact_legacy
