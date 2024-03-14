@@ -1,6 +1,7 @@
 """
 This file includes the main class of the ww_gvr package, the WW class.
 """
+# flake8: noqa: PLR2004
 from pathlib import Path
 from typing import List, Optional
 
@@ -73,7 +74,10 @@ class WW:
 
     @classmethod
     def create_gvr_from_meshtally_file(
-        cls, file_path: Pathlike, maximum_splitting_ratio: float = 5.0
+        cls,
+        file_path: Pathlike,
+        maximum_splitting_ratio: float = 5.0,
+        softening_factor: float = 1.0,
     ):
         """
         Create a WW object (a GVR) from a MCNP meshtally file using the Van Vick /
@@ -97,8 +101,12 @@ class WW:
         geometry = cls._create_geometry(parse_result)
         values = cls._nested_to_values_by_particle(parse_result)
         cls._convert_flux_values_to_gvr(values, maximum_splitting_ratio)
-
-        return WW(file_path, geometry, values)
+        gvr = WW(file_path, geometry, values)
+        
+        if softening_factor != 1.0:
+            gvr.soften(softening_factor)
+        
+        return gvr
 
     @staticmethod
     def _create_geometry(parse_result: ParseResult) -> Geometry:

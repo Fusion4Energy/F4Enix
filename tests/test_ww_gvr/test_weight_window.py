@@ -1,3 +1,4 @@
+# flake8: noqa: PLR2004
 import shutil
 
 import numpy as np
@@ -132,6 +133,15 @@ def test_create_gvr_from_meshtally_file_cart():
 
     assert_array_almost_equal(expected_values, result_flat_values)
 
+    softened_ww = WW.create_gvr_from_meshtally_file(
+        MESHTALLY_CART, softening_factor=0.5
+    )
+
+    assert np.allclose(
+        ww.values[ParticleType.NEUTRON][100.0] ** 0.5,
+        softened_ww.values[ParticleType.NEUTRON][100.0],
+    )
+
 
 def test_info():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
@@ -220,7 +230,7 @@ def test_export_as_vtk_no_path(tmp_path):
     ww.export_as_vtk()
 
     written_grid = pv.read(str(tmp_ww_path) + ".vts")
-    
+
     assert written_grid == ww.geometry._grid
 
 
@@ -335,7 +345,7 @@ def test_remove_particle_only_one():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
     with pytest.raises(ValueError):
         ww.remove_particle()
-    
+
 
 def test_mitigate_long_histories():
     ww = WW.load_from_ww_file(WW_SIMPLE_CART)
