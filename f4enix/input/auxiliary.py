@@ -16,7 +16,7 @@ and limitations under the Licence.
 """
 
 from numjuggler.parser import Card
-from f4enix.constants import PAT_COMMENT, PAT_DOLLAR_COMMENT, PAT_COMMENT_TEXT
+from f4enix.constants import PAT_DOLLAR_COMMENT, PAT_COMMENT_TEXT
 import re
 import os
 
