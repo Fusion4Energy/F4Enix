@@ -190,7 +190,7 @@ class Element:
         Parameters
         ----------
         zaidList : list
-            list of zaids constituing the element.
+            list of zaids constituting the element.
 
         Returns
         -------
@@ -414,7 +414,7 @@ class SubMaterial:
                 elements[zaid.element].append(zaid)
 
         elemList = []
-        for element_tag, zaids in elements.items():
+        for _, zaids in elements.items():
             elemList.append(Element(zaids))
 
         self.elements = elemList

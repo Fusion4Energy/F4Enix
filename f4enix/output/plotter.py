@@ -23,7 +23,7 @@ import numpy as np
 import logging
 import docx
 
-from docx.shared import Inches, Mm
+from docx.shared import Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
 from PIL import Image, ImageOps
@@ -32,9 +32,6 @@ from copy import deepcopy
 from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
-
-
-from pathlib import Path
 
 from math import radians, degrees
 from f4enix.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES

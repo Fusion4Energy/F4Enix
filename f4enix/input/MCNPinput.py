@@ -728,7 +728,7 @@ class Input:
             # if one wants to extract also lower levels, loop over universes
             # and collect their cells
             if extract_fillers:
-                for key, c in self.cells.items():
+                for _, c in self.cells.items():
                     if c.get_u() in uni_set:
                         new_set.add(c.values[0][0])
             # get the new set with the cells to be checked
@@ -830,7 +830,7 @@ class Input:
         factor : float
             scaling factors for the densities
         """
-        for key, cell in self.cells.items():
+        for _, cell in self.cells.items():
             if not cell._get_value_by_type("mat") == 0:
                 density = cell.get_d()
                 newdensity = "{:.5e}".format(density * factor)
