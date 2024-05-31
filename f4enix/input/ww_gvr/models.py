@@ -1,10 +1,12 @@
 """
 Classes and types used throughout the package.
 """
+
+from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,7 +22,7 @@ class ParticleType(Enum):
     PHOTON = "photon"
 
 
-@dataclass(kw_only=True)
+@dataclass()
 class Vectors:
     """
     A group of three vectors in the form of a Numpy NDArray. They are used to define 3D
@@ -44,7 +46,7 @@ class Vectors:
             return False
 
 
-Pathlike = str | Path
+Pathlike = Union[str, Path]
 NestedList = List[List[float]]
 ValuesByEnergy = Dict[float, np.ndarray]
 ValuesByParticle = Dict[ParticleType, ValuesByEnergy]

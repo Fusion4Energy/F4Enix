@@ -16,13 +16,14 @@ under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
-
+from __future__ import annotations
 import os
 import pyvista as pv
 import numpy as np
 import logging
 import docx
 
+from typing import Union
 from docx.shared import Inches, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
@@ -39,13 +40,12 @@ from pathlib import Path
 from math import radians, degrees
 from f4enix.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
 
-pv.set_plot_theme('document')
+pv.set_plot_theme("document")
 
 
 class MeshPlotter:
 
-    def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None
-                 ) -> None:
+    def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None) -> None:
         """Object responsible for the plotting of meshes.
 
         Allows slicing in different orientation and plotting of slices.
@@ -121,7 +121,8 @@ class MeshPlotter:
             font_family="arial",
             vertical=True,
             position_x=0.85,
-            position_y=0.25)
+            position_y=0.25,
+        )
 
     def _get_plotter(self) -> pv.Plotter:
         # Initiate the plotter with all default actions if needed
@@ -132,8 +133,9 @@ class MeshPlotter:
 
         return pl
 
-    def slice(self, slice_param: list[list]
-              ) -> list[tuple[str, pv.PolyData, pv.PolyData | None]]:
+    def slice(
+        self, slice_param: list[list]
+    ) -> list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]:
         """Perform arbitrary general slicing providing origin and normal
         vectors.
 
@@ -145,7 +147,7 @@ class MeshPlotter:
 
         Returns
         -------
-        list[tuple[str, pv.PolyData, pv.PolyData | None]]
+        list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]
             contains a list of (slice name, mesh slice, stl slice).
             the names are assigned according to slicing logic.
             In case of no stl assigned to the plotter, the stl slice will be
@@ -171,8 +173,9 @@ class MeshPlotter:
 
         return outp
 
-    def slice_on_axis(self, axis: str, n: int
-                      ) -> list[tuple[str, pv.PolyData, pv.PolyData | None]]:
+    def slice_on_axis(
+        self, axis: str, n: int
+    ) -> list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]:
         """Creates a series of slice of the mesh distributed equally along the
         specified axis. Stl file will be sliced accordingly if present
 
@@ -185,7 +188,7 @@ class MeshPlotter:
 
         Returns
         -------
-        list[tuple[str, pv.PolyData, pv.PolyData | None]]
+        list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]
             contains a list of (slice name, mesh slice, stl slice).
             the names are assigned according to slicing logic.
             In case of no stl assigned to the plotter, the stl slice will be
@@ -193,7 +196,7 @@ class MeshPlotter:
 
         """
         # Use the automatic slicing from pyvista
-        idxs = {'x': 0, 'y': 1, 'z': 2}
+        idxs = {"x": 0, "y": 1, "z": 2}
 
         # perform the slices
         slices = self.mesh.slice_along_axis(n, axis=axis)
@@ -205,7 +208,7 @@ class MeshPlotter:
         # build the output
         for i, mslice in enumerate(slices):
             # TODO maybe a smarter function here
-            name = 'P{} = {}'.format(axis, round(mslice.center[idxs[axis]], 1))
+            name = "P{} = {}".format(axis, round(mslice.center[idxs[axis]], 1))
             if self._has_stl:
                 stl_slice = stl_slices[i]
             else:
@@ -215,10 +218,12 @@ class MeshPlotter:
 
         return outp
 
-    def slice_toroidal(self, theta_increment: float,
-                       center: list = [0, 0, 0],
-                       min_max_theta: tuple[float, float] = None,
-                       ) -> list[tuple[str, pv.PolyData, pv.PolyData | None]]:
+    def slice_toroidal(
+        self,
+        theta_increment: float,
+        center: list = [0, 0, 0],
+        min_max_theta: tuple[float, float] = None,
+    ) -> list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]:
         """Create a series of slices of the mesh distributed toroidally equally
         around the vertical axis (z). Stl file will be sliced accordingly if
         present
@@ -234,12 +239,12 @@ class MeshPlotter:
             specify a minimum and max theta for the plots (degrees).
             This may help
             avoiding slices in empty regions in partial models if the mesh
-            is not properly rotated. By default is None, meaning that the 
+            is not properly rotated. By default is None, meaning that the
             slicing will start at theta = 0 and finish at theta = pi.
 
         Returns
         -------
-        list[tuple[str, pv.PolyData, pv.PolyData | None]]
+        list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]
             contains a list of (slice name, mesh slice, stl slice).
             the names are assigned according to slicing logic.
             In case of no stl assigned to the plotter, the stl slice will be
@@ -253,13 +258,12 @@ class MeshPlotter:
         if min_max_theta is None:
             angles = np.arange(0, np.pi, increment)
         else:
-            angles = np.arange(radians(min_max_theta[0]),
-                               radians(min_max_theta[1]),
-                               increment)
+            angles = np.arange(
+                radians(min_max_theta[0]), radians(min_max_theta[1]), increment
+            )
 
         for theta in angles:
-            normal = np.array(
-                [np.cos(theta), np.sin(theta), 0.0]).dot(np.pi / 2.0)
+            normal = np.array([np.cos(theta), np.sin(theta), 0.0]).dot(np.pi / 2.0)
 
             mesh_slice = self.mesh.slice(origin=center, normal=normal)
 
@@ -270,7 +274,8 @@ class MeshPlotter:
                 # it means that nothing can be sliced here because the
                 # the slice is empty
                 logging.warning(
-                    'No slice can be done at theta={} deg'.format(degrees(theta)))
+                    "No slice can be done at theta={} deg".format(degrees(theta))
+                )
                 continue
 
             mesh_slices.append(mesh_slice)
@@ -281,7 +286,7 @@ class MeshPlotter:
         outp = []
         # build the output
         for i, mslice in enumerate(mesh_slices):
-            name = 'theta = {} deg'.format(round(degrees(angles[i]), 1))
+            name = "theta = {} deg".format(round(degrees(angles[i]), 1))
             if self._has_stl:
                 stl_slice = stl_slices[i]
             else:
@@ -291,24 +296,25 @@ class MeshPlotter:
 
         return outp
 
-    def plot_slices(self,
-                    slices: list[tuple[str, pv.PolyData, pv.PolyData | None]],
-                    array_name: str,
-                    outpath: os.PathLike = None,
-                    min_max: tuple[float] = None,
-                    log_scale: bool = True,
-                    stl_color: str = 'white',
-                    n_colors: int = 256,
-                    scale_quality: float = 3,
-                    scale_title: str = None,
-                    custom_categories: str = None
-                    ) -> list[tuple[str, Image.Image]]:
+    def plot_slices(
+        self,
+        slices: list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]],
+        array_name: str,
+        outpath: os.PathLike = None,
+        min_max: tuple[float] = None,
+        log_scale: bool = True,
+        stl_color: str = "white",
+        n_colors: int = 256,
+        scale_quality: float = 3,
+        scale_title: str = None,
+        custom_categories: str = None,
+    ) -> list[tuple[str, Image.Image]]:
         """Plot a series of slices to an outpath folder. The slices names
         are used as file names.
 
         Parameters
         ----------
-        slices : list[tuple[str, pv.PolyData, pv.PolyData  |  None]]
+        slices : list[tuple[str, pv.PolyData, Union[pv.PolyData, None]]]
             list of slices to be plotted. Usually produced with MeshPlotter
             methods.
         array_name : str
@@ -346,32 +352,32 @@ class MeshPlotter:
         """
         # Check if a categorical plot is requested
         if custom_categories is not None:
-            if custom_categories == 'SDDR':
+            if custom_categories == "SDDR":
                 ctg = SDDR_CATEGORIES
-            elif custom_categories == 'TNF':
+            elif custom_categories == "TNF":
                 ctg = TNF_CATEGORIES
-            elif custom_categories == 'TID':
+            elif custom_categories == "TID":
                 ctg = TID_CATEGORIES
             else:
                 raise ValueError(
-                    '{} are not valid custom categories'.format(
-                        custom_categories))
+                    "{} are not valid custom categories".format(custom_categories)
+                )
 
         # Check that outpath exists
         if outpath is not None:
             if not os.path.exists(outpath):
-                raise ValueError('{} does not exists'.format(outpath))
+                raise ValueError("{} does not exists".format(outpath))
 
         images = []
 
         scalar_bar_args = deepcopy(self.legend_args)
         if scale_title is not None:
-            scalar_bar_args['title'] = scale_title
+            scalar_bar_args["title"] = scale_title
 
         # get a number of labels that pairs with the number of colors
         # works only with even numbers
         if n_colors < 30 and n_colors % 2 == 0:
-            scalar_bar_args['n_labels'] = int(n_colors/2+1)
+            scalar_bar_args["n_labels"] = int(n_colors / 2 + 1)
 
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
 
@@ -379,8 +385,13 @@ class MeshPlotter:
             if custom_categories is not None:
                 # Add category label to the mesh
                 colors = self._add_categorization(
-                    mesh_slice, array_name, ctg['values'], ctg['categories'],
-                    ctg['colors'], name=custom_categories)
+                    mesh_slice,
+                    array_name,
+                    ctg["values"],
+                    ctg["categories"],
+                    ctg["colors"],
+                    name=custom_categories,
+                )
                 scalars = custom_categories
                 cmap = colors
                 below_color = None
@@ -389,20 +400,24 @@ class MeshPlotter:
                 categories = True
             else:
                 scalars = array_name
-                cmap = 'jet'
-                below_color = 'grey'
-                above_color = 'purple'
+                cmap = "jet"
+                below_color = "grey"
+                above_color = "purple"
                 lscale = log_scale
                 categories = False
 
-            pl.add_mesh(mesh_slice, scalars=scalars,
-                        scalar_bar_args=scalar_bar_args,
-                        log_scale=lscale,
-                        below_color=below_color,
-                        above_color=above_color,
-                        clim=min_max, cmap=cmap,
-                        n_colors=n_colors,
-                        categories=categories)
+            pl.add_mesh(
+                mesh_slice,
+                scalars=scalars,
+                scalar_bar_args=scalar_bar_args,
+                log_scale=lscale,
+                below_color=below_color,
+                above_color=above_color,
+                clim=min_max,
+                cmap=cmap,
+                n_colors=n_colors,
+                categories=categories,
+            )
             if stl_slice is not None:
                 pl.add_mesh(stl_slice, color=stl_color)
 
@@ -421,15 +436,15 @@ class MeshPlotter:
             images.append((name, trimmed))
 
             if outpath is not None:
-                filename = os.path.join(outpath, '{}.png'.format(name))
+                filename = os.path.join(outpath, "{}.png".format(name))
                 pl.screenshot(filename, scale=scale_quality)
 
         return images
 
     @staticmethod
-    def _set_perpendicular_camera(mesh_slice: pv.PolyData,
-                                  pl: pv.Plotter,
-                                  bounds: list = None) -> None:
+    def _set_perpendicular_camera(
+        mesh_slice: pv.PolyData, pl: pv.Plotter, bounds: list = None
+    ) -> None:
         # align camera: focus on center, position at center + normal
         center = mesh_slice.center
         pl.camera.focal_point = center
@@ -443,8 +458,9 @@ class MeshPlotter:
                 pl.set_viewup([0, 1, 0])
             pl.reset_camera(bounds=bounds)
 
-    def _get_stl_slices(self, mesh_slices: list[pv.PolyData]
-                        ) -> list[pv.PolyData] | None:
+    def _get_stl_slices(
+        self, mesh_slices: list[pv.PolyData]
+    ) -> Union[list[pv.PolyData], None]:
         stl_slices = []
         # get the correspondent stl_slices
         for mesh_slice in mesh_slices:
@@ -462,19 +478,24 @@ class MeshPlotter:
             # give a very small translation in order to not be exactly
             # coincident, using the normal should be sufficient
             # but it needs to be properly scaled
-            scale = np.abs(mesh_slice.points).mean()*1e-3
-            stl_slice.translate(-norm*scale, inplace=True)
+            scale = np.abs(mesh_slice.points).mean() * 1e-3
+            stl_slice.translate(-norm * scale, inplace=True)
             stl_slices.append(stl_slice)
 
         return stl_slices
 
     @staticmethod
-    def _add_categorization(mesh: pv.PolyData, array_name: str,
-                            vals: list[float], categories: list[str],
-                            colors: list[str], name='label') -> list[str]:
+    def _add_categorization(
+        mesh: pv.PolyData,
+        array_name: str,
+        vals: list[float],
+        categories: list[str],
+        colors: list[str],
+        name="label",
+    ) -> list[str]:
 
         values = mesh[array_name]
-        labels = np.empty(len(values), dtype='<U10')
+        labels = np.empty(len(values), dtype="<U10")
 
         # categories = list(range(0, len(vals)+1))
         labels[:] = categories[-1]
@@ -507,8 +528,7 @@ class MeshPlotter:
 
 class Atlas:
 
-    def __init__(self, name: str = 'atlas',
-                 landscape: str = True) -> None:
+    def __init__(self, name: str = "atlas", landscape: str = True) -> None:
         """Class to handle the generation of the Atlas.
 
         Parameters
@@ -535,7 +555,7 @@ class Atlas:
         --------
         Build an atlas adding sections manually (recommended, since images
         do not need to be saved to the disk). The images can be produced using
-        py:method:`f4enix.output.plotter.MeshPlotter.plot_slices`. Both a 
+        py:method:`f4enix.output.plotter.MeshPlotter.plot_slices`. Both a
         Word and PDF version are saved.
 
         >>> from f4enix.output.plotter import Atlas
@@ -563,9 +583,11 @@ class Atlas:
         section.bottom_margin = Mm(margin)
         section.left_margin = Mm(margin)
         section.right_margin = Mm(margin)
-        width = (section.page_width -
-                 section.left_margin -
-                 section.right_margin)/36000*0.9  # mm
+        width = (
+            (section.page_width - section.left_margin - section.right_margin)
+            / 36000
+            * 0.9
+        )  # mm
         self.default_width = Mm(width)
 
     def _insert_img(self, img: os.PathLike, width=None) -> None:
@@ -576,11 +598,14 @@ class Atlas:
         last_paragraph = self.doc.paragraphs[-1]
         last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    def add_section(self, section_name: str,
-                    images: list[tuple[str, Image.Image]],
-                    level: int = 1,
-                    include_section_name: bool = True,
-                    disclaimer: str = None) -> None:
+    def add_section(
+        self,
+        section_name: str,
+        images: list[tuple[str, Image.Image]],
+        level: int = 1,
+        include_section_name: bool = True,
+        disclaimer: str = None,
+    ) -> None:
         """Add a section of plots to the Atlas.
 
         add a chapter to atlas, the level can be decided.
@@ -607,13 +632,13 @@ class Atlas:
 
         for name, image in images:
             if include_section_name:
-                name = '{} - {}'.format(name, section_name)
+                name = "{} - {}".format(name, section_name)
             if disclaimer is not None:
-                name = name + ' ' + disclaimer
-            self.doc.add_heading(name, level=level+1)
+                name = name + " " + disclaimer
+            self.doc.add_heading(name, level=level + 1)
             # Get a binary stream for pythondocx
             imdata = io.BytesIO()
-            image.save(imdata, format='png')
+            image.save(imdata, format="png")
             imdata.seek(0)
             self._insert_img(imdata)
             # Clean the buffer
@@ -649,7 +674,7 @@ class Atlas:
             for filepath in sorted(paths, key=os.path.getmtime):
                 heading = os.path.basename(filepath)[:-4]
                 ext = os.path.basename(filepath)[-3:]
-                if ext not in ['jpg', 'png', 'tif']:
+                if ext not in ["jpg", "png", "tif"]:
                     continue
 
                 self.doc.add_heading(heading, level=2)
@@ -657,8 +682,10 @@ class Atlas:
 
     def _change_orientation(self) -> docx.section.Section:
         current_section = self.doc.sections[-1]
-        new_width, new_height = (current_section.page_height,
-                                 current_section.page_width)
+        new_width, new_height = (
+            current_section.page_height,
+            current_section.page_width,
+        )
         new_section = self.doc.add_section()
         new_section.orientation = WD_ORIENT.LANDSCAPE
         new_section.page_width = new_width
@@ -666,9 +693,11 @@ class Atlas:
 
         return new_section
 
-    def save(self, outpath: os.PathLike,
-             # pdfprint: bool = True
-             ) -> None:
+    def save(
+        self,
+        outpath: os.PathLike,
+        # pdfprint: bool = True
+    ) -> None:
         """
         Save word atlas and possibly export PDF
 
@@ -682,15 +711,15 @@ class Atlas:
         None.
 
         """
-        outpath_word = os.path.join(outpath, self.name+'.docx')
+        outpath_word = os.path.join(outpath, self.name + ".docx")
         # outpath_pdf = os.path.join(outpath, self.name+'.pdf')
 
         try:
             self.doc.save(outpath_word)
         except FileNotFoundError as e:
-            print(' The following is the original exception:')
+            print(" The following is the original exception:")
             print(e)
-            print('\n it may be due to invalid characters in the file name')
+            print("\n it may be due to invalid characters in the file name")
 
         # if pdfprint:
         #     in_file = outpath_word
@@ -769,8 +798,9 @@ class Atlas:
 
 class Plotter2D(ABC):
 
-    def __init__(self, suptitle: str = None, xlabel: str = None,
-                 ylabel: str = None) -> None:
+    def __init__(
+        self, suptitle: str = None, xlabel: str = None, ylabel: str = None
+    ) -> None:
         """Abstract class for the definition of 2D plots.
 
         Parameters
@@ -800,7 +830,7 @@ class Plotter2D(ABC):
         fig, ax = plt.subplots()
 
         # Some default actions
-        ax.grid(alpha=0.6, which='both')
+        ax.grid(alpha=0.6, which="both")
         if suptitle is not None:
             ax.set_title(suptitle)
         if ylabel is not None:
@@ -814,29 +844,38 @@ class Plotter2D(ABC):
 
         # May be improved in the future with additional markers and colors
         # plot decorators
-        self.markers = ['o', 's', 'D', '^', 'X', 'p', 'd', '*']*50
-        self.lines = ['-', '--', '-.', ':']*50
+        self.markers = ["o", "s", "D", "^", "X", "p", "d", "*"] * 50
+        self.lines = ["-", "--", "-.", ":"] * 50
         # Color-blind friendly palette
-        self.colors = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628',
-                       '#984ea3', '#999999', '#e41a1c', '#dede00']*50
-        logging.debug('plotter initialized')
+        self.colors = [
+            "#377eb8",
+            "#ff7f00",
+            "#4daf4a",
+            "#f781bf",
+            "#a65628",
+            "#984ea3",
+            "#999999",
+            "#e41a1c",
+            "#dede00",
+        ] * 50
+        logging.debug("plotter initialized")
 
     @abstractmethod
     def plot(self) -> None:
         pass
 
     def save(self, outpath: os.PathLike) -> None:
-        self.fig.savefig(outpath, dpi=300, bbox_inches='tight')
-        logging.info('plot has been saved at {}'.format(outpath))
+        self.fig.savefig(outpath, dpi=300, bbox_inches="tight")
+        logging.info("plot has been saved at {}".format(outpath))
 
 
 class CDFplot(Plotter2D):
-    def __init__(self, suptitle: str = None,
-                 xlabel: str = None,
-                 ylabel: str = None) -> None:
+    def __init__(
+        self, suptitle: str = None, xlabel: str = None, ylabel: str = None
+    ) -> None:
         """Plotter for cumulative distributions.
 
-        all datasets of observations are automatically binnned and plotted as 
+        all datasets of observations are automatically binnned and plotted as
         (unfilled) histograms.
 
         Parameters
@@ -865,10 +904,16 @@ class CDFplot(Plotter2D):
         """
         super().__init__(suptitle, xlabel, ylabel)
 
-    def plot(self, values_list: list, bins: int = 10,
-             datalabels: list[str] = None, perc: bool = True,
-             outside_legend: bool = False, cut_y: float = None,
-             cut_x: float = None) -> None:
+    def plot(
+        self,
+        values_list: list,
+        bins: int = 10,
+        datalabels: list[str] = None,
+        perc: bool = True,
+        outside_legend: bool = False,
+        cut_y: float = None,
+        cut_x: float = None,
+    ) -> None:
         """plot the comulative distributions as discrete steps
 
         Parameters
@@ -896,7 +941,7 @@ class CDFplot(Plotter2D):
             try:
                 assert len(datalabels) == len(values_list)
             except AssertionError:
-                msg = 'leghth of values ({}) is different from lenght of labels ({})'
+                msg = "leghth of values ({}) is different from lenght of labels ({})"
                 raise ValueError(msg.format(len(values_list), len(datalabels)))
 
         for i, values in enumerate(values_list):
@@ -905,20 +950,26 @@ class CDFplot(Plotter2D):
             else:
                 label = None
 
-            self.ax.hist(values, bins=bins, histtype='step',
-                         weights=np.ones(len(values))/len(values),
-                         cumulative=True, label=label, linestyle=self.lines[i],
-                         color=self.colors[i])
+            self.ax.hist(
+                values,
+                bins=bins,
+                histtype="step",
+                weights=np.ones(len(values)) / len(values),
+                cumulative=True,
+                label=label,
+                linestyle=self.lines[i],
+                color=self.colors[i],
+            )
             if perc:
                 self.ax.yaxis.set_major_formatter(PercentFormatter(1))
 
         if outside_legend:
             self.ax.legend(framealpha=1, bbox_to_anchor=(1, 1))
         else:
-            self.ax.legend(loc='lower right', framealpha=1)
+            self.ax.legend(loc="lower right", framealpha=1)
 
         if cut_y is not None:
             self.ax.set_ylim(top=cut_y)
         if cut_x is not None:
             self.ax.set_xlim(right=cut_x)
-        logging.info('CDF was plotted')
+        logging.info("CDF was plotted")
