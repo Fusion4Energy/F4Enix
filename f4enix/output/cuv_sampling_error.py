@@ -1,4 +1,5 @@
-from typing import IO, Dict, Tuple
+from __future__ import annotations
+from typing import IO, Dict, Tuple, Union
 
 import numpy as np
 import pyvista as pv
@@ -40,7 +41,7 @@ def _read_cuv_data(
 def _read_voxel(infile: IO, voxel_sampling_points: int) -> Tuple[int, Dict[int, float]]:
     first_line_words = infile.readline().split()
     # 1-based index on the file, we want 0-based
-    voxel_id = int(first_line_words[0]) - 1  
+    voxel_id = int(first_line_words[0]) - 1
     amount_of_cells = int(first_line_words[5])
 
     cell_errors = {}
@@ -67,9 +68,9 @@ def calculate_volume_sampling_error(
     ) ** 0.5 / partial_volume
 
 
-pyvista_grid = (
-    pv.StructuredGrid | pv.UnstructuredGrid | pv.PolyData | pv.RectilinearGrid
-)
+pyvista_grid = Union[
+    pv.StructuredGrid, pv.UnstructuredGrid, pv.PolyData, pv.RectilinearGrid
+]
 
 
 def add_sampling_error_to_vtk(
