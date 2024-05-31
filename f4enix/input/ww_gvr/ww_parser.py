@@ -1,6 +1,7 @@
 """
 Classes and functions to read WW files.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, TextIO
@@ -14,10 +15,10 @@ from f4enix.input.ww_gvr.utils import compose_b2_vectors
 from f4enix.output.meshtal import Fmesh, Meshtal
 
 
-@dataclass(kw_only=True)
+@dataclass()
 class WWHeader:
-    if_: int = 1  # File type. Always 1, unused.
-    iv: int = 1  # Time-dependent windows flag. 1/2 = no/yes
+    if_: int  # File type. Always 1, unused.
+    iv: int  # Time-dependent windows flag. 1/2 = no/yes
     ni: int  # Number of particle types
     nr: int  # 10/16/16 = cartesian/cylindrical/spherical coord
     probid: str  # Date and time of run
@@ -31,13 +32,13 @@ class WWHeader:
     ncz: int  # Number of coarse meshses in k
 
 
-@dataclass(kw_only=True)
+@dataclass()
 class WWHeaderCyl(WWHeader):
     director_1: List[float]  # Vector defining the director 1
     director_2: List[float]  # Vector defining the director 2
 
 
-@dataclass(kw_only=True)
+@dataclass()
 class ParseResult:
     header: WWHeader
     b2_vectors: Vectors
