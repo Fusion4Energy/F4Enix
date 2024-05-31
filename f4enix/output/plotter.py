@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Plotter classes and methods for neutronics outputs.
 
@@ -16,7 +18,7 @@ under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
-from __future__ import annotations
+
 import os
 import pyvista as pv
 import numpy as np

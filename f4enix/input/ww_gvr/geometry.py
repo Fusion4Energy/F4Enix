@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """
 This module contains the Geometry class, which is used to create a pyvista grid
 from the coarse and fine vectors of a WW file. It also contains the methods to
 fill the grid with the values of the WW file and to plot it.
 """
 
-from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Union
 

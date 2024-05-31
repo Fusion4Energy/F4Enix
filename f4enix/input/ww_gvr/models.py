@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 """
 Classes and types used throughout the package.
 """
 
-from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
