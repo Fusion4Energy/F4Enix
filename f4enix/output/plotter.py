@@ -36,9 +36,6 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
-
-from pathlib import Path
-
 from math import radians, degrees
 from f4enix.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
 

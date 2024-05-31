@@ -30,7 +30,7 @@ Development Workflow
 Anyone wishing to make contributions to F4Enix should be fully acquainted and comfortable
 working with git and GitHub. We assume here that you have git installed on your system,
 have a GitHub account and that you are able to create/push to repositories on GitHub.
-An easy wasy to approach the world of git actions and their integration with GitHub is to use
+An easy way to approach the world of git actions and their integration with GitHub is to use
 `GitHub Desktop <https://desktop.github.com/>`_.
 
 Development of F4Enix relies heavily on branching; specifically, we use a branching model
@@ -94,7 +94,7 @@ Requirements for a successful merge
 The following are minimum requirements necessary for the approval of a pull request:
 
 * the python code should adhere to the `PEP 8 <https://peps.python.org/pep-0008/>`_ convention.
-  This can be achieved for intance using `pycodestyle <https://pypi.org/project/pycodestyle/>`_
+  This can be achieved for instance using `pycodestyle <https://pypi.org/project/pycodestyle/>`_
   as linter in your code editor of choice.
 * if a new feature is developed, new test cases must be added to unit test suites.
   `pytest <https://docs.pytest.org/en/7.4.x/>`_ must be used.

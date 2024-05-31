@@ -27,7 +27,7 @@ In conda this would be done with:
 ```
 conda create -n <env_name> python=3.10
 ```
-Please remeber that python versions lower than 3.10 are not supported.
+Please remember that python versions lower than 3.10 are not supported.
 
 ### Developer mode installation
 There are many situations (especially while being an active developer) where it may be useful to install f4enix in developer mode. In order to do so, navigate to the
