@@ -6,7 +6,7 @@
 # F4Enix
 Parser for Monte Carlo simulations input and output files
 
-**Pyhton >3.10!**
+**Pyhton >3.9!**
 
 Both Windows and Linux supported.
 

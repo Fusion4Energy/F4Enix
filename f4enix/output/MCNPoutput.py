@@ -28,12 +28,12 @@ from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
 from f4enix.input.MCNPinput import Input
 
 # -- Identifiers --
-SURFACE_ID = 'currently being tracked has reached surface'
-CELL_ID = 'other side of the surface from cell'
-POINT_ID = 'x,y,z coordinates:'
-TOTAL_LP = 'particles got lost'
+SURFACE_ID = "currently being tracked has reached surface"
+CELL_ID = "other side of the surface from cell"
+POINT_ID = "x,y,z coordinates:"
+TOTAL_LP = "particles got lost"
 # -- Patterns --
-PAT_NPS_LINE = re.compile(r' source')
+PAT_NPS_LINE = re.compile(r" source")
 # patComments = re.compile(r'(?i)C\s+')
 # patUniverse = re.compile(r'(?i)u=\d+')
 # patNPS = re.compile(r'(?i)nps')
@@ -42,11 +42,19 @@ PAT_NPS_LINE = re.compile(r' source')
 # patSDEF = re.compile(r'(?i)sdef')
 # patSDEFsur = re.compile(r'(?i)sur=\d+')
 
-STAT_CHECKS_COLUMNS = ['TFC bin behaviour', 'mean behaviour',
-                       'rel error value', 'rel error decrease',
-                       'rel error decrease rate', 'VoV value', 'VoV decrease',
-                       'VoV decrease rate', 'FoM value', 'FoM behaviour',
-                       'PDF slope']
+STAT_CHECKS_COLUMNS = [
+    "TFC bin behaviour",
+    "mean behaviour",
+    "rel error value",
+    "rel error decrease",
+    "rel error decrease rate",
+    "VoV value",
+    "VoV decrease",
+    "VoV decrease rate",
+    "FoM value",
+    "FoM behaviour",
+    "PDF slope",
+]
 
 
 class Output:
@@ -108,21 +116,21 @@ class Output:
         Get an MCNP table from the output file in a pandas DataFrame format:
 
         >>> outp.get_table(60)
-        		 cell	mat	  ... photon wt generation
+                         cell	mat	  ... photon wt generation
         2	1.0	  1	     0	  ... 	-1.000E+00
         3	2.0	  2	     1	  ...	-1.000E+00
         4	3.0	  3	     0	  ...	-1.000E+00
         5	4.0	  4	     0	  ...	-1.000E+00
         """
         self.filepath = filepath
-        self.name = os.path.basename(filepath).split('.')[0]
-        logging.info('reading {} ...'.format(self.name))
+        self.name = os.path.basename(filepath).split(".")[0]
+        logging.info("reading {} ...".format(self.name))
         self.lines = self._read_lines()
-        logging.info('reading completed')
+        logging.info("reading completed")
 
     def _read_lines(self) -> list[str]:
         lines = []
-        with open(self.filepath, 'r', errors="surrogateescape") as infile:
+        with open(self.filepath, "r", errors="surrogateescape") as infile:
             for line in infile:
                 lines.append(line)
         return lines
@@ -144,14 +152,16 @@ class Output:
                 except AttributeError:
                     # then the match was not found
                     logging.warning(
-                        "The LP number was impossible to determine from this line '{}'".format(line)
+                        "The LP number was impossible to determine from this line '{}'".format(
+                            line
+                        )
                     )
                 return None
 
-        logging.warning('No identifier for lost particle was found in output')
+        logging.warning("No identifier for lost particle was found in output")
         return None
 
-    def get_NPS(self, particle: str = 'neutron') -> int:
+    def get_NPS(self, particle: str = "neutron") -> int:
         """Get the number of particles simulated.
 
         Parameters
@@ -167,18 +177,22 @@ class Output:
         int
             number of particles simulated
         """
-        PAT_NPS_TRIGGER = re.compile(particle+' creation')
+        PAT_NPS_TRIGGER = re.compile(particle + " creation")
         for i, line in enumerate(self.lines):
             if PAT_NPS_TRIGGER.search(line) is not None:
-                nps = int(PAT_DIGIT.search(self.lines[i+3]).group())
-                logging.info('NPS found: {}'.format(nps))
+                nps = int(PAT_DIGIT.search(self.lines[i + 3]).group())
+                logging.info("NPS found: {}".format(nps))
                 return nps
 
-        raise ValueError('No NPS could be read from file')
+        raise ValueError("No NPS could be read from file")
 
-    def print_lp_debug(self, outpath: os.PathLike, print_video: bool = False,
-                       get_cosine: bool = True,
-                       input_mcnp: Input = None) -> None:
+    def print_lp_debug(
+        self,
+        outpath: os.PathLike,
+        print_video: bool = False,
+        get_cosine: bool = True,
+        input_mcnp: Input = None,
+    ) -> None:
         """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
         ['LPdebug_{}.vtp'] containing information about the lost particles
         registered in an MCNP run. A .csv file is also printed with origin
@@ -210,23 +224,22 @@ class Output:
         v = []
         w = []
 
-        logging.info(
-            'Recovering lost particles surfaces and cells in '+self.name)
+        logging.info("Recovering lost particles surfaces and cells in " + self.name)
 
         for i, line in enumerate(self.lines):
 
             if line.find(SURFACE_ID) != -1:  # LP in surface
                 surfaces.append(PAT_DIGIT.search(line).group())
 
-                cell_ID = PAT_DIGIT.search(self.lines[i+1]).group()
+                cell_ID = PAT_DIGIT.search(self.lines[i + 1]).group()
                 cells.append(cell_ID)
                 # add the universe if requested
                 if input_mcnp is not None:
                     universe = input_mcnp.cells[cell_ID].get_u()
                     universes.append(universe)
 
-                point = SCIENTIFIC_PAT.findall(self.lines[i+6])  # [0:3]
-                cosines = SCIENTIFIC_PAT.findall(self.lines[i+7])  # [0:3]
+                point = SCIENTIFIC_PAT.findall(self.lines[i + 6])  # [0:3]
+                cosines = SCIENTIFIC_PAT.findall(self.lines[i + 7])  # [0:3]
                 x.append(float(point[0]))
                 y.append(float(point[1]))
                 z.append(float(point[2]))
@@ -260,70 +273,70 @@ class Output:
 
         # Don't do nothing if no particles are lost
         if len(surfaces) == 0:
-            logging.info('No particles were lost, no dumps to be done')
+            logging.info("No particles were lost, no dumps to be done")
             return
 
         # Building the df
         df = pd.DataFrame()
-        df['Surface'] = surfaces
-        df['Cell'] = cells
-        df['x'] = x
-        df['y'] = y
-        df['z'] = z
+        df["Surface"] = surfaces
+        df["Cell"] = cells
+        df["x"] = x
+        df["y"] = y
+        df["z"] = z
         if get_cosine:
-            df['u'] = u
-            df['v'] = v
-            df['w'] = w
+            df["u"] = u
+            df["v"] = v
+            df["w"] = w
         if len(universes) > 0:
-            df['Universe'] = universes
+            df["Universe"] = universes
 
         # Get a complete set of locations
-        loc = df.drop_duplicates().set_index(['Surface', 'Cell']).sort_index()
+        loc = df.drop_duplicates().set_index(["Surface", "Cell"]).sort_index()
 
         # Count multiple occasions
-        df['count'] = 1
-        global_df = df[['Cell', 'Surface', 'count']]
-        global_df = global_df.groupby(['Cell', 'Surface']).sum()
-        global_df = global_df.sort_values(by='count', ascending=False)
-        logging.debug('global df was built')
+        df["count"] = 1
+        global_df = df[["Cell", "Surface", "count"]]
+        global_df = global_df.groupby(["Cell", "Surface"]).sum()
+        global_df = global_df.sort_values(by="count", ascending=False)
+        logging.debug("global df was built")
 
         # --- Printing to excel ---
-        logging.info('printing to excel')
+        logging.info("printing to excel")
 
         # dump in the excel output
-        filename = 'LPdebug_{}.{}'
-        outfile = os.path.join(outpath, filename.format(self.name, 'xlsx'))
+        filename = "LPdebug_{}.{}"
+        outfile = os.path.join(outpath, filename.format(self.name, "xlsx"))
         with pd.ExcelWriter(outfile) as writer:
             # global df
-            global_df.to_excel(writer, sheet_name='global')
+            global_df.to_excel(writer, sheet_name="global")
             # loc.to_excel(writer, sheet_name='Locations')
             if input_mcnp is not None:
-                logging.info('building universe df')
-                u_df = df[['Universe', 'Cell', 'Surface', 'count']]
-                u_df = u_df.groupby(['Universe', 'Cell', 'Surface']).sum()
-                u_df = u_df.sort_values(by='count', ascending=False)
-                u_df.to_excel(writer, sheet_name='by universe')
+                logging.info("building universe df")
+                u_df = df[["Universe", "Cell", "Surface", "count"]]
+                u_df = u_df.groupby(["Universe", "Cell", "Surface"]).sum()
+                u_df = u_df.sort_values(by="count", ascending=False)
+                u_df.to_excel(writer, sheet_name="by universe")
 
         # Dump also a csv with only the data
         if get_cosine:
-            cols = ['x', 'y', 'z', 'u', 'v', 'w']
+            cols = ["x", "y", "z", "u", "v", "w"]
         else:
-            cols = ['x', 'y', 'z']
+            cols = ["x", "y", "z"]
         lp = df[cols]
-        outfile = os.path.join(outpath, filename.format(self.name, 'csv'))
+        outfile = os.path.join(outpath, filename.format(self.name, "csv"))
         lp.to_csv(outfile, index=None)
 
         # visualize the cloud point
-        logging.info('building the cloud point')
-        point_cloud = pv.PolyData(loc[['x', 'y', 'z']].values)
+        logging.info("building the cloud point")
+        point_cloud = pv.PolyData(loc[["x", "y", "z"]].values)
 
         if print_video:
             point_cloud.plot()
 
-        outfile = os.path.join(outpath, filename.format(self.name, 'vtp'))
+        outfile = os.path.join(outpath, filename.format(self.name, "vtp"))
         point_cloud.save(outfile)
 
-        logging.info('dump completed')
+        logging.info("dump completed")
 
     def get_statistical_checks_tfc_bins(self) -> dict[int, str]:
         """
@@ -339,12 +352,12 @@ class Output:
 
         """
         # Some global key words and patterns
-        start_stat_check = 'result of statistical checks'
-        miss = 'missed'
-        passed = 'passed'
-        allzero = 'no nonzero'
-        pat_tnumber = re.compile(r'\s*\t*\s*\d+')
-        end = 'the 10 statistical checks are only'
+        start_stat_check = "result of statistical checks"
+        miss = "missed"
+        passed = "passed"
+        allzero = "no nonzero"
+        pat_tnumber = re.compile(r"\s*\t*\s*\d+")
+        end = "the 10 statistical checks are only"
 
         # Recover statistical checks
         statcheck_flag = False
@@ -359,14 +372,13 @@ class Output:
                 if tallycheck is not None:
                     tnumber = int(tallycheck.group())
                     if line.find(miss) != -1:
-                        result = 'Missed'
+                        result = "Missed"
                     elif line.find(passed) != -1:
-                        result = 'Passed'
+                        result = "Passed"
                     elif line.find(allzero) != -1:
-                        result = 'All zeros'
+                        result = "All zeros"
                     else:
-                        print('Warning: tally n.'+str(tnumber) +
-                              ' not retrieved')
+                        print("Warning: tally n." + str(tnumber) + " not retrieved")
 
                     stat_checks[tnumber] = result
 
@@ -395,7 +407,8 @@ class Output:
             if the cell is not found in the file.
         """
         trigger = re.compile(
-            '           results of 10 statistical .+\s{}\n'.format(cell))
+            "           results of 10 statistical .+\s{}\n".format(cell)
+        )
         found = False
 
         for i, line in enumerate(self.lines):
@@ -404,34 +417,34 @@ class Output:
                 found = True
                 break
         if found:
-            skiprows = i+5
+            skiprows = i + 5
             nrows = 3
             # df = pd.read_csv(self.filepath, skiprows=skiprows, nrows=nrows,
             #                  header=None, sep=r'\s+')
             rows = []
             for i in range(nrows):
-                line = self.lines[skiprows+i]
+                line = self.lines[skiprows + i]
                 rows.append(line.split())
             df = pd.DataFrame(rows)
 
             df.columns = STAT_CHECKS_COLUMNS
-            df.set_index('TFC bin behaviour', inplace=True)
+            df.set_index("TFC bin behaviour", inplace=True)
 
             # values for the pdf slopes are assigned wrongly to FoM
-            for row in ['observed', 'passed?']:
-                if pd.isna(df.loc[row, 'PDF slope']):
+            for row in ["observed", "passed?"]:
+                if pd.isna(df.loc[row, "PDF slope"]):
                     # pass the values to the correct columns
-                    val = df.loc[row, 'FoM value']
-                    df.loc[row, 'FoM value'] = np.nan
-                    df.loc[row, 'PDF slope'] = val
+                    val = df.loc[row, "FoM value"]
+                    df.loc[row, "FoM value"] = np.nan
+                    df.loc[row, "PDF slope"] = val
 
-                    if row == 'passed?':
+                    if row == "passed?":
                         # assigned passed to the empty ones
-                        df.loc[row, 'FoM value'] = 'yes'
-                        df.loc[row, 'FoM behaviour'] = 'yes'
+                        df.loc[row, "FoM value"] = "yes"
+                        df.loc[row, "FoM behaviour"] = "yes"
 
         else:
-            raise ValueError('Cell {} was not found'.format(cell))
+            raise ValueError("Cell {} was not found".format(cell))
 
         return df
 
@@ -455,22 +468,22 @@ class Output:
             new_row = [int(cell)]
             try:
                 table = self.get_tally_stat_checks(int(cell))
-                new_row.extend(list(table.loc['passed?'].values))
+                new_row.extend(list(table.loc["passed?"].values))
             except ValueError as e:
                 # If all bins have zero values it is expected not to find it
-                if summary[cell] == 'All zeros':
-                    new_row.extend([np.nan]*10)
+                if summary[cell] == "All zeros":
+                    new_row.extend([np.nan] * 10)
                 else:
                     # If they are not all zeros raise the exception
                     raise e
             rows.append(new_row)
 
         df = pd.DataFrame(rows)
-        columns = ['Cell']
+        columns = ["Cell"]
         columns.extend(STAT_CHECKS_COLUMNS[1:])
         df.columns = columns
-        df.set_index('Cell', inplace=True)
-        df['Other TFC bins'] = pd.Series(summary)
+        df.set_index("Cell", inplace=True)
+        df["Other TFC bins"] = pd.Series(summary)
 
         return df.sort_index()
 
@@ -494,7 +507,7 @@ class Output:
         ValueError
             If the table associated to the requested index is not found
         """
-        pat_table = re.compile('table '+str(table_num))
+        pat_table = re.compile("table " + str(table_num))
 
         skip = None
         look_total = False
@@ -503,24 +516,24 @@ class Output:
         # look for the trigger
         for i, line in enumerate(self.lines):
             if look_total:
-                if line.find('total') != -1:
+                if line.find("total") != -1:
                     # help inferring the columns width using the data,
                     # it is more reliable
-                    infer_line = self.lines[i-2]
+                    infer_line = self.lines[i - 2]
                     widths = self._get_fwf_format_from_string(infer_line)
-                    nrows = i-skip-2
+                    nrows = i - skip - 2
                     break
 
             if pat_table.search(line) is not None:
-                skip = i+1
+                skip = i + 1
                 look_total = True
 
         if skip is None or nrows is None:
-            raise ValueError(
-                'Table {} not found or does not exists'.format(table_num))
+            raise ValueError("Table {} not found or does not exists".format(table_num))
 
-        df = pd.read_fwf(self.filepath, skiprows=skip, nrows=nrows,
-                         widths=widths, header=None)
+        df = pd.read_fwf(
+            self.filepath, skiprows=skip, nrows=nrows, widths=widths, header=None
+        )
         # the first n rows will actually be the title of the columns.
         # Check the first column to understand where the data starts
         columns = []
@@ -532,23 +545,23 @@ class Output:
                 current_val = df.iloc[i, j]
                 try:
                     if pd.isna(current_val):
-                        current_val = ''
+                        current_val = ""
                 except TypeError:
-                    current_val = ''
+                    current_val = ""
 
                 if i == 0:
                     # append the first part of string
                     columns.append(current_val)
                 else:
                     # concat to previous string
-                    columns[j] = columns[j]+' '+current_val
+                    columns[j] = columns[j] + " " + current_val
 
         # delete the headers rows
         df = df.iloc[i:, :]
         # add proper column header
         df.columns = columns
         # delete empty columns if any
-        df.dropna(axis=1, how='all', inplace=True)
+        df.dropna(axis=1, how="all", inplace=True)
 
         return df
 
@@ -561,13 +574,13 @@ class Output:
 
         for i, char in enumerate(line):
 
-            if char == ' ' and new_datum is False:
+            if char == " " and new_datum is False:
                 new_datum = True
                 widths.append(counter)
                 counter = 1
             else:
-                counter = counter+1
-                if char != ' ':
+                counter = counter + 1
+                if char != " ":
                     new_datum = False
 
         # At the end of the  cycle add last spec
@@ -575,3 +588,39 @@ class Output:
 
         # exclude dummy at the beginning and \n bin created at end of line
         return widths[1:]
+
+    def get_code_version(self):
+        pat_d1s = re.compile(r"d1suned\s+version\s+\d+")
+        pat_version = re.compile(r"(?<=version)\s+\d+")
+
+        # there could be different scenarios. The easy one is that the version is
+        # stated in the header of the output file
+        # In case of D1SUNED
+        for line in self.lines[:34]:
+            if pat_d1s.search(line) is not None:
+                version = pat_version.search(line).group().strip()
+                return f"d1suned{version}"
+
+        # In case of MCNP, it is in the first line
+        pat_mcnp = re.compile(r"(?<=MCNP_)[\d.]+")
+        if pat_mcnp.search(self.lines[0]) is not None:
+            version = pat_mcnp.search(self.lines[0]).group().strip("0")
+            return version
+
+        # In case is not in the header (it happens on sbatch runs) try to look
+        # in the same folder for a .out or .dump file
+        pat_d1s = re.compile(r"(?<=d1suned  ver=)\d+")
+        folder = os.path.dirname(self.filepath)
+        for file in os.listdir(folder):
+            if file.endswith(".out") or file.endswith(".dump"):
+                with open(os.path.join(folder, file), "r", encoding="utf-8") as infile:
+                    for line in infile:
+                        if pat_d1s.search(line) is not None:
+                            version = pat_d1s.search(line).group()
+                            return f"d1suned{version}"
+                        if pat_mcnp.search(line) is not None:
+                            version = pat_mcnp.search(line).group().strip("0")
+                            return version
+                        break  # only the first line is needed
+
+        return ValueError("No version was found in the output file or aux files")
