@@ -1,0 +1,64 @@
+ d1suned  ver=411  , ld=05/19/22  10/21/23 22:36:12                   
+          Code Name & Version = MCNP_6.20, 6.2.0
+          Copyright LANS/LANL/DOE - see output file
+  
+     _/      _/        _/_/_/       _/      _/       _/_/_/         _/_/_/ 
+    _/_/  _/_/      _/             _/_/    _/       _/    _/     _/        
+   _/  _/  _/      _/             _/  _/  _/       _/_/_/       _/_/_/     
+  _/      _/      _/             _/    _/_/       _/           _/    _/    
+ _/      _/        _/_/_/       _/      _/       _/             _/_/       
+  
+  comment.  Physics models disabled.
+ comment. using random number generator  1, initial seed = 19073486328125      
+ 
+  comment.  total nubar used if fissionable isotopes are present.
+  comment.          97 surfaces were deleted for being the same as others.
+  warning.    6 materials had unnormalized fractions. print table 40.
+  warning.    1 of the materials appear at more than one density.
+  comment.  threading will be used when possible in portions of mcnp6.
+  comment.  threading will be used for n/p/e table physics.
+  comment.  threading will generally not be used for model physics.
+ imcn   is done
+
+  warning.        1 coincident energy grid points in   7014.32c
+  warning.        1 coincident energy grid points in   7015.32c
+  warning.        1 coincident energy grid points in   8016.32c
+  warning.        1 coincident energy grid points in  12024.32c
+  warning.        1 coincident energy grid points in  12025.32c
+  warning.        1 coincident energy grid points in  12026.32c
+  comment.  setting up hash-based fast table search for xsec tables
+
+ ctm =        0.00   nrn =                 0
+ dump    1 on file Tiara-BC_cc-43-25-40r   nps =           0   coll =                0
+ xact   is done
+
+ cp0 =   0.40
+ master starting      29 MPI slave tasks with      48 threads each  10/21/23 22:36:22 
+ master broadcasting static commons...
+ master broadcasting dynamic commons...
+ master broadcasting cross section data...
+ master completed initialization broadcasts.
+ master set rendezvous nps =    10000000,  work chunks =    29    10/21/23 22:36:23 
+ master set rendezvous nps =    20000000,  work chunks =    29    10/21/23 22:36:23 
+ master set rendezvous nps =    30000000,  work chunks =    29    10/21/23 22:36:24 
+ master set rendezvous nps =    40000000,  work chunks =    29    10/21/23 22:36:24 
+ master set rendezvous nps =    50000000,  work chunks =    29    10/21/23 22:36:25 
+ master set rendezvous nps =    60000000,  work chunks =    29    10/21/23 22:36:25 
+ master set rendezvous nps =    70000000,  work chunks =    29    10/21/23 22:36:25 
+ master set rendezvous nps =    80000000,  work chunks =    29    10/21/23 22:36:26 
+ master set rendezvous nps =    90000000,  work chunks =    29    10/21/23 22:36:26 
+ master set rendezvous nps =   100000000,  work chunks =    29    10/21/23 22:36:27 
+      run terminated when   100000000  particle histories were done.
+
+ =====>   75986.98 M histories/hr    (based on wall-clock time in mcrun)
+
+
+  warning.  tally       34 tfc bin did not pass  1 of 10 statistical checks.
+  warning.     1 of   3 tallies did not pass all 10 statistical checks.
+  warning.     1 of   3 tallies had bins with large relative errors.
+
+ ctm =       99.78   nrn =        4385332036
+ dump    2 on file Tiara-BC_cc-43-25-40r   nps =   100000000   coll =        403113504
+ tally data written to file Tiara-BC_cc-43-25-40m
+ mcrun  is done
+
