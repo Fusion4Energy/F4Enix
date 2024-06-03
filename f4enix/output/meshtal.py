@@ -93,7 +93,7 @@ def _splitn(string: str, n: int) -> list[str]:
 
 # Salta lineas (definida en cien sitios)
 def _skipLines(f, n):
-    for iskip in range(n):
+    for _ in range(n):
         f.readline()
     return
 

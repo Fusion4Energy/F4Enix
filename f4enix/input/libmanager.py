@@ -459,7 +459,7 @@ class LibManager:
         reactions = []
         try:
             df = self.reactions[lib].set_index('Parent')
-            isotopename, formula = self.get_zaidname(parent)
+            _, formula = self.get_zaidname(parent)
             formulazaid = formula.replace('-', '')  # eliminate the '-'
             # collect and provide as tuples
             subset = df.loc[formulazaid]

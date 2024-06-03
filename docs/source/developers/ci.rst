@@ -57,7 +57,7 @@ Unit testing in F4Enix is defined and run with the help of the ``pytest`` module
 while the code test coverage is monitored through the ``coverage`` one.
 
 The automatic testing is performed each time there is a merge operation on the
-main F4Enix branch on GitHub although, at any time, the user may test the code throgh the
+main F4Enix branch on GitHub although, at any time, the user may test the code through the
 following steps:
 
 #. Open an Anaconda prompt or a prompt with an active environment;
