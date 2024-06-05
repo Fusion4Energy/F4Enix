@@ -1,6 +1,97 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools >= 69.5.1", "setuptools_scm[toml]>=8.1.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "f4enix"
+license = {file = "LICENSE.txt"}
+dynamic = ["version"]
+authors = [
+  { name="Juan-Pablo Catalan", email="sc-radiationtransport@f4e.europa.eu" },
+]
+description = "API for Monte Carlo input and output parsing"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "appdirs",
+    "asttokens",
+    "attrs",
+    "backcall",
+    "charset-normalizer",
+    "colorama",
+    "comm",
+    "contourpy",
+    "cycler",
+    "debugpy",
+    "decorator",
+    "et-xmlfile",
+    "exceptiongroup",
+    "executing",
+    "fonttools",
+    "idna",
+    "imageio",
+    "iniconfig",
+    "jedi",
+    "kiwisolver",
+    "matplotlib",
+    "matplotlib-inline",
+    "nest-asyncio",
+    "numba",
+    "numjuggler",
+    "numpy",
+    "openpyxl",
+    "packaging",
+    "pandas",
+    "parso",
+    "pathlib2",
+    "pickleshare",
+    "Pillow",
+    "platformdirs",
+    "pluggy",
+    "pooch",
+    "prompt-toolkit",
+    "psutil",
+    "pure-eval",
+    "pycodestyle",
+    "Pygments",
+    "pyparsing",
+    "pytest",
+    "python-dateutil",
+    "python-docx",
+    "pytz",
+    "pyvista >= 0.39.1",
+    "pyzmq",
+    "requests",
+    "scipy",
+    "scooby",
+    "six",
+    "stack-data",
+    "tables",
+    "tomli",
+    "tornado",
+    "tqdm",
+    "traitlets",
+    "urllib3",
+    "vtk",
+    "wcwidth",
+    "wincertstore",
+]
+
+[project.urls]
+Homepage = "https://github.com/fusion4energy"
+Repository = "https://github.com/Fusion4Energy/F4Enix"
+Documentation = "https://f4enix.readthedocs.io/en/latest/"
+
+[tool.setuptools_scm]
+write_to = "src/_version.py"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+f4enix = ["*.xlsx", "*.txt"]
