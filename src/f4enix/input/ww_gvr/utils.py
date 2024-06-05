@@ -9,15 +9,6 @@ import numpy as np
 
 from f4enix.input.ww_gvr.models import Vectors
 
-PATH_TO_RESOURCES = Path("tests") / "test_ww_gvr" / "resources"
-
-WW_SIMPLE_CART = PATH_TO_RESOURCES / "ww_simple_cart"
-WW_SIMPLE_CYL = PATH_TO_RESOURCES / "ww_simple_cyl"
-WW_COMPLEX_CART = PATH_TO_RESOURCES / "ww_complex_cart"
-MESHTALLY_CART = PATH_TO_RESOURCES / "meshtally_cart"
-MESHTALLY_CYL = PATH_TO_RESOURCES / "meshtal_cyl"
-EXPECTED_INFO_SIMPLE_CART = PATH_TO_RESOURCES / "expected_info_simple_cart.txt"
-
 
 def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
     """
