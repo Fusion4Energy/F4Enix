@@ -4,7 +4,9 @@ It includes parsing capabilities not only for classical MCNP fmesh, but also
 for its variations introduced by the D1SUNED code, such as the Cell Under
 Voxel (CuV) method.
 """
+
 from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -22,17 +24,19 @@ import numpy as np
 import vtk
 import csv
 import pyvista as pv
+import pandas as pd
 import os
 import time
 from scipy.spatial.transform import Rotation as R
+from typing import Tuple
 from io import open
 import logging
 from tqdm import tqdm
 from copy import deepcopy
+from f4enix.constants import CONV
 
-
-ALLOWED_NORMALIZATIONS = ['vtot', 'celf', None]
-ALLOWED_OUTPUT_FORMATS = ['point_cloud', 'ip_fluent', 'csv', 'vtk']
+ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
+ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 ALLOWED_PARTICLES = [
     "Aneutron",
     "Alambda0",
@@ -70,7 +74,8 @@ ALLOWED_PARTICLES = [
     "alpha",
     "pi_minus",
     "k_minus",
-    "heavyion"]
+    "heavyion",
+]
 
 
 # convert character to float
@@ -88,7 +93,7 @@ def _dfloat(c: str) -> float:
 
 # return a list of each nth charaters of a string
 def _splitn(string: str, n: int) -> list[str]:
-    return [string[i: i + n].strip() for i in range(0, len(string), n)]
+    return [string[i : i + n].strip() for i in range(0, len(string), n)]
 
 
 # Salta lineas (definida en cien sitios)
@@ -142,7 +147,7 @@ class Fmesh:
         """Object representing an Fmesh result.
 
         It needs a Meshtal object to be initialized. Once read, a
-        PyVistaWrapper object will be assigned to it that can be used to 
+        PyVistaWrapper object will be assigned to it that can be used to
         manipulate and export the parsed data.
 
         Parameters
@@ -265,8 +270,7 @@ class Fmesh:
                 (0.0, zval, vals[4 - ishft], vals[3 - ishft]), self.dtype
             )
             self.axis = np.array(
-                (vals[8 - ishft], vals[9 - ishft], vals[10 - ishft]),
-                self.dtype
+                (vals[8 - ishft], vals[9 - ishft], vals[10 - ishft]), self.dtype
             )
             if line.startswith(mcnp6_Cyl):
                 self.vec = np.array((vals[13], vals[14], vals[15]), self.dtype)
@@ -276,7 +280,7 @@ class Fmesh:
         # (E,Th,Z,R) order in cylindrical
         for n in range(3):
             i = line.index(":")
-            self.dims.insert(0, np.array(line[i + 1:].split(), self.dtype))
+            self.dims.insert(0, np.array(line[i + 1 :].split(), self.dtype))
             line = f.readline()
         self.ldims = [len(x) - 1 for x in self.dims]
 
@@ -286,7 +290,7 @@ class Fmesh:
             # decay time bins
             if "times" in line:
                 self.etag = "times"
-                self.dims.insert(0, np.array(line[i + 1:].split(), self.dtype))
+                self.dims.insert(0, np.array(line[i + 1 :].split(), self.dtype))
                 self.ener = self.dims[0]  # shallow copy
                 self.ldims.insert(0, len(self.dims[0]))
             # source importance bins
@@ -294,7 +298,7 @@ class Fmesh:
                 self.etag = "tally"
                 line = f.readline()
                 i = line.index(":")
-                self.dims.insert(0, np.array(line[i + 1:].split(), self.dtype))
+                self.dims.insert(0, np.array(line[i + 1 :].split(), self.dtype))
                 self.ener = self.dims[0]  # shallow copy
                 self.ldims.insert(0, len(self.dims[0]))
             # cell or isotopes bin
@@ -304,10 +308,10 @@ class Fmesh:
                     binlen = 12
                 else:
                     binlen = 10
-                binlist = _splitn(line[i + 1:], binlen)[:-1]
+                binlist = _splitn(line[i + 1 :], binlen)[:-1]
                 lastbin = binlist[-1]
                 ib = lastbin.index(".")
-                nbin = int(lastbin[ib + 1:])
+                nbin = int(lastbin[ib + 1 :])
                 self.dims.insert(0, np.array(range(nbin), self.dtype))
                 #        self.ener = np.array(line[i+1:].split(),self.dtype)
                 self.ener = np.array(binlist, self.dtype)
@@ -316,7 +320,7 @@ class Fmesh:
         else:
             if "number:" in line:
                 i = line.index(":")
-                ne = int(line[i + 1:])
+                ne = int(line[i + 1 :])
                 line = f.readline()
                 i = line.index(":")
                 if self.type not in ["srcimp", "cuv"]:
@@ -340,7 +344,7 @@ class Fmesh:
                     else:
                         self.__format__ = "mltf"
 
-            self.dims.insert(0, np.array(line[i + 1:].split(), self.dtype))
+            self.dims.insert(0, np.array(line[i + 1 :].split(), self.dtype))
             self.ener = self.dims[0]  # shallow copy
             nbin = 1
             if len(self.dims[0]) > 2:
@@ -455,9 +459,7 @@ class Fmesh:
                     _skipLines(f, hlines)
                     hlines = hlinesNext  # subsequent reads
                     for ix0 in range(rshape[1]):
-                        xdat[ix1, ix0, :] = list(
-                            map(_dfloat, f.readline().split()[1:])
-                        )
+                        xdat[ix1, ix0, :] = list(map(_dfloat, f.readline().split()[1:]))
                     # use dfloat conversion in case of no standar fortan
                     # exponent
                     _skipLines(f, 3)
@@ -483,15 +485,13 @@ class Fmesh:
                 for ix in range(n):
                     line = f.readline()
                     try:
-                        xdat[ix] = _dfloat(line[colDat: colDat + 12])
-                        xerr[ix] = line[colErr: colErr + 12]
+                        xdat[ix] = _dfloat(line[colDat : colDat + 12])
+                        xerr[ix] = line[colErr : colErr + 12]
                     except:
-                        xdat[ix] = _dfloat(line[colDat + 1: colDat + 13])
-                        xerr[ix] = line[colErr + 1: colErr + 13]
-                self.dat[ie, :, :, :] = np.transpose(xdat.reshape(rshape),
-                                                     itrn)
-                self.err[ie, :, :, :] = np.transpose(xerr.reshape(rshape),
-                                                     itrn)
+                        xdat[ix] = _dfloat(line[colDat + 1 : colDat + 13])
+                        xerr[ix] = line[colErr + 1 : colErr + 13]
+                self.dat[ie, :, :, :] = np.transpose(xdat.reshape(rshape), itrn)
+                self.err[ie, :, :, :] = np.transpose(xerr.reshape(rshape), itrn)
 
         # Removal of thick angular bin if any
         # only if:
@@ -507,14 +507,14 @@ class Fmesh:
                     # Reorder remaining bins
                     if i > 0 and i < self.ldims[1] - 1:
                         self.dims[1] = np.concatenate(
-                            (self.dims[1][i + 1: -1] - 1.0, self.dims[1][0:i]),
-                             axis=0)
+                            (self.dims[1][i + 1 : -1] - 1.0, self.dims[1][0:i]), axis=0
+                        )
                         self.dat = np.concatenate(
-                            (self.dat[:, i + 1:, :, :], self.dat[:, : i - 1, :, :]),
+                            (self.dat[:, i + 1 :, :, :], self.dat[:, : i - 1, :, :]),
                             axis=1,
                         )
                         self.err = np.concatenate(
-                            (self.err[:, i + 1:, :, :], self.err[:, : i - 1, :, :]),
+                            (self.err[:, i + 1 :, :, :], self.err[:, : i - 1, :, :]),
                             axis=1,
                         )
                     else:
@@ -524,7 +524,7 @@ class Fmesh:
 
         self.filled = True
         # if it is filled it means that the vtk object can be created
-        name = '{}_{}'.format(self.meshtal.filename, self.ntally)
+        name = "{}_{}".format(self.meshtal.filename, self.ntally)
         if self.cart:
             self.grid = self._getVTKrg()
         else:
@@ -536,13 +536,13 @@ class Fmesh:
         mcnp6_Cyl = "               origin at"
         self.etag = "energy"
         if norm is None:
-            tag = '[/cc]'
-        elif norm == 'vtot':
-            tag = 'integral value'
-        elif norm == 'celf':
-            tag = '[/cc-cell]'
+            tag = "[/cc]"
+        elif norm == "vtot":
+            tag = "integral value"
+        elif norm == "celf":
+            tag = "[/cc-cell]"
         else:
-            tag = ''
+            tag = ""
 
         self.tag = tag  # to be used to clarify output array
 
@@ -652,8 +652,7 @@ class Fmesh:
                     ):
                         celdata[1].append(float(vline[1]))
                         if nbin > 1:
-                            celdata[2].append([float(vline[2]),
-                                               float(vline[3])])
+                            celdata[2].append([float(vline[2]), float(vline[3])])
 
                 voxvals = []
                 voxerrs = []
@@ -688,9 +687,7 @@ class Fmesh:
                     errs = [0] * nbin
                 else:
                     # sum all bin if not total bin
-                    vals, errs = _sumCellInVox(
-                        voxvals, voxerrs, celdata, Vmult=norm
-                    )
+                    vals, errs = _sumCellInVox(voxvals, voxerrs, celdata, Vmult=norm)
 
                 xdat[:, k] = vals[:]
                 xerr[:, k] = errs[:]
@@ -749,8 +746,7 @@ class Fmesh:
                             for i in range(nline):
                                 errc.extend(f.readline().split())
 
-                            vals = np.array([_dfloat(x) for x in valc],
-                                            self.dtype)
+                            vals = np.array([_dfloat(x) for x in valc], self.dtype)
                             errs = np.array(errc, self.dtype)
                             voxvals.append(vals)
                             voxerrs.append(errs)
@@ -791,8 +787,7 @@ class Fmesh:
     #  end modifs
 
     def print_info(self) -> None:
-        """print information related to the fmesh
-        """
+        """print information related to the fmesh"""
         if self.__format__ == "mltf":
             meshtype = "multiflux"
         else:
@@ -811,9 +806,7 @@ class Fmesh:
         if self.__format__ != "mltf":
             print(" Mesh type      : {}".format(meshtype))
         else:
-            print(
-                " Mesh type      : {}".format(meshtype)
-            )
+            print(" Mesh type      : {}".format(meshtype))
         print(" Dose modif     : {}".format(self.dosecom))
         print(" Mesh geometry  : {}".format(geom))
         print(" Mesh origin    : {org[3]} {org[2]} {org[1]}".format(org=self.origin))
@@ -897,8 +890,7 @@ class Fmesh:
             return format_XYZ_Dim_inter(vec)
 
     def print_EbinRange(self) -> None:
-        """print the energy range bins
-        """
+        """print the energy range bins"""
         print("         flag : {}".format(self.etag))
         print("    bin index : bin range  ")
         if self.etag == "energy":
@@ -1061,10 +1053,10 @@ class Fmesh:
         sgcd = sg.GetCellData()
         # These slicing operations do not copy data
         # mySlice = [slice(-1,-2,-1),slice(None),slice(None),slice(None)]
-        if self.__format__ == 'cuv':
-            value_tag = 'Value '+self.tag
+        if self.__format__ == "cuv":
+            value_tag = "Value " + self.tag
         else:
-            value_tag = 'Value - Total'
+            value_tag = "Value - Total"
 
         it = 0
         if self.etag not in ["times", "tally"]:
@@ -1073,19 +1065,16 @@ class Fmesh:
             sgcd.AddArray(
                 _makeVTKarray(self.dat[-1, :, :, :], value_tag, self.scaleFac)
             )
-            sgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :],
-                                        "Error - Total"))
+            sgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
         # Dataset other bins
         for ie in range(self.ldims[0] - it):
             sgcd.AddArray(
                 _makeVTKarray(
-                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie),
-                    self.scaleFac
+                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie), self.scaleFac
                 )
             )
             sgcd.AddArray(
-                _makeVTKarray(self.err[ie, :, :, :],
-                              "ErrorBin-{0:03d}".format(ie))
+                _makeVTKarray(self.err[ie, :, :, :], "ErrorBin-{0:03d}".format(ie))
             )
         # Include weight windows in VTK file (now only one group)
 
@@ -1134,12 +1123,10 @@ class Fmesh:
             generated rectilinear grid object
         """
         if not self.cart:
-            logging.warning(
-                "Cylindrical meshtal cannot be plotted to RectangularGrid")
+            logging.warning("Cylindrical meshtal cannot be plotted to RectangularGrid")
 
         if np.any(self.rotation != np.identity(3)):
-            logging.warning(
-                "Rotated meshtal cannot be plotted to RectangularGrid")
+            logging.warning("Rotated meshtal cannot be plotted to RectangularGrid")
             logging.warning("... but plotting anyway (no rotation)")
 
         xa = _makeVTKarray(self.dims[3] + self.origin[3], "X (cm)")
@@ -1147,37 +1134,33 @@ class Fmesh:
         za = _makeVTKarray(self.dims[1] + self.origin[1], "Z (cm)")
 
         rg = vtk.vtkRectilinearGrid()
-        rg.SetDimensions(self.ldims[3] + 1, self.ldims[2] + 1,
-                         self.ldims[1] + 1)
+        rg.SetDimensions(self.ldims[3] + 1, self.ldims[2] + 1, self.ldims[1] + 1)
         rg.SetXCoordinates(xa)
         rg.SetYCoordinates(ya)
         rg.SetZCoordinates(za)
         rgcd = rg.GetCellData()
         it = 0
-        if self.__format__ == 'cuv':
-            value_tag = 'Value '+self.tag
+        if self.__format__ == "cuv":
+            value_tag = "Value " + self.tag
         else:
-            value_tag = 'Value - Total'
+            value_tag = "Value - Total"
 
         if self.etag not in ["times", "tally"]:
             # Dataset energia total
             it = 1
             rgcd.AddArray(
-                _makeVTKarray(self.dat[-1, :, :, :], value_tag,
-                              self.scaleFac)
+                _makeVTKarray(self.dat[-1, :, :, :], value_tag, self.scaleFac)
             )
             rgcd.AddArray(_makeVTKarray(self.err[-1, :, :, :], "Error - Total"))
         # Dataset other bins
         for ie in range(self.ldims[0] - it):
             rgcd.AddArray(
                 _makeVTKarray(
-                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie),
-                    self.scaleFac
+                    self.dat[ie, :, :, :], "ValueBin-{0:03d}".format(ie), self.scaleFac
                 )
             )
             rgcd.AddArray(
-                _makeVTKarray(self.err[ie, :, :, :],
-                              "ErrorBin-{0:03d}".format(ie))
+                _makeVTKarray(self.err[ie, :, :, :], "ErrorBin-{0:03d}".format(ie))
             )
 
         # TODO use pyvista to create the object
@@ -1230,10 +1213,13 @@ class Fmesh:
     #     else:
     #         dataset = self._getVTKrg()
 
-    def write(self, outpath: os.PathLike,
-              list_array_names: list[str] = None,
-              out_format: str = 'vtk',
-              outfile: str = None) -> None:
+    def write(
+        self,
+        outpath: os.PathLike,
+        list_array_names: list[str] = None,
+        out_format: str = "vtk",
+        outfile: str = None,
+    ) -> None:
         """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
         (txt) formats can be selected.
 
@@ -1242,7 +1228,7 @@ class Fmesh:
         outpath : os.PathLike
             path to the output folder.
         list_array_names : list[str], optional
-            arrays to be exported. The default is None, meaning that all the 
+            arrays to be exported. The default is None, meaning that all the
             available arrays will be used.
         out_format : str, optional
             output format. The allowed ones are ['point_cloud', 'ip_fluent',
@@ -1265,7 +1251,7 @@ class Fmesh:
             file_name = outfile
 
         # TODO either all cells or all point data are supported if not a vtk
-        if out_format != 'vtk':
+        if out_format != "vtk":
             len_data = len(self.grid.cell_data)
             len_point = len(self.grid.point_data)
             if len_data > 0 and len_point == 0:
@@ -1274,28 +1260,28 @@ class Fmesh:
                 f_points = self.grid.points
             else:
                 raise ValueError(
-                    'mix between cell and point data is only supported for vtk'
-                    )
+                    "mix between cell and point data is only supported for vtk"
+                )
 
         filepath = os.path.join(outpath, file_name)
         mesh_type = str(type(self.grid)).split(".")[-1][:-2]
 
-        if out_format == 'vtk':
+        if out_format == "vtk":
             if mesh_type == "StructuredGrid":
-                ext = '.vts'
+                ext = ".vts"
             elif mesh_type == "UnstructuredGrid":
-                ext = '.vtu'
+                ext = ".vtu"
             elif mesh_type == "RectilinearGrid":
-                ext = '.vtr'
+                ext = ".vtr"
             else:
-                ext = '.vtk'
+                ext = ".vtk"
 
-            self.grid.save(filepath+ext)
+            self.grid.save(filepath + ext)
             return
 
         # --- CSV writer ---
         elif out_format == "csv":
-            new_name = filepath + '.csv'
+            new_name = filepath + ".csv"
 
             with open(new_name, "w", newline="") as outfile:
                 writer = csv.writer(outfile)
@@ -1307,16 +1293,14 @@ class Fmesh:
                 # else:  # Points
                 #     f_points = self.points
 
-                for i in tqdm(range(len(f_points)),
-                              unit=" Points", desc="Writing"):
+                for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
                     csv_points = [
                         f"{f_points[i][0]:.3f}",
                         f" {f_points[i][1]:.3f}",
                         f" {f_points[i][2]:.3f}",
                     ]
                     for array_name in list_array_names:
-                        csv_points.append(
-                            f" {self.grid[array_name][i]:.3f}")
+                        csv_points.append(f" {self.grid[array_name][i]:.3f}")
                     writer.writerow(csv_points)
 
                 logging.info(f"{new_name} created successfully!")
@@ -1333,13 +1317,12 @@ class Fmesh:
             # write depending on format
             # --- point cloud writer ---
             if out_format == "point_cloud":
-                new_name = filepath + '.txt'
+                new_name = filepath + ".txt"
                 with open(new_name, "w") as outfile:
                     outfile.write("x, y, z, value\n")
                     # TODO this can probably be optmized using
                     # outfile.writeline()
-                    for i in tqdm(range(len(f_points)),
-                                  unit=" Points", desc="Writing"):
+                    for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
                         outfile.write(f"{f_points[i][0]:.3f},")
                         outfile.write(f"{f_points[i][1]:.3f},")
                         outfile.write(f"{f_points[i][2]:.3f},")
@@ -1349,7 +1332,7 @@ class Fmesh:
 
             # --- fluent writer ---
             elif out_format == "ip_fluent":
-                new_name = filepath + '.txt'
+                new_name = filepath + ".txt"
 
                 with open(new_name, "w") as outfile:
                     guion1 = "3"
@@ -1360,29 +1343,33 @@ class Fmesh:
                     beginning = f"{guion1}\n{n_coord}\n{n_values}\n{guion2}\n{uds}\n"
                     outfile.write(beginning)
                     outfile.write("(")
-                    for i in tqdm(range(len(f_points)),
-                                  unit=" x points", desc="Writing x"):
+                    for i in tqdm(
+                        range(len(f_points)), unit=" x points", desc="Writing x"
+                    ):
                         outfile.write(f"{f_points[i][0]:.3f}\n")
 
                     outfile.write(")\n")
                     outfile.write("(")
 
-                    for i in tqdm(range(len(f_points)),
-                                  unit=" y points", desc="Writing y"):
+                    for i in tqdm(
+                        range(len(f_points)), unit=" y points", desc="Writing y"
+                    ):
                         outfile.write(f"{f_points[i][1]:.3f}\n")
 
                     outfile.write(")\n")
                     outfile.write("(")
 
-                    for i in tqdm(range(len(f_points)),
-                                  unit=" z points", desc="Writing z"):
+                    for i in tqdm(
+                        range(len(f_points)), unit=" z points", desc="Writing z"
+                    ):
                         outfile.write(f"{f_points[i][2]:.3f}\n")
 
                     outfile.write(")\n")
                     outfile.write("(")
 
-                    for i in tqdm(range(len(f_points)),
-                                  unit=" values", desc="Writing values"):
+                    for i in tqdm(
+                        range(len(f_points)), unit=" values", desc="Writing values"
+                    ):
                         outfile.write(f"{values[i]:.3f}\n")
 
                     outfile.write(")\n")
@@ -1391,12 +1378,52 @@ class Fmesh:
                 return
 
         raise KeyError(
-            "Invalid format, these are the ones allowed: {}".format(ALLOWED_OUTPUT_FORMATS))
+            "Invalid format, these are the ones allowed: {}".format(
+                ALLOWED_OUTPUT_FORMATS
+            )
+        )
 
     def _read_from_vtk(self, vtk_file: os.PathLike):
         # This is mostly used for quicker testing
         grid = pv.read(vtk_file)
         self.grid = grid
+
+
+class Fmesh1D(Fmesh):
+    def __init__(self, mshtl: Meshtal, fmsh: Fmesh, x_var: str) -> None:
+        super().__init__(mshtl)
+        attributes = vars(fmsh)
+        for attribute, value in attributes.items():
+            setattr(self, attribute, value)
+        self._values_tag = "Result"
+        self._error_tag = "Rel"
+        self._x_var = x_var
+
+    def convert2tally(self):
+        """_summary_
+
+        Returns
+        -------
+        Tuple[int, pd.DataFrame, str]
+            _description_
+        """
+
+        newcols = [CONV[self._x_var], CONV[self._values_tag], CONV[self._error_tag]]
+        if self.cart:
+            dim_tup = self.cvarsCart
+        else:
+            dim_tup = self.cvarsCyl
+        dim_tup = ("Energy",) + dim_tup
+
+        df = pd.DataFrame(
+            {
+                newcols[0]: self.dims[dim_tup.index(self._x_var) + 1][1:],
+                newcols[1]: self.dat[dim_tup.index(self._x_var) + 1][:],
+                newcols[2]: self.err[dim_tup.index(self._x_var) + 1][:],
+            }
+        )
+
+        return self.ntally, df, self.comment.strip()
 
 
 class Meshtal:
@@ -1430,7 +1457,7 @@ class Meshtal:
         ... file = 'cuvmsh'
         ... meshtal = Meshtal(file)
         ... print(meshtal)
-        Meshtally file : cuvmsh   Tally 24 : neutron  cuv mesh   'Test cell under voxel' 
+        Meshtally file : cuvmsh   Tally 24 : neutron  cuv mesh   'Test cell under voxel'
 
         and then read all meshes available and access their associated
         PyVistaWrapper object
@@ -1482,8 +1509,8 @@ class Meshtal:
         ... fmesh.write(outpath)
         ... fmesh.write(outpath, out_format='ip_fluent')
         Tally          : 24
-        Comments       : 
-            Test cell under voxel                                                      
+        Comments       :
+            Test cell under voxel
         Particle       : neutron
         Mesh type      : cuv
         Dose modif     : False
@@ -1494,15 +1521,15 @@ class Meshtal:
         Z dimensions   :   0.000e+00   50I  1.020e+02
         Energy bins    :
                 flag : energy
-            bin index : bin range  
+            bin index : bin range
         Writing x: 100%|██████████| 132651/132651 [00:00<00:00, 204617.39 x points/s]
         Writing y: 100%|██████████| 132651/132651 [00:00<00:00, 217292.19 y points/s]
         Writing z: 100%|██████████| 132651/132651 [00:00<00:00, 227737.30 z points/s]
         Writing values: 100%|██████████| 132651/132651 [00:00<00:00, 770635.26 values/s]
 
         """
-        logging.info('Loading Meshtal: {}'.format(fn))
-        self.filename = os.path.basename(fn).split('.')[0]
+        logging.info("Loading Meshtal: {}".format(fn))
+        self.filename = os.path.basename(fn).split(".")[0]
         # Parametros para VTK
         self.filetype = filetype
         self.f = open(fn, "rt")
@@ -1539,13 +1566,33 @@ class Meshtal:
                 t.__readMeshCom__(self.f)
                 t.__readMeshDim__(self.f)
                 t.readHead = True
+                # Counter for values different from 1
+                x_vars = []
+
+                # Iterate over the list
+                for p, dim_check_val in enumerate(t.ldims):
+                    # Check if the value is different from 1
+                    if dim_check_val != 1:
+                        # Increment the counter
+                        if t.cart:
+                            x_var = {0: "Energy", 1: "X", 2: "Y", 3: "Z"}.get(p)
+                        else:
+                            x_var = {0: "Energy", 1: "R", 2: "Z", 3: "Theta"}.get(p)
+                        x_vars.append(x_var)
+
+                # Check if there are more than 1 value different from 1
+                if len(x_vars) == 1:
+                    t = Fmesh1D(self, t, x_vars[0])
 
                 mesh[ntally] = t
         return mesh
 
-    def readMesh(self, mesh: int | list[int] = None,
-                 cell_filters: list[int] = None,
-                 norm: str = None) -> None:
+    def readMesh(
+        self,
+        mesh: int | list[int] = None,
+        cell_filters: list[int] = None,
+        norm: str = None,
+    ) -> None:
         """Parse a list of FMESHes
 
         Parameters
@@ -1569,10 +1616,9 @@ class Meshtal:
         KeyError
             if the filetype is is not implemented
         """
-        logging.info('Reading fmesh: {}'.format(mesh))
+        logging.info("Reading fmesh: {}".format(mesh))
         if norm not in ALLOWED_NORMALIZATIONS:
-            raise NameError(
-                '{} is not an allowed normalization keyword'.format(norm))
+            raise NameError("{} is not an allowed normalization keyword".format(norm))
         if self.filetype == "MCNP":
             # cycle on all meshes to be read
             if mesh is None:
@@ -1593,10 +1639,9 @@ class Meshtal:
                     #     flist = None
                     m._readSRCTYPE(self.f, cfilter=cell_filters, norm=norm)
         else:
-            raise KeyError("This file type is not implemented: " +
-                           str(self.filetype))
+            raise KeyError("This file type is not implemented: " + str(self.filetype))
 
-    def write_all(self, outpath: os.PathLike, out_format: str = 'vtk') -> None:
+    def write_all(self, outpath: os.PathLike, out_format: str = "vtk") -> None:
         """write all fmeshes to the outfolder in the specified format.
 
         Parameters
@@ -1621,8 +1666,7 @@ class Meshtal:
             float((self.f.readline().split()[-1]))
         )  # nps: int doesnt like decimals
 
-    def collapse_grids(self, name_dict: dict[int, list[str, str]]
-                       ) -> pv.DataSet:
+    def collapse_grids(self, name_dict: dict[int, list[str, str]]) -> pv.DataSet:
         """If the all the fmeshes indicated in the dictionary are defined on
         the same
         structured grid, returns a grid onto which all the fmeshes are
@@ -1652,7 +1696,7 @@ class Meshtal:
             only the default fields ['Value - Total', 'Error - Total'].
         """
 
-        ids = ['Value - Total', 'Error - Total']
+        ids = ["Value - Total", "Error - Total"]
 
         try:
             # check that the collapse is doable
@@ -1665,11 +1709,12 @@ class Meshtal:
                     except AttributeError:
                         # it means that the mesh has not been read
                         raise AttributeError(
-                            'Please read the meshtal file first using readMesh()')
+                            "Please read the meshtal file first using readMesh()"
+                        )
                 else:
                     assert comparison.sameMesh(fmesh)
         except AssertionError:
-            raise RuntimeError('the different fmeshes geom are not compatible')
+            raise RuntimeError("the different fmeshes geom are not compatible")
 
         try:
             # check that the collapse is doable
@@ -1678,14 +1723,13 @@ class Meshtal:
                 # check that there are only the two usual values, no binning
                 assert fmesh.grid.array_names == ids
         except AssertionError:
-            raise RuntimeError('no binning allowed for the collapse')
+            raise RuntimeError("no binning allowed for the collapse")
 
         for i, key in enumerate(list(name_dict.keys())):
             fmesh = self.mesh[key]
             if i == 0:
                 grid = deepcopy(fmesh.grid)
-                for old_name, new_name in zip(grid.array_names,
-                                              name_dict[key]):
+                for old_name, new_name in zip(grid.array_names, name_dict[key]):
                     grid.rename_array(old_name, new_name)
             else:
                 # results just have to be added for the other fmeshes
@@ -1752,7 +1796,7 @@ class Meshtal:
         return self.__str__()
 
     def __str__(self) -> str:
-        out = ''
+        out = ""
         out = out + "\n Meshtally file : {}".format(self.filename)
         # tlist = self.mesh.keys()
         tlist = list(self.mesh.keys())
@@ -1771,13 +1815,11 @@ class Meshtal:
                     )
                 )
             else:
-                out = out + (
-                    "   Tally {} : {}  {} mesh ".format(t, m.part, meshtype))
+                out = out + ("   Tally {} : {}  {} mesh ".format(t, m.part, meshtype))
         return out
 
     def print_info(self) -> None:
-        """print information on the Meshtal
-        """
+        """print information on the Meshtal"""
         print(self)
 
 
@@ -1819,8 +1861,7 @@ def _checkonef(f, lblck):
                 return False
 
 
-def _sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
-                  nulcount=True):
+def _sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True, nulcount=True):
     # sum the value in the voxel multiplied by the volume fraction
     valf = list(map(lambda x, y: x * y, voxvals, celfrac[1]))
 
@@ -1856,8 +1897,7 @@ def _sumCellInVox(voxvals, voxerrs, celfrac, Vmult="none", corr=True,
     return vals, errs
 
 
-def _sumElements(voxvals, voxerrs, celfrac, Vsum="onef", Vmult="none",
-                 corr=False):
+def _sumElements(voxvals, voxerrs, celfrac, Vsum="onef", Vmult="none", corr=False):
     if Vsum == "onef":
         # sum all value in the voxel
         vals = voxvals[0]
@@ -1903,13 +1943,11 @@ def _sumElements(voxvals, voxerrs, celfrac, Vsum="onef", Vmult="none",
             if not corr:
                 err2 = sum(map(lambda x, y: x * x * y * y, valf, voxerrs))
                 errs = np.divide(
-                    np.sqrt(err2), vals, out=np.zeros_like(err2),
-                    where=(vals != 0)
+                    np.sqrt(err2), vals, out=np.zeros_like(err2), where=(vals != 0)
                 )
             else:
                 err = sum(map(lambda x, y: abs(x * y), valf, voxerrs))
-                errs = np.divide(err, vals, out=np.zeros_like(err),
-                                 where=(vals != 0))
+                errs = np.divide(err, vals, out=np.zeros_like(err), where=(vals != 0))
         else:
             volOK = celfrac[1][0]
             vals = voxvals[0]
