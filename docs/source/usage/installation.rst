@@ -24,7 +24,7 @@ Local install
 =============
 To have a simple local installation.
 
-Navigate to the F4Eparser folder and type the following to be sure that you
+Navigate to the F4Enix folder and type the following to be sure that you
 pip is up to date:
 
 ``python -m pip install --upgrade pip setuptools wheel``
@@ -33,7 +33,7 @@ then run in your python environment of choice:
 
 ``python -m pip install .`` [Windows]
 
-``python3 -m pip install .`` [Linux]
+``python -m pip install .`` [Linux]
 
 Developer mode install
 ======================
@@ -52,16 +52,16 @@ having to reinstall the package.
 This also means though that if you move the F4Enix folder, the link will
 be broken and you will need to reinstall the package.
 
-Navigate to the F4Eparser folder and type the following to be sure that you
+Navigate to the F4Enix folder and type the following to be sure that you
 pip is up to date:
 
 ``python -m pip install --upgrade pip setuptools wheel``
 
 and then to install the package:
 
-``python -m pip install -e .`` [Windows]
+``python -m pip install -e .[tests]`` [Windows]
 
-``python3 -m pip install -e .`` [Linux]
+``python3 -m pip install -e .[tests]`` [Linux]
 
 
 .. important:: 

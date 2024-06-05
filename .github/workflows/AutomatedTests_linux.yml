@@ -40,9 +40,11 @@ jobs:
       # Install the package
       - name: Install the package
         run: |
-          pip install .
+          python -m pip install .
+          python -c 'import f4enix'
       
       # Run pytest
       - name: Testing
         run: |
+          python -m pip install .[tests]
           pytest

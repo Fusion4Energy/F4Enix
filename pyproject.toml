@@ -60,7 +60,6 @@ dependencies = [
     "pycodestyle",
     "Pygments",
     "pyparsing",
-    "pytest",
     "python-dateutil",
     "python-docx",
     "pytz",
@@ -80,6 +79,11 @@ dependencies = [
     "vtk",
     "wcwidth",
     "wincertstore",
+]
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-cov",
 ]
 
 [project.urls]
