@@ -9,7 +9,7 @@ import numpy as np
 
 from f4enix.input.ww_gvr.models import Vectors
 
-PATH_TO_RESOURCES = Path(__file__).parents[3] / "tests" / "test_ww_gvr" / "resources"
+PATH_TO_RESOURCES = Path("tests") / "test_ww_gvr" / "resources"
 
 WW_SIMPLE_CART = PATH_TO_RESOURCES / "ww_simple_cart"
 WW_SIMPLE_CYL = PATH_TO_RESOURCES / "ww_simple_cyl"
