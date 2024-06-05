@@ -11,7 +11,7 @@ authors = [
 ]
 description = "API for Monte Carlo input and output parsing"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
@@ -98,4 +98,4 @@ write_to = "src/_version.py"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-f4enix = ["*.xlsx", "*.txt"]
+"f4enix" = ["**/*.xlsx", "**/*.txt"]
