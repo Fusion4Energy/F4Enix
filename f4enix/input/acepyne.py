@@ -1,3 +1,5 @@
+from __future__ import division, unicode_literals
+
 """This module is for reading ACE-format cross sections. 
 
 ACE stands for "A Compact ENDF" format and originated from work on MCNP_. It is used in a number
@@ -58,8 +60,6 @@ under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
-
-from __future__ import division, unicode_literals
 
 import io
 import struct
