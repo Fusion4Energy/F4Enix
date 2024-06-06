@@ -1577,9 +1577,10 @@ class Meshtal:
                     if dim_check_val != 1:
                         # Increment the counter
                         if t.cart:
-                            x_var = {0: "Energy", 1: "X", 2: "Y", 3: "Z"}.get(p)
+                            tup = ("Energy",) + t.cvarsCart
                         else:
-                            x_var = {0: "Energy", 1: "R", 2: "Z", 3: "Theta"}.get(p)
+                            tup = ("Energy",) + t.cvarsCyl
+                        x_var = tup[p]
                         x_vars.append(x_var)
 
                 # Check if there are more than 1 value different from 1
