@@ -48,7 +48,7 @@ jobs:
       - name: Testing
         run: |
           python -m pip install .[tests]
-          pytest --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
+          pytest -vs --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
 
       - name: Archive test coverage
         if: always()

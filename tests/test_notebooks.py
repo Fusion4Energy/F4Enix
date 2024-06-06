@@ -1,4 +1,4 @@
-import os
+import pytest
 import sys
 from pathlib import Path
 
@@ -32,8 +32,11 @@ def _notebook_run(path):
 
     return nb, errors
 
-def test_task_1():
-    for notebook in Path('docs').rglob("*.ipynb"):
-        print(f'Attempting to run {notebook}')
-        _, errors = _notebook_run(notebook)
-        assert errors == []
+
+
+@pytest.mark.parametrize("filename", Path('docs').rglob("*.ipynb"))
+def test_task_1(filename):
+
+    print(f'Attempting to run {filename}')
+    _, errors = _notebook_run(filename)
+    assert errors == []
