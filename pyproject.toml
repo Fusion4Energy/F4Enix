@@ -84,6 +84,9 @@ dependencies = [
 tests = [
     "pytest",
     "pytest-cov",
+    "nbformat",
+    "nbconvert",
+    "ipykernel",
 ]
 
 [project.urls]
