@@ -22,6 +22,7 @@ def _notebook_run(path):
 
         try:
             ep.preprocess(nb, {'metadata': {'path': path.parent}})
+            print(f'running notebook from this path {path.parent}')
 
         except CellExecutionError as e: 
             if "SKIP" in e.traceback:
