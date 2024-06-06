@@ -1419,7 +1419,7 @@ class Fmesh1D(Fmesh):
         indices[idx] = slice(None)
         df = pd.DataFrame(
             {
-                newcols[0]: self.dims[tuple(indices)][1:],
+                newcols[0]: self.dims[idx][1:],
                 newcols[1]: self.dat[tuple(indices)][:],
                 newcols[2]: self.err[tuple(indices)][:],
             }
