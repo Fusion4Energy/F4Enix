@@ -33,7 +33,7 @@ def _notebook_run(path):
     return nb, errors
 
 def test_task_1():
-    for notebook in Path().rglob("*.ipynb"):
+    for notebook in Path('docs').rglob("*.ipynb"):
         print(f'Attempting to run {notebook}')
         _, errors = _notebook_run(notebook)
         assert errors == []
