@@ -1,13 +1,8 @@
 import numpy as np
+from pathlib import Path
 
 from f4enix.input.ww_gvr.models import Vectors
-from f4enix.input.ww_gvr.utils import (
-    MESHTALLY_CART,
-    MESHTALLY_CYL,
-    WW_COMPLEX_CART,
-    WW_SIMPLE_CART,
-    WW_SIMPLE_CYL,
-)
+
 from f4enix.input.ww_gvr.ww_parser import (
     WWHeader,
     WWHeaderCyl,
@@ -41,7 +36,7 @@ def test_parse_simple_cart():
     expected_energies = [[100.0]]
     expected_values = [[0.11576, 0.093197, 0.67316, 0.5, 0.099821, 0.0898]]
 
-    result = parse(WW_SIMPLE_CART)
+    result = parse(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
 
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
@@ -75,7 +70,7 @@ def test_parse_simple_cyl():
     expected_energies = [[100.0]]
     expected_values = [[0.5, 0.10463, 0.52965, 0.084479, 0.14258, 0.03275]]
 
-    result = parse(WW_SIMPLE_CYL)
+    result = parse(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl")
 
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
@@ -106,7 +101,7 @@ def test_parse_complex_cart():
     )
     expected_energies = [[1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 100.0], [1.2, 2.3]]
 
-    result = parse(WW_COMPLEX_CART)
+    result = parse(Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart")
 
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
@@ -167,7 +162,7 @@ def test_read_meshtally_file_cart():
         ]
     ]
 
-    result = read_meshtally_file(MESHTALLY_CART)
+    result = read_meshtally_file(Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart")
 
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
@@ -198,7 +193,7 @@ def test_read_meshtally_file_cyl():
     )
     expected_energies = [[100]]
 
-    result = read_meshtally_file(MESHTALLY_CYL)
+    result = read_meshtally_file(Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl")
 
     assert expected_ww_header == result.header
     # TODO: In meshtal_module the first item of vector_i is modified if 0
@@ -232,7 +227,7 @@ def test_write_simple_cart(tmp_path):
     energies = [[100.0]]
     values = [[0.11576, 0.093197, 0.67316, 0.5, 0.099821, 0.0898]]
 
-    with open(WW_SIMPLE_CART) as infile:
+    with open(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart") as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
@@ -268,7 +263,7 @@ def test_write_simple_cyl(tmp_path):
     energies = [[100.0]]
     values = [[0.5, 0.10463, 0.52965, 0.084479, 0.14258, 0.03275]]
 
-    with open(WW_SIMPLE_CYL) as infile:
+    with open(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl") as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
@@ -318,7 +313,7 @@ def test_write_complex_cart(tmp_path):
         [123, 3],
     ]
 
-    with open(WW_COMPLEX_CART) as infile:
+    with open(Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart") as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
