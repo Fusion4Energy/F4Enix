@@ -75,107 +75,6 @@ class Header:
         self.npert = 0  # Number of perturbations
 
 
-class SphereMctal(Mctal):
-    def _get_dfs(self):
-        """
-        Retrieve and organize mctal data. Simplified for sphere leakage case
-
-        Returns: DataFrame containing the organized data
-        """
-        # Extract data
-        rows = []
-        rowstotal = []
-        for t in self.tallies:
-            num = t.tallyNumber
-            des = t.tallyComment[0]
-            nCells = t._getNbins("f", False)
-            nCora = t._getNbins("i", False)
-            nCorb = t._getNbins("j", False)
-            nCorc = t._getNbins("k", False)
-            nDir = t._getNbins("d", False)
-            # usrAxis = t.getAxis("u")
-            nUsr = t._getNbins("u", False)
-            # segAxis = t.getAxis("s")
-            nSeg = t._getNbins("s", False)
-            nMul = t._getNbins("m", False)
-            # cosAxis = t.getAxis("c")
-            nCos = t._getNbins("c", False)
-            # ergAxis = t.getAxis("e")
-            nErg = t._getNbins("e", False)
-            # timAxis = t.getAxis("t")
-            nTim = t._getNbins("t", False)
-
-            for f in range(nCells):
-                for d in range(nDir):
-                    for u in range(nUsr):
-                        for s in range(nSeg):
-                            for m in range(nMul):
-                                for c in range(nCos):
-                                    for e in range(nErg):
-                                        try:
-                                            erg = t.erg[e]
-                                        except IndexError:
-                                            erg = None
-
-                                        for nt in range(nTim):
-                                            for k in range(nCorc):
-                                                for j in range(nCorb):
-                                                    for i in range(nCora):
-                                                        val = t._getValue(
-                                                            f,
-                                                            d,
-                                                            u,
-                                                            s,
-                                                            m,
-                                                            c,
-                                                            e,
-                                                            nt,
-                                                            i,
-                                                            j,
-                                                            k,
-                                                            0,
-                                                        )
-                                                        err = t._getValue(
-                                                            f,
-                                                            d,
-                                                            u,
-                                                            s,
-                                                            m,
-                                                            c,
-                                                            e,
-                                                            nt,
-                                                            i,
-                                                            j,
-                                                            k,
-                                                            1,
-                                                        )
-                                                        if val <= 0:
-                                                            err = np.nan
-
-                                                        row = [num, des, erg, val, err]
-                                                        rows.append(row)
-
-            # If Energy binning is involved
-            if t.ergTC == "t":
-                # 7 steps to get to energy, + 4 for time and mesh directions
-                totalbin = t.valsErrors[-1][-1][-1][-1][-1][-1][-1][-1][-1][-1][-1]
-                totalvalue = totalbin[0]
-                if totalvalue > 0:
-                    totalerror = totalbin[-1]
-                else:
-                    totalerror = np.nan
-                row = [num, des, totalvalue, totalerror]
-                rowstotal.append(row)
-
-        df = pd.DataFrame(
-            rows, columns=["Tally N.", "Tally Description", "Energy", "Value", "Error"]
-        )
-        dftotal = pd.DataFrame(
-            rowstotal, columns=["Tally N.", "Tally Description", "Value", "Error"]
-        )
-        return df, dftotal
-
-
 class Tally:
     """This class is aimed to store all the information contained in a
     tally.
@@ -1475,3 +1374,104 @@ class Mctal:
             totalbin[t.tallyNumber] = dftotal
 
         return tallydata, totalbin
+
+
+class SphereMctal(Mctal):
+    def _get_dfs(self):
+        """
+        Retrieve and organize mctal data. Simplified for sphere leakage case
+
+        Returns: DataFrame containing the organized data
+        """
+        # Extract data
+        rows = []
+        rowstotal = []
+        for t in self.tallies:
+            num = t.tallyNumber
+            des = t.tallyComment[0]
+            nCells = t._getNbins("f", False)
+            nCora = t._getNbins("i", False)
+            nCorb = t._getNbins("j", False)
+            nCorc = t._getNbins("k", False)
+            nDir = t._getNbins("d", False)
+            # usrAxis = t.getAxis("u")
+            nUsr = t._getNbins("u", False)
+            # segAxis = t.getAxis("s")
+            nSeg = t._getNbins("s", False)
+            nMul = t._getNbins("m", False)
+            # cosAxis = t.getAxis("c")
+            nCos = t._getNbins("c", False)
+            # ergAxis = t.getAxis("e")
+            nErg = t._getNbins("e", False)
+            # timAxis = t.getAxis("t")
+            nTim = t._getNbins("t", False)
+
+            for f in range(nCells):
+                for d in range(nDir):
+                    for u in range(nUsr):
+                        for s in range(nSeg):
+                            for m in range(nMul):
+                                for c in range(nCos):
+                                    for e in range(nErg):
+                                        try:
+                                            erg = t.erg[e]
+                                        except IndexError:
+                                            erg = None
+
+                                        for nt in range(nTim):
+                                            for k in range(nCorc):
+                                                for j in range(nCorb):
+                                                    for i in range(nCora):
+                                                        val = t._getValue(
+                                                            f,
+                                                            d,
+                                                            u,
+                                                            s,
+                                                            m,
+                                                            c,
+                                                            e,
+                                                            nt,
+                                                            i,
+                                                            j,
+                                                            k,
+                                                            0,
+                                                        )
+                                                        err = t._getValue(
+                                                            f,
+                                                            d,
+                                                            u,
+                                                            s,
+                                                            m,
+                                                            c,
+                                                            e,
+                                                            nt,
+                                                            i,
+                                                            j,
+                                                            k,
+                                                            1,
+                                                        )
+                                                        if val <= 0:
+                                                            err = np.nan
+
+                                                        row = [num, des, erg, val, err]
+                                                        rows.append(row)
+
+            # If Energy binning is involved
+            if t.ergTC == "t":
+                # 7 steps to get to energy, + 4 for time and mesh directions
+                totalbin = t.valsErrors[-1][-1][-1][-1][-1][-1][-1][-1][-1][-1][-1]
+                totalvalue = totalbin[0]
+                if totalvalue > 0:
+                    totalerror = totalbin[-1]
+                else:
+                    totalerror = np.nan
+                row = [num, des, totalvalue, totalerror]
+                rowstotal.append(row)
+
+        df = pd.DataFrame(
+            rows, columns=["Tally N.", "Tally Description", "Energy", "Value", "Error"]
+        )
+        dftotal = pd.DataFrame(
+            rowstotal, columns=["Tally N.", "Tally Description", "Value", "Error"]
+        )
+        return df, dftotal
