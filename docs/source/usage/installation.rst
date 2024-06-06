@@ -27,7 +27,7 @@ To have a simple local installation.
 Navigate to the F4Enix folder and type the following to be sure that you
 pip is up to date:
 
-``python -m pip install --upgrade pip setuptools wheel``
+``python -m pip install --upgrade pip``
 
 then run in your python environment of choice:
 
@@ -55,13 +55,13 @@ be broken and you will need to reinstall the package.
 Navigate to the F4Enix folder and type the following to be sure that you
 pip is up to date:
 
-``python -m pip install --upgrade pip setuptools wheel``
+``python -m pip install --upgrade pip``
 
 and then to install the package:
 
 ``python -m pip install -e .[tests]`` [Windows]
 
-``python3 -m pip install -e .[tests]`` [Linux]
+``python -m pip install -e .[tests]`` [Linux]
 
 
 .. important:: 
