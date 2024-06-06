@@ -61,6 +61,8 @@ supported by F4Enix:
 * D1SUNED meshinfo file by :py:class:`f4enix.output.meshinfo.MeshInfo`
 * MCNP rssa file by :py:class:`f4enix.output.rssa.RSSA`
 * MCNP eeout file by :py:class:`f4enix.output.eeout.EEOUT`
+* MCNP Weight-Windows file by :py:package:`f4enix.output.ww_gvr`
+* FISPACT legacy output (for pathways) by :py:class:`f4enix.output.fispact_legacy_out.PathwayCollection`
 
 All classes and methods of the F4Enix API are documented and usage examples
 are provided in all the most important classes documentations. Additionally more
@@ -71,12 +73,11 @@ package `PyVista <https://docs.pyvista.org/version/stable/index.html>`_.
 
 **Short/mid term goals for the project:**
 
-* support for MCNP Weight-Windows files
 * general issues fixing
 * improve documentation
-* increase automatic test coverage
 
 **Long term goals for the project:**
 
 * compatibilty with newer output formats brought by MCNP v6.3
 * increase features in all modules depending on needs
+* change MCNP input parser engine from ``numjuggler`` to something more robust
