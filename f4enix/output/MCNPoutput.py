@@ -487,6 +487,39 @@ class Output:
 
         return df.sort_index()
 
+    def assign_tally_description(self, stat_checks, tallylist, warning=False):
+        """
+        Include the tally descriptions in the statistical checks dictionary
+
+        Parameters
+        ----------
+        tallylist : list
+            List of tallies.
+        warning : bool
+            if True a warning is printed to video when the tally description
+            is not found
+
+        Returns
+        -------
+        new_stat_check : dic
+            the adjourned result of the statistical checks results.
+
+        """
+        new_stat_check = {}
+        for tnumber, result in stat_checks.items():
+            for tally in tallylist:
+                if int(tally.tallyNumber) == int(tnumber):
+                    try:
+                        tdescr = tally.tallyComment[0]
+                    except IndexError:
+                        if warning:
+                            print(" WARNING: No description t. " + str(tnumber))
+                        tdescr = ""
+            newkey = tdescr + " [" + str(tnumber) + "]"
+            new_stat_check[newkey] = result
+
+        return new_stat_check
+
     def get_table(self, table_num: int) -> pd.DataFrame:
         """Extract a printed table from the MCNP output file.
 
