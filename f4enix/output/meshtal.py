@@ -1414,12 +1414,14 @@ class Fmesh1D(Fmesh):
         else:
             dim_tup = self.cvarsCyl
         dim_tup = ("Energy",) + dim_tup
-
+        idx = dim_tup.index(self._x_var)
+        indices = [0] * len(dim_tup)
+        indices[idx] = slice(None)
         df = pd.DataFrame(
             {
-                newcols[0]: self.dims[dim_tup.index(self._x_var) + 1][1:],
-                newcols[1]: self.dat[dim_tup.index(self._x_var) + 1][:],
-                newcols[2]: self.err[dim_tup.index(self._x_var) + 1][:],
+                newcols[0]: self.dims[tuple(indices)][1:],
+                newcols[1]: self.dat[tuple(indices)][:],
+                newcols[2]: self.err[tuple(indices)][:],
             }
         )
 
