@@ -34,9 +34,45 @@ from decimal import Decimal
 import copy
 import sys
 import os
+import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
+
+# -------------------------------------
+#         == COMMON PATTERNS ==
+# -------------------------------------
+PAT_COMMENT = re.compile(r"[cC][\s\t]+")
+PAT_MAT = re.compile(r"[\s\t]*[mM]\d+")
+PAT_MX = re.compile(r"[\s\t]*mx\d+", re.IGNORECASE)
+
+
+def indent(elem, level=0) -> None:
+    """Indent an XML element and its children to make the XML structure more human-readable.
+
+    Parameters
+    ----------
+    elem : xml.etree.ElementTree.Element
+        XML element to be indented
+    level : int, optional
+        Current level of indentation, by default 0
+    """
+
+    # Create the indentation string based on the specified level
+    i = "\n" + level * "  "
+    if len(elem):
+        # If the element has child elements
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level + 1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
 
 
 # -------------------------------------
@@ -44,8 +80,15 @@ from f4enix.input.libmanager import LibManager
 # -------------------------------------
 class Zaid:
 
-    def __init__(self, fraction: str | float, element: str, isotope: str,
-                 library: str, ab: str = '', fullname: str = '') -> None:
+    def __init__(
+        self,
+        fraction: str | float,
+        element: str,
+        isotope: str,
+        library: str,
+        ab: str = "",
+        fullname: str = "",
+    ) -> None:
         """
         Object representing a Zaid
 
@@ -84,9 +127,9 @@ class Zaid:
         self.fullname = fullname
 
         if self.library is None:
-            self.name = self.element+self.isotope
+            self.name = self.element + self.isotope
         else:
-            self.name = self.element+self.isotope+'.'+self.library
+            self.name = self.element + self.isotope + "." + self.library
 
     @classmethod
     def from_string(cls, string: str) -> Zaid:
@@ -105,11 +148,11 @@ class Zaid:
 
         """
         # Divide fraction from zaid
-        patSpacing = re.compile(r'[\s\t]+')
+        patSpacing = re.compile(r"[\s\t]+")
         items = patSpacing.split(string)
 
         # ZAID
-        pieces = items[0].split('.')
+        pieces = items[0].split(".")
         # Try to identify library if present
         try:
             library = pieces[1]
@@ -137,20 +180,40 @@ class Zaid:
         """
         fraction = "{:.6E}".format(Decimal(self.fraction))
         if self.library is None:
-            zaidname = self.element+self.isotope
+            zaidname = self.element + self.isotope
         else:
-            zaidname = self.element+self.isotope+'.'+self.library
+            zaidname = self.element + self.isotope + "." + self.library
         # Add INFO
         try:
-            abundance = '%s' % float('%.5g' % float(self.ab))
+            abundance = "%s" % float("%.5g" % float(self.ab))
         except ValueError:
-            abundance = ''
+            abundance = ""
 
-        abundance = 'AB(%) '+abundance
-        inline_comm = '    $ '+self.fullname
+        abundance = "AB(%) " + abundance
+        inline_comm = "    $ " + self.fullname
         args = (zaidname, fraction, inline_comm, abundance)
 
-        return '{0:>15} {1:>18} {2:<12} {3:<10}'.format(*args)
+        return "{0:>15} {1:>18} {2:<12} {3:<10}".format(*args)
+
+    def to_xml(self, libmanager, submaterial) -> None:
+        """Generate XML content for a nuclide within a material.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+        submaterial :
+            The XML element for the material where the nuclide content will be added.
+        """
+        nuclide = self.get_fullname(libmanager).replace("-", "")
+        if self.fraction < 0.0:
+            ET.SubElement(
+                submaterial, "nuclide", name=nuclide, wo=str(abs(self.fraction))
+            )
+        else:
+            ET.SubElement(
+                submaterial, "nuclide", name=nuclide, ao=str(abs(self.fraction))
+            )
 
     def get_fullname(self, libmanager: LibManager) -> str:
         """
@@ -207,13 +270,13 @@ class Element:
         for zaid in zaidList:
             # If already in dic sum the fractions
             if zaid.name in zaids.keys():
-                zaids[zaid.name] = zaids[zaid.name]+zaid.fraction
+                zaids[zaid.name] = zaids[zaid.name] + zaid.fraction
             else:
                 zaids[zaid.name] = zaid.fraction
 
         zaidList = []
         for name, fraction in zaids.items():
-            zaidList.append(Zaid.from_string(name+' '+str(fraction)))
+            zaidList.append(Zaid.from_string(name + " " + str(fraction)))
 
         self.Z = zaid.element
         self.zaids = zaidList
@@ -239,8 +302,8 @@ class Element:
 
         for zaid in self.zaids:
             fullname = zaid.get_fullname(libmanager)
-            ab = zaid.fraction/tot_fraction*100
-#            zaid.update_info(ab,fullname)
+            ab = zaid.fraction / tot_fraction * 100
+            #            zaid.update_info(ab,fullname)
             zaid.ab = ab
             zaid.fullname = fullname
 
@@ -256,7 +319,7 @@ class Element:
         """
         fraction = 0
         for zaid in self.zaids:
-            fraction = fraction+zaid.fraction
+            fraction = fraction + zaid.fraction
 
         return fraction
 
@@ -264,9 +327,14 @@ class Element:
 class SubMaterial:
 
     # init method for zaid
-    def __init__(self, name: str, zaidList: list[Zaid],
-                 elemList: list[Element] = None, header: str = None,
-                 additional_keys: list[str] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        zaidList: list[Zaid],
+        elemList: list[Element] = None,
+        header: str = None,
+        additional_keys: list[str] = None,
+    ) -> None:
         """
         Generate a SubMaterial Object starting from a list of Zaid and
         eventually Elements list. Usually this kind of objects are generated
@@ -345,11 +413,11 @@ class SubMaterial:
 
         """
         # Useful patterns
-        patSpacing = re.compile(r'[\s\t]+')
+        patSpacing = re.compile(r"[\s\t]+")
         patComment = PAT_COMMENT
         patName = PAT_MAT
         searchHeader = True
-        header = ''
+        header = ""
         zaidList = []
         additional_keys_list = []
         for line in text:
@@ -370,7 +438,7 @@ class SubMaterial:
                     pieces = patSpacing.split(line)
                     if len(pieces) > 1:
                         # CASE1: only material name+additional spacing
-                        if pieces[1] == '':
+                        if pieces[1] == "":
                             pass  # no more actions for this line
                         # CASE2: material name + zaids or only zaids
                         else:
@@ -383,7 +451,7 @@ class SubMaterial:
                     else:
                         pass  # no more actions for this line
                 else:
-                    header = header+line
+                    header = header + line
                     continue
             else:
                 zaids, additional_keys = _readLine(line)
@@ -394,8 +462,13 @@ class SubMaterial:
             if additional_keys is not None:
                 additional_keys_list.extend(additional_keys)
 
-        return cls(name, zaidList, elemList=None, header=header[:-1],
-                   additional_keys=additional_keys_list)
+        return cls(
+            name,
+            zaidList,
+            elemList=None,
+            header=header[:-1],
+            additional_keys=additional_keys_list,
+        )
 
     def _collapse_zaids(self) -> None:
         """
@@ -430,28 +503,62 @@ class SubMaterial:
 
         """
         if self.header is not None:
-            text = self.header+'\n'
+            text = self.header + "\n"
         else:
-            text = ''
+            text = ""
         # if self.name is not None:
         #     text = text+'\n'+self.name
         if self.elements is not None:
             for elem in self.elements:
                 for zaid in elem.zaids:
-                    text = text+zaid.to_text()+'\n'
+                    text = text + zaid.to_text() + "\n"
         else:
             for zaid in self.zaidList:
-                text = text+zaid.to_text()+'\n'
+                text = text + zaid.to_text() + "\n"
 
         # Add additional keys
         if len(self.additional_keys) > 0:
-            text = text+'\t'
+            text = text + "\t"
             for key in self.additional_keys:
-                text = text+' '+key
+                text = text + " " + key
 
-        return text.strip('\n')
+        return text.strip("\n")
 
-    def translate(self, newlib: dict | str, lib_manager: LibManager) -> None:
+    def to_xml(self, libmanager, material) -> None:
+        """Generate XML content for a material and add it to a material tree.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager handling the libraries operations.
+        material :
+            The XML tree where the material content will be added.
+        """
+
+        # matid = id
+        # matname = str(self.name)
+        # matdensity = str(abs(density))
+        # if density < 0:
+        #    density_units = "g/cc"
+        # else:
+        #    density_units = "atom/b-cm"
+        # submaterial = ET.SubElement(material_tree, "material", id=matid, name=matname)
+        # ET.SubElement(submaterial, "density", value=matdensity, units=density_units)
+        if self.elements is not None:
+            for elem in self.elements:
+                for zaid in elem.zaids:
+                    zaid.to_xml(libmanager, material)
+        else:
+            for zaid in self.zaidList:
+                zaid.to_xml(libmanager, material)
+
+    def translate(
+        self,
+        newlib: dict | str,
+        lib_manager: LibManager,
+        code: str = "mcnp",
+        update: bool = True,
+    ) -> None:
         """
         This method implements the translation logic of JADE. All zaids are
         translated accordingly to the newlib specified.
@@ -490,13 +597,17 @@ class SubMaterial:
                         newtag = newlib[zaid.library]
                     except KeyError:
                         # the zaid should have been assigned to a library
-                        raise ValueError('''
- Zaid {} was not assigned to any library'''.format(zaid.name))
+                        raise ValueError(
+                            """
+ Zaid {} was not assigned to any library""".format(
+                                zaid.name
+                            )
+                        )
 
                 else:
                     # The assignment is explicit, all libs need to be searched
                     newtag = None
-                    zaidnum = zaid.element+zaid.isotope
+                    zaidnum = zaid.element + zaid.isotope
                     for lib, zaids in newlib.items():
                         if zaidnum in zaids:
                             newtag = lib
@@ -504,29 +615,37 @@ class SubMaterial:
                     # Check that a library has been actually found
                     if newtag is None:
                         # the zaid should have been assigned to a library
-                        raise ValueError('''
- Zaid {} was not assigned to any library'''.format(zaid.name))
+                        raise ValueError(
+                            """
+ Zaid {} was not assigned to any library""".format(
+                                zaid.name
+                            )
+                        )
             else:
                 newtag = newlib
 
             try:
-                translation = lib_manager.convertZaid(zaid.element +
-                                                      zaid.isotope, newtag)
+                translation = lib_manager.convertZaid(
+                    zaid.element + zaid.isotope, newtag, code
+                )
             except ValueError:
                 # No Available translation was found, ignore zaid
                 # Only video warning, to propagate to the log would be too much
-                print('  WARNING: no available translation was found for ' +
-                      zaid.name+'.\n  The zaid has been ignored. ')
+                print(
+                    "  WARNING: no available translation was found for "
+                    + zaid.name
+                    + ".\n  The zaid has been ignored. "
+                )
                 continue
 
             # Check if it is  atomic or mass fraction
             if float(zaid.fraction) < 0:
                 ref_mass = 0
                 for key, item in translation.items():
-                    ref_mass = ref_mass + item[1]*item[2]
+                    ref_mass = ref_mass + item[1] * item[2]
 
                 for key, item in translation.items():
-                    fraction = str(item[1]*item[2]/ref_mass*zaid.fraction)
+                    fraction = str(item[1] * item[2] / ref_mass * zaid.fraction)
                     element = str(key)[:-3]
                     isotope = str(key)[-3:]
                     library = item[0]
@@ -535,7 +654,7 @@ class SubMaterial:
 
             else:
                 for key, item in translation.items():
-                    fraction = str(item[1]*zaid.fraction)
+                    fraction = str(item[1] * zaid.fraction)
                     element = str(key)[:-3]
                     isotope = str(key)[-3:]
                     library = item[0]
@@ -590,23 +709,24 @@ class SubMaterial:
         """
         # dic_element = {'Element': [], 'Fraction': []}
         # dic_zaids = {'Element': [], 'Zaid': [], 'Fraction': []}
-        dic_element = {'Element': [], 'Fraction': []}
-        dic_zaids = {'Element': [], 'Isotope': [], 'Fraction': []}
+        dic_element = {"Element": [], "Fraction": []}
+        dic_zaids = {"Element": [], "Isotope": [], "Fraction": []}
         for elem in self.elements:
             fraction = elem.get_fraction()
             # dic_element['Element'].append(elem.Z)
-            dic_element['Fraction'].append(fraction)
+            dic_element["Fraction"].append(fraction)
             for zaid in elem.zaids:
                 fullname = zaid.get_fullname(lib_manager)
-                elementname = fullname.split('-')[0]
+                elementname = fullname.split("-")[0]
                 # dic_zaids['Element'].append(elem.Z)
                 # dic_zaids['Zaid'].append(zaid.isotope)
-                dic_zaids['Element'].append(elementname)
-                dic_zaids['Isotope'].append(fullname + ' [' + str(zaid.element)
-                                            + str(zaid.isotope)+']')
-                dic_zaids['Fraction'].append(zaid.fraction)
+                dic_zaids["Element"].append(elementname)
+                dic_zaids["Isotope"].append(
+                    fullname + " [" + str(zaid.element) + str(zaid.isotope) + "]"
+                )
+                dic_zaids["Fraction"].append(zaid.fraction)
 
-            dic_element['Element'].append(elementname)
+            dic_element["Element"].append(elementname)
 
         df_el = pd.DataFrame(dic_element)
         df_zaids = pd.DataFrame(dic_zaids)
@@ -628,23 +748,23 @@ class SubMaterial:
 
         """
         for zaid in self.zaidList:
-            zaid.fraction = zaid.fraction*norm_factor
+            zaid.fraction = zaid.fraction * norm_factor
 
         self._collapse_zaids()
 
 
 # Support function for Submaterial
 def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:
-    patSpacing = re.compile(r'[\s\t]+')
-    patComment = re.compile(r'\$')
-    patnumber = re.compile(r'\d+')
+    patSpacing = re.compile(r"[\s\t]+")
+    patComment = re.compile(r"\$")
+    patnumber = re.compile(r"\d+")
 
     pieces = patSpacing.split(string)
     # kill first piece if it is void
-    if pieces[0] == '':
+    if pieces[0] == "":
         del pieces[0]
     # kill last piece if it is void
-    if pieces[-1] == '':
+    if pieces[-1] == "":
         del pieces[-1]
 
     # kill comment section
@@ -660,15 +780,15 @@ def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:
     while True:
         try:
             # Check if it is zaid or keyword
-            if patnumber.match(pieces[i]) is None or pieces[i] == '':
+            if patnumber.match(pieces[i]) is None or pieces[i] == "":
                 additional_keys = pieces[i:]
                 break
             else:
-                zaidstring = pieces[i]+' '+pieces[i+1]
+                zaidstring = pieces[i] + " " + pieces[i + 1]
                 zaid = Zaid.from_string(zaidstring)
                 zaids.append(zaid)
 
-            i = i+2
+            i = i + 2
 
         except IndexError:
             break
@@ -678,9 +798,16 @@ def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:
 
 class Material:
 
-    def __init__(self, zaids: list[Zaid], elem: list[Element], name: str,
-                 submaterials: list[SubMaterial] = None, mx_cards: list = None,
-                 header: str = None) -> None:
+    def __init__(
+        self,
+        zaids: list[Zaid],
+        elem: list[Element],
+        name: str,
+        submaterials: list[SubMaterial] = None,
+        mx_cards: list = None,
+        header: str = None,
+        density: float = None,
+    ) -> None:
         """
         Object representing an MCNP material
 
@@ -698,7 +825,8 @@ class Material:
             list of mx_cards in the material if present. The default is None.
         header : str, optional
             material header. The default is None.
-
+        density : float, optional
+            material density, used for OpenMC materials. Default is None.
         Returns
         -------
         None.
@@ -718,6 +846,7 @@ class Material:
         else:
             self.mx_cards = mx_cards
         self.header = header
+        self.density = density
 
         # Adjust the submaterial and headers reading
         try:
@@ -734,9 +863,13 @@ class Material:
             self.header = None
 
     @classmethod
-    def from_zaids(cls, zaids: list[tuple[str | int, float]],
-                   libman: LibManager,
-                   lib: str, name: str = '') -> Material:
+    def from_zaids(
+        cls,
+        zaids: list[tuple[str | int, float]],
+        libman: LibManager,
+        lib: str,
+        name: str = "",
+    ) -> Material:
         """Generate a material giving a list of zaids or elements.
 
         Parameters
@@ -771,10 +904,10 @@ class Material:
                 zaid = str(zaid)
             zaid_list.append(Zaid(fraction, zaid[:-3], zaid[-3:], None))
 
-        submat = SubMaterial('', zaid_list)
+        submat = SubMaterial("", zaid_list)
         submat.translate(lib, libman)
         submat._update_info(libman)
-        return cls(None, None, 'M1', submaterials=[submat], header=f'C {name}')
+        return cls(None, None, "M1", submaterials=[submat], header=f"C {name}")
 
     @classmethod
     def from_text(cls, text: list[str]) -> Material:
@@ -784,7 +917,7 @@ class Material:
         Parameters
         ----------
         text : list[str]
-            MCNP formatted text.
+            Transport code formatted text representing the material.
 
         Returns
         -------
@@ -804,7 +937,7 @@ class Material:
             checkHeaderMat = pat_matHeader.match(line)
 
             if checkHeaderMat is not None:
-                header = ''.join(subtext)
+                header = "".join(subtext)
                 subtext = []
 
             if inHeader:
@@ -821,8 +954,9 @@ class Material:
 
         submaterials.append(SubMaterial.from_text(subtext))
 
-        return cls(None, None, submaterials[0].name, submaterials=submaterials,
-                   header=header)
+        return cls(
+            None, None, submaterials[0].name, submaterials=submaterials, header=header
+        )
 
     def to_text(self) -> str:
         """
@@ -834,25 +968,66 @@ class Material:
             MCNP formatte text representing the material.
 
         """
-        if self.header is not None:
-            text = self.header.strip('\n')+'\n'+self.name.upper().strip('\n')
+        if self.density is not None:
+            if self.header is not None:
+                text = (
+                    self.header.strip("\n")
+                    + "\n"
+                    + self.name.lower().strip("\n")
+                    + " "
+                    + str(self.density)
+                )
+            else:
+                text = self.name.lower() + " " + str(self.density)
         else:
-            text = self.name.upper()
+            if self.header is not None:
+                text = self.header.strip("\n") + "\n" + self.name.upper().strip("\n")
+            else:
+                text = self.name.upper()
         if self.submaterials is not None:
             for submaterial in self.submaterials:
-                text = text+'\n'+submaterial.to_text()
+                text = text + "\n" + submaterial.to_text()
             # Add mx cards
             for mx in self.mx_cards:
                 for line in mx.lines:
-                    line = line.strip('\n')
-                    text = text+'\n'+line.upper()
+                    line = line.strip("\n")
+                    text = text + "\n" + line.upper()
         else:
-            text = '  Not supported yet, generate submaterials first'
+            text = "  Not supported yet, generate submaterials first"
             pass  # TODO
 
-        return text.strip('\n')
+        return text.strip("\n")
 
-    def translate(self, newlib: dict | str, lib_manager: LibManager) -> None:
+    def to_xml(self, libmanager, material_tree):
+        """Generate XML content for a material and its submaterials.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+        material_tree :
+            The XML element for the material where content will be added.
+        """
+        matid = re.sub("[^0-9]", "", str(self.name))
+        matname = str(self.name)
+        matdensity = str(abs(self.density))
+        if self.density < 0:
+            density_units = "g/cc"
+        else:
+            density_units = "atom/b-cm"
+        material = ET.SubElement(material_tree, "material", id=matid, name=matname)
+        ET.SubElement(material, "density", value=matdensity, units=density_units)
+        if self.submaterials is not None:
+            for submaterial in self.submaterials:
+                submaterial.to_xml(libmanager, material)
+
+    def translate(
+        self,
+        newlib: dict | str,
+        lib_manager: LibManager,
+        code: str = "mcnp",
+        update: bool = None,
+    ) -> None:
         """
         This method allows to translate all submaterials to another library
 
@@ -872,13 +1047,17 @@ class Material:
             on the zaidnum.
         lib_manager : libmanager.LibManager
             object handling all libraries operations.
+        code : str, optional
+            Monte Carlo code for material format. The default is 'mcnp'.
+        update : bool, optional
+            if True, material infos are updated. The default is True.
 
         Returns
         -------
         None.
         """
         for submat in self.submaterials:
-            submat.translate(newlib, lib_manager)
+            submat.translate(newlib, lib_manager, code)
 
         self._update_info(lib_manager)
 
@@ -889,7 +1068,7 @@ class Material:
         fraction = 0
         for submat in self.submaterials:
             for zaid in submat.zaidList:
-                fraction = fraction+zaid.fraction
+                fraction = fraction + zaid.fraction
 
         return fraction
 
@@ -909,8 +1088,9 @@ class Material:
         for submaterial in self.submaterials:
             submaterial._update_info(lib_manager)
 
-    def switch_fraction(self, ftype: str, lib_manager: LibManager,
-                        inplace: bool = True) -> list[SubMaterial]:
+    def switch_fraction(
+        self, ftype: str, lib_manager: LibManager, inplace: bool = True
+    ) -> list[SubMaterial]:
         """
         Switch between atom or mass fraction for the material card.
         If the material is already switched the command is ignored.
@@ -940,7 +1120,7 @@ class Material:
         totf = self.get_tot_fraction()
         new_submats = []
 
-        if ftype == 'atom':  # mass2atom switch
+        if ftype == "atom":  # mass2atom switch
             if totf < 0:  # Check if the switch must be effectuated
                 # x_n = (x_m/m)/sum(x_m/m)
                 # get sum(x_m/m)
@@ -948,7 +1128,7 @@ class Material:
                 for submat in self.submaterials:
                     for zaid in submat.zaidList:
                         atom_mass = lib_manager.get_zaid_mass(zaid)
-                        norm = norm + (-1*zaid.fraction/atom_mass)
+                        norm = norm + (-1 * zaid.fraction / atom_mass)
 
                 for submat in self.submaterials:
                     new_zaids = []
@@ -956,10 +1136,10 @@ class Material:
                     for zaid in submat.zaidList:
                         atom_mass = lib_manager.get_zaid_mass(zaid)
                         if inplace:
-                            zaid.fraction = (-1*zaid.fraction/atom_mass)/norm
+                            zaid.fraction = (-1 * zaid.fraction / atom_mass) / norm
                         else:
                             newz = copy.deepcopy(zaid)
-                            newz.fraction = (-1*zaid.fraction/atom_mass)/norm
+                            newz.fraction = (-1 * zaid.fraction / atom_mass) / norm
                             new_zaids.append(newz)
                     new_submat.zaidList = new_zaids
                     new_submat._update_info(lib_manager)
@@ -967,7 +1147,7 @@ class Material:
             else:
                 new_submats = self.submaterials
 
-        elif ftype == 'mass':  # atom2mass switch
+        elif ftype == "mass":  # atom2mass switch
             if totf > 0:  # Check if the switch must be effectuated
                 # x_n = (x_m*m)/sum(x_m*m)
                 # get sum(x_m*m)
@@ -975,7 +1155,7 @@ class Material:
                 for submat in self.submaterials:
                     for zaid in submat.zaidList:
                         atom_mass = lib_manager.get_zaid_mass(zaid)
-                        norm = norm + (zaid.fraction*atom_mass)
+                        norm = norm + (zaid.fraction * atom_mass)
 
                 for submat in self.submaterials:
                     new_zaids = []
@@ -983,10 +1163,10 @@ class Material:
                     for zaid in submat.zaidList:
                         atom_mass = lib_manager.get_zaid_mass(zaid)
                         if inplace:
-                            zaid.fraction = (-1*zaid.fraction*atom_mass)/norm
+                            zaid.fraction = (-1 * zaid.fraction * atom_mass) / norm
                         else:
                             newz = copy.deepcopy(zaid)
-                            newz.fraction = (-1*zaid.fraction*atom_mass)/norm
+                            newz.fraction = (-1 * zaid.fraction * atom_mass) / norm
                             new_zaids.append(newz)
                     new_submat.zaidList = new_zaids
                     new_submat._update_info(lib_manager)
@@ -995,7 +1175,7 @@ class Material:
                 new_submats = self.submaterials
 
         else:
-            raise KeyError(ftype+' is not a valid key error [atom, mass]')
+            raise KeyError(ftype + " is not a valid key error [atom, mass]")
 
         self._update_info(lib_manager)
 
@@ -1102,7 +1282,7 @@ class MatCardsList(Sequence):
         datacards = cardsDic[5]
 
         materials = []
-        previous_lines = ['']
+        previous_lines = [""]
         mx_cards = []
         mx_found = False
 
@@ -1152,11 +1332,36 @@ class MatCardsList(Sequence):
             material card list MCNP formatted text.
 
         """
-        text = ''
+        text = ""
         for material in self.materials:
-            text = text+'\n'+material.to_text()
+            text = text + "\n" + material.to_text()
 
-        return (text.strip('\n'))
+        return text.strip("\n")
+
+    def to_xml(self, libmanager) -> str:
+        """Generate an XML representation of materials and return it as a string.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+
+        Returns
+        -------
+        str
+            The XML representation of materials as a string.
+        """
+
+        # Create XML element to represent the collection of materials.
+        material_tree = ET.Element("materials")
+
+        for material in self.materials:
+            material.to_xml(libmanager, material_tree)
+
+        # Apply indentation to the generated XML data.
+        indent(material_tree)
+
+        return ET.tostring(material_tree, encoding="unicode", method="xml")
 
     def translate(self, newlib: str | dict, lib_manager: LibManager) -> None:
         """
@@ -1192,7 +1397,7 @@ class MatCardsList(Sequence):
             # Rebuild elements
             for submat in material.submaterials:
                 submat._collapse_zaids()
-        
+
         # this is a lazy fix, if performance issues are encountered the
         # update_zaid_info method of submaterials should be looked at
         self.update_info(lib_manager)
@@ -1215,8 +1420,9 @@ class MatCardsList(Sequence):
         for mat in self.materials:
             mat._update_info(lib_manager)
 
-    def get_info(self, lib_manager: LibManager, zaids: bool = False,
-                 complete: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def get_info(
+        self, lib_manager: LibManager, zaids: bool = False, complete: bool = True
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Get the material informations in terms of fraction and composition
         of the material card
@@ -1243,13 +1449,12 @@ class MatCardsList(Sequence):
         infos = []
         complete_infos = []
         for mat in self.materials:
-            submats_atom = mat.switch_fraction('atom', lib_manager,
-                                               inplace=False)
-            submats_mass = mat.switch_fraction('mass', lib_manager,
-                                               inplace=False)
+            submats_atom = mat.switch_fraction("atom", lib_manager, inplace=False)
+            submats_mass = mat.switch_fraction("mass", lib_manager, inplace=False)
             i = 0
-            for submat, submat_a, submat_m in zip(mat.submaterials,
-                                                  submats_atom, submats_mass):
+            for submat, submat_a, submat_m in zip(
+                mat.submaterials, submats_atom, submats_mass
+            ):
                 dic_el, dic_zaids = submat.get_info(lib_manager)
                 dic_el_a, dic_zaids_a = submat_a.get_info(lib_manager)
                 dic_el_m, dic_zaids_m = submat_m.get_info(lib_manager)
@@ -1263,39 +1468,40 @@ class MatCardsList(Sequence):
                     dic_a = dic_el_a
                     dic_m = dic_el_m
 
-                dic['Material'] = mat.name
-                dic['Submaterial'] = i+1
+                dic["Material"] = mat.name
+                dic["Submaterial"] = i + 1
                 infos.append(dic)
 
                 c_dic = copy.deepcopy(dic)
-                c_dic['Atom Fraction'] = dic_a['Fraction']
-                c_dic['Mass Fraction'] = dic_m['Fraction']
+                c_dic["Atom Fraction"] = dic_a["Fraction"]
+                c_dic["Mass Fraction"] = dic_m["Fraction"]
                 complete_infos.append(c_dic)
 
-                i = i+1
+                i = i + 1
 
         df = pd.concat(infos)
         df_complete = pd.concat(complete_infos)
-        del df_complete['Fraction']
+        del df_complete["Fraction"]
 
         if zaids:
-            df.set_index(['Material', 'Submaterial', 'Element', 'Isotope'],
-                         inplace=True)
-            df_complete.set_index(['Material', 'Submaterial', 'Element',
-                                   'Isotope'], inplace=True)
+            df.set_index(
+                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
+            )
+            df_complete.set_index(
+                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
+            )
 
         else:
-            df.set_index(['Material', 'Submaterial', 'Element'], inplace=True)
-            df_complete.set_index(['Material', 'Submaterial', 'Element'],
-                                  inplace=True)
+            df.set_index(["Material", "Submaterial", "Element"], inplace=True)
+            df_complete.set_index(["Material", "Submaterial", "Element"], inplace=True)
 
         # Additional df containing normalized element fraction of submaterial
         # and material
 
         # Get total fractions
-        df_elem = df.groupby(['Material', 'Submaterial', 'Element']).sum()
-        df_sub = df.groupby(['Material', 'Submaterial']).sum()
-        df_mat = df.groupby(['Material']).sum()
+        df_elem = df.groupby(["Material", "Submaterial", "Element"]).sum()
+        df_sub = df.groupby(["Material", "Submaterial"]).sum()
+        df_mat = df.groupby(["Material"]).sum()
 
         # Compute percentages
         sub_percentage = []
@@ -1303,25 +1509,28 @@ class MatCardsList(Sequence):
         for idx, row in df_elem.iterrows():
             matID = idx[0]
             elemID = idx[1]
-            sub_percentage.append(row['Fraction'] /
-                                  df_sub['Fraction'].loc[(matID, elemID)])
-            mat_percentage.append(row['Fraction'] /
-                                  df_mat['Fraction'].loc[matID])
+            sub_percentage.append(
+                row["Fraction"] / df_sub["Fraction"].loc[(matID, elemID)]
+            )
+            mat_percentage.append(row["Fraction"] / df_mat["Fraction"].loc[matID])
 
-        df_elem['Sub-Material Fraction'] = sub_percentage
-        df_elem['Material Fraction'] = mat_percentage
+        df_elem["Sub-Material Fraction"] = sub_percentage
+        df_elem["Material Fraction"] = mat_percentage
 
         if complete:
             return df_complete, df_elem
         else:
             return df, df_elem
 
-    def generate_material(self, materials: list[str],
-                          percentages: list[float],
-                          newlib: str,
-                          libmanager: LibManager,
-                          fractiontype='atom',
-                          mat_name='M1') -> Material:
+    def generate_material(
+        self,
+        materials: list[str],
+        percentages: list[float],
+        newlib: str,
+        libmanager: LibManager,
+        fractiontype="atom",
+        mat_name="M1",
+    ) -> Material:
         """
         Starting from an MCNP input, materials contained in its material list
         can be used to generate a new material combining them.
@@ -1340,7 +1549,7 @@ class MatCardsList(Sequence):
             type of fraction to use in the new material (either 'atom' or
             'mass'. The default is 'atom'.
         mat_name : str, optional
-            Material card name of the new generated material. the default is 
+            Material card name of the new generated material. the default is
             'M1'
         Returns
         -------
@@ -1349,24 +1558,22 @@ class MatCardsList(Sequence):
 
         """
 
-        if re.match(r'^M\d{1,7}$', mat_name) is None:
-            print('\nMaterial name not valid, set to M1\n')
-            mat_name = 'M1'
+        if re.match(r"^M\d{1,7}$", mat_name) is None:
+            print("\nMaterial name not valid, set to M1\n")
+            mat_name = "M1"
 
         # Translate to requested lib
         self.translate(newlib, libmanager)
 
         # Collect all submaterials
         submaterials = []
-        main_header = ''
+        main_header = ""
         for materialname, percentage in zip(materials, percentages):
             materialname = materialname.upper()
-            percentage_str = str(round(float(percentage)*100, 2))+'%'
-            main_header = (
-                '{}C Material: {} Percentage: {} ({})\n'.format(main_header,
-                                                                materialname,
-                                                                percentage_str,
-                                                                fractiontype))
+            percentage_str = str(round(float(percentage) * 100, 2)) + "%"
+            main_header = "{}C Material: {} Percentage: {} ({})\n".format(
+                main_header, materialname, percentage_str, fractiontype
+            )
             material = copy.deepcopy(self[materialname])
             # Ensure materials have the requested fraction type
             material.switch_fraction(fractiontype, libmanager)
@@ -1376,29 +1583,30 @@ class MatCardsList(Sequence):
             current_submaterials = []
             for j, submat in enumerate(material.submaterials):
                 # normalized & scaled
-                norm_factor = float(percentage)/totfraction
-                if fractiontype == 'mass':
+                norm_factor = float(percentage) / totfraction
+                if fractiontype == "mass":
                     norm_factor = -norm_factor
                 submat.scale_fractions(norm_factor)
                 submat._update_info(libmanager)
                 # Add info to the header in order to back-trace the generation
-                submat.header = (
-                    'C {}, submaterial {}\n{}'.format(materialname,
-                                                      j+1,
-                                                      submat.header))
+                submat.header = "C {}, submaterial {}\n{}".format(
+                    materialname, j + 1, submat.header
+                )
                 # Drop additional keys if present
                 submat.additional_keys = []
                 current_submaterials.append(submat)
 
             # Change the header of the first submaterial to include the mat. 1
-            new_sub_header = (material.header +
-                              current_submaterials[0].header).strip('\n')
+            new_sub_header = (material.header + current_submaterials[0].header).strip(
+                "\n"
+            )
             current_submaterials[0].header = new_sub_header
             submaterials.extend(current_submaterials)
 
         # Generate new material and matlist
-        newmat = Material(None, None, mat_name, submaterials=submaterials,
-                          header=main_header)
+        newmat = Material(
+            None, None, mat_name, submaterials=submaterials, header=main_header
+        )
 
         return newmat
 
