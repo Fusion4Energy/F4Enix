@@ -1363,7 +1363,9 @@ class MatCardsList(Sequence):
 
         return ET.tostring(material_tree, encoding="unicode", method="xml")
 
-    def translate(self, newlib: str | dict, lib_manager: LibManager) -> None:
+    def translate(
+        self, newlib: str | dict, lib_manager: LibManager, code: str = "mcnp"
+    ) -> None:
         """
         This method allows to translate the material cards to another library.
         The zaid are collapsed again to get the new elements
