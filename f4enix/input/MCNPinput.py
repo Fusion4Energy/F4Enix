@@ -4,6 +4,7 @@ This module is related to the parsing and manipulation of MCNP input files.
 The parser is built on the numjuggler python module.
 
 """
+
 from __future__ import annotations
 
 """
@@ -1106,6 +1107,38 @@ class Input:
                 break
         # reset universe private value (i know this is not a good practice, tbd)
         cell._Card__u = None
+
+    def add_stopCard(self, nps):
+        """
+        Add STOP card
+
+        Parameters
+        ----------
+        nps : int
+            number of particles to simulate.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        line = "STOP "
+        if nps is not None:
+            try:
+                line = line + "NPS " + str(int(nps)) + " "
+            except ValueError:
+                pass  # an escaped NaN
+        if line == "STOP ":
+            raise ValueError(
+                """
+Specify an nps for the simulation"""
+            )
+
+        line = line + "\n"
+
+        card = parser.Card([line], 5, -1)
+        self.other_data["STOP"] = card
 
 
 class D1S_Input(Input):

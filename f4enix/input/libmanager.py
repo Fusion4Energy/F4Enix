@@ -50,11 +50,6 @@ XSDIR_CLASS = {
 }
 MCNP_TYPE_XSDIR = ["mcnp", "d1s", "serpent"]
 
-DATAPATH = (
-    os.path.join(os.getenv("DATAPATH", ""), "xsdir_mcnp6.2")
-    if os.getenv("DATAPATH")
-    else None
-)
 # colors
 CRED = "\033[91m"
 CEND = "\033[0m"
@@ -166,7 +161,7 @@ class LibManager:
             resources = files(pkg_res)
             iso_file = as_file(resources.joinpath("Isotopes.txt"))
         else:
-            iso_file = as_file(isotopes_file)
+            iso_file = as_file(Path(isotopes_file))
 
         self.isotope_parser = IsotopeDataParser(iso_file)
         self.isotopes = self.isotope_parser.isotopes
@@ -265,7 +260,8 @@ class LibManager:
         # Load the activation reaction data if available
         reactions = {}
         if activationfile is not None:
-            file = pd.ExcelFile(activationfile)
+            with as_file(Path(activationfile)) as infile:
+                file = pd.ExcelFile(infile)
         else:
             resources = files(pkg_res)
             with as_file(resources.joinpath("activation_libs.xlsx")) as infile:
