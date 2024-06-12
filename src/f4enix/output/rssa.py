@@ -1,7 +1,9 @@
 """This module is related to the parsing of D1S-UNED meshinfo files.
 
 """
+
 from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or -
@@ -81,7 +83,7 @@ class RSSA:
         The amount of independent histories that reached the RSSA surfaces was 70797.
 
         """
-        self.filename = os.path.basename(file).split('.')[0]
+        self.filename = os.path.basename(file).split(".")[0]
         self.parameters, self.tracks = self._read_rssa(file)
 
     def __repr__(self) -> str:
@@ -92,7 +94,7 @@ class RSSA:
 
     @staticmethod
     def _read_rssa(filename: str) -> tuple[dict, np.array]:
-        with open(filename, 'rb') as infile:
+        with open(filename, "rb") as infile:
             # This parameters hold information like the amount of histories or
             # the amount of tracks recorded
             parameters = _read_header(infile)
@@ -100,8 +102,9 @@ class RSSA:
 
         return parameters, tracks
 
-    def _calculate_grid_axes_cyl(self, z_int: int, theta_int: int,
-                                 mask: np.ndarray = None):
+    def _calculate_grid_axes_cyl(
+        self, z_int: int, theta_int: int, mask: np.ndarray = None
+    ):
         """The axes are calculated without taking into account the type of
         particle"""
         if mask is None:
@@ -119,18 +122,23 @@ class RSSA:
         return z_axis, theta_axis
 
     def _generate_figures_current_cyl(
-            self, particle: str = 'n', z_int: int = 10, theta_int: int = 10,
-            source_intensity: float = 1.7757e20,
-            value_range: tuple[float, float] = None,
-            mask: np.ndarray = None) -> tuple[plt.Figure, plt.Figure]:
+        self,
+        particle: str = "n",
+        z_int: int = 10,
+        theta_int: int = 10,
+        source_intensity: float = 1.7757e20,
+        value_range: tuple[float, float] = None,
+        mask: np.ndarray = None,
+    ) -> tuple[plt.Figure, plt.Figure]:
 
         particle_mask = self._get_particle_mask(particle)
         if mask is not None:  # Apply to the mask a geom filter done earlier
             particle_mask = np.intersect1d(particle_mask, mask)
 
         # Create the empty grid
-        z_axis, theta_axis = self._calculate_grid_axes_cyl(z_int, theta_int,
-                                                           particle_mask)
+        z_axis, theta_axis = self._calculate_grid_axes_cyl(
+            z_int, theta_int, particle_mask
+        )
         grid_values = np.zeros((z_int, theta_int))
         error_grid = np.zeros((z_int, theta_int))
 
@@ -148,11 +156,15 @@ class RSSA:
         # Normalize values
         # radius of the cylinder
         radius = np.linalg.norm([self.x[0], self.y[0]])
-        extent = [radius*theta_axis[0], radius*theta_axis[-1],
-                  z_axis[0], z_axis[-1]]  # used in the plotting
-        area = abs(radius*(theta_axis[1]-theta_axis[0])*(z_axis[1]-z_axis[0]))
+        extent = [
+            radius * theta_axis[0],
+            radius * theta_axis[-1],
+            z_axis[0],
+            z_axis[-1],
+        ]  # used in the plotting
+        area = abs(radius * (theta_axis[1] - theta_axis[0]) * (z_axis[1] - z_axis[0]))
         grid_values /= area
-        grid_values /= abs(self.parameters['np1'])  # grid /= nps
+        grid_values /= abs(self.parameters["np1"])  # grid /= nps
         grid_values *= source_intensity
         # Give a relative error of 1 to empty voxels
         error_grid[np.where(error_grid == 0)] = 1
@@ -163,11 +175,11 @@ class RSSA:
         ax_values: plt.Axes = figure_values.add_subplot()
         ax_values.set_xlabel("Perimeter of the cylinder (cm)")
         ax_values.set_ylabel("Z (cm)")
-        if particle == 'n':
+        if particle == "n":
             ax_values.set_title("Neutron current through the surface [#/cm2/s]")
         else:
             ax_values.set_title("Photon current through the surface [#/cm2/s]")
-        ax_values.imshow(grid_values, origin='lower', extent=extent)
+        ax_values.imshow(grid_values, origin="lower", extent=extent)
         # Set the colors to log range
         if value_range is not None:
             log_max = int(np.log10(value_range[1]))
@@ -179,12 +191,12 @@ class RSSA:
         decades = log_max - log_min
         image_values = ax_values.images[0]
         # set the colormap and number of bins
-        image_values.cmap = plt.get_cmap('jet', decades)
+        image_values.cmap = plt.get_cmap("jet", decades)
         # set the scale as log
-        image_values.norm = colors.LogNorm(np.power(10., log_min),
-                                           np.power(10., log_max))
-        _color_bar = figure_values.colorbar(image_values,
-                                            orientation='horizontal')
+        image_values.norm = colors.LogNorm(
+            np.power(10.0, log_min), np.power(10.0, log_max)
+        )
+        _color_bar = figure_values.colorbar(image_values, orientation="horizontal")
 
         # Generate the errors figure
         figure_errors: plt.Figure = plt.figure()
@@ -193,28 +205,33 @@ class RSSA:
         ax_errors.set_ylabel("Z (cm)")
         ax_errors.set_title("Relative error as 1/sqrt(N)")
         norm = colors.Normalize(0, 1)
-        color_map = plt.get_cmap('jet', 10)
-        ax_errors.imshow(error_grid, cmap=color_map, norm=norm,
-                         origin='lower', extent=extent)
+        color_map = plt.get_cmap("jet", 10)
+        ax_errors.imshow(
+            error_grid, cmap=color_map, norm=norm, origin="lower", extent=extent
+        )
         image_errors = ax_errors.images[0]
-        figure_errors.colorbar(image_errors, orientation='horizontal')
+        figure_errors.colorbar(image_errors, orientation="horizontal")
 
         # Print information about the grid
         print(f"The area of a cell is {area:.2f}cm2")
-        print(f"The resolution is {radius * (theta_axis[1] - theta_axis[0]):.2f}cm x {z_axis[1] - z_axis[0]:.2f}cm")
+        print(
+            f"The resolution is {radius * (theta_axis[1] - theta_axis[0]):.2f}cm x {z_axis[1] - z_axis[0]:.2f}cm"
+        )
 
         return figure_values, figure_errors
 
-    def plot_cyl(self,
-                 particle: str = 'n',
-                 z_int: int = 10,
-                 theta_int: int = 10,
-                 norm: float = 1,
-                 value_range: tuple[float, float] = None,
-                 x_range: tuple[float, float] = None,
-                 z_range: tuple[float, float] = None,
-                 outfolder: os.PathLike = None,
-                 filename: str = None) -> tuple[plt.Figure, plt.Figure]:
+    def plot_cyl(
+        self,
+        particle: str = "n",
+        z_int: int = 10,
+        theta_int: int = 10,
+        norm: float = 1,
+        value_range: tuple[float, float] = None,
+        x_range: tuple[float, float] = None,
+        z_range: tuple[float, float] = None,
+        outfolder: os.PathLike = None,
+        filename: str = None,
+    ) -> tuple[plt.Figure, plt.Figure]:
         """Plot the cylinder surface of RSSA.
 
         Parameters
@@ -256,7 +273,7 @@ class RSSA:
             # radius of the cylinder
             radius = np.linalg.norm([self.x[0], self.y[0]])
             # Perimeter of the cylinder values, x values in the plot x-axis
-            x_values = radius*thetas
+            x_values = radius * thetas
             mask1 = np.where(x_values > x_range[0])
             mask2 = np.where(x_values < x_range[1])
             mask = np.intersect1d(mask, mask1)
@@ -269,46 +286,51 @@ class RSSA:
             theta_int=theta_int,
             source_intensity=norm,
             value_range=value_range,
-            mask=mask)
+            mask=mask,
+        )
 
         if outfolder is not None:
             if filename is None:
-                filename = '{}_{}_z{}_theta{}'.format(self.filename, particle,
-                                                      z_int, theta_int)
+                filename = "{}_{}_z{}_theta{}".format(
+                    self.filename, particle, z_int, theta_int
+                )
 
-            outval = os.path.join(outfolder, filename+'.jpeg')
-            outerr = os.path.join(outfolder, filename+'_errors.jpeg')
+            outval = os.path.join(outfolder, filename + ".jpeg")
+            outerr = os.path.join(outfolder, filename + "_errors.jpeg")
 
-            figure_values.savefig(outval, format='jpeg', dpi=1200)
-            figure_errors.savefig(outerr + '_errors.jpeg', format='jpeg',
-                                  dpi=1200)
+            figure_values.savefig(outval, format="jpeg", dpi=1200)
+            figure_errors.savefig(outerr + "_errors.jpeg", format="jpeg", dpi=1200)
         return figure_values, figure_errors
 
     def _get_info(self) -> str:
-        info = f'RSSA file {self.filename} was recorded using the following surfaces:\n'
-        for surface in self.parameters['surfaces']:
+        info = f"RSSA file {self.filename} was recorded using the following surfaces:\n"
+        for surface in self.parameters["surfaces"]:
             info += f'  Surface id: {surface["id"]}\n'
 
         sur_type = self.type
-        if sur_type == 'cyl':
-            info += f'The surface type is a cylinder with a radius of {np.linalg.norm([self.x[0], self.y[0]]):.2f}\n'
-        elif sur_type == 'plane':
-            info += f'The surface type is a plane...\n'
+        if sur_type == "cyl":
+            info += f"The surface type is a cylinder with a radius of {np.linalg.norm([self.x[0], self.y[0]]):.2f}\n"
+        elif sur_type == "plane":
+            info += f"The surface type is a plane...\n"
 
         n_tracks = self.tracks[self.mask_neutron_tracks].shape[0]
         p_tracks = self.tracks[self.mask_photon_tracks].shape[0]
-        info += f'The total amount of tracks recorded is {self.parameters["nrss"]}, of which {n_tracks} were neutrons' \
-                f' and {p_tracks} were photons.\n'
+        info += (
+            f'The total amount of tracks recorded is {self.parameters["nrss"]}, of which {n_tracks} were neutrons'
+            f" and {p_tracks} were photons.\n"
+        )
 
-        info += f'The simulation that produced this RSSA run {np.abs(self.parameters["np1"])} histories\n' \
-                f'The amount of independent histories that reached the RSSA surfaces was {self.parameters["niss"]}.\n'
+        info += (
+            f'The simulation that produced this RSSA run {np.abs(self.parameters["np1"])} histories\n'
+            f'The amount of independent histories that reached the RSSA surfaces was {self.parameters["niss"]}.\n'
+        )
         return info
 
     @property
     def mask_neutron_tracks(self) -> np.ndarray:
-        '''
+        """
         The neutron tracks
-        '''
+        """
         # Get all the bitarrays and don't pay attention to the sign
         bitarrays = np.abs(self.tracks[:, 1])
         # Neutrons start with 8 and photons with 16 followed by 1e8
@@ -317,9 +339,9 @@ class RSSA:
 
     @property
     def mask_photon_tracks(self) -> np.array:
-        '''
+        """
         The photon tracks
-        '''
+        """
         # Get all the bitarrays and don't pay attention to the sign
         bitarrays = np.abs(self.tracks[:, 1])
         # Neutrons start with 8 and photons with 16 followed by 1e8
@@ -327,70 +349,70 @@ class RSSA:
         return p_tracks
 
     def _get_particle_mask(self, particle: str):
-        if particle == 'n':
+        if particle == "n":
             return self.mask_neutron_tracks
-        elif particle == 'p':
+        elif particle == "p":
             return self.mask_photon_tracks
         else:
             raise ValueError(f"Particle was {particle}, not n or p...")
 
     @property
     def x(self) -> np.ndarray:
-        '''
+        """
         x positions
-        '''
+        """
         return self.tracks[:, 5]
 
     @property
     def y(self) -> np.ndarray:
-        '''
+        """
         y positions
-        '''
+        """
         return self.tracks[:, 6]
 
     @property
     def z(self) -> np.ndarray:
-        '''
+        """
         z positions
-        '''
+        """
         return self.tracks[:, 7]
 
     @property
     def wgt(self) -> np.ndarray:
-        '''
+        """
         weights
-        '''
+        """
         return self.tracks[:, 2]
 
     @property
     def energies(self) -> np.ndarray:
-        '''
+        """
         energies
-        '''
+        """
         return self.tracks[:, 3]
 
     @property
     def histories(self) -> np.ndarray:
-        '''
+        """
         histories
-        '''
+        """
         return np.abs(self.tracks[:, 0])
 
     @property
     def type(self):
-        '''
+        """
         RSSA surface type
-        '''
+        """
         # If there are more than 1 surf we cannot say if it is a cyl or a plane
-        if len(self.parameters['surfaces']) > 1:
-            return 'multiple'
+        if len(self.parameters["surfaces"]) > 1:
+            return "multiple"
         # Assume it is a cyl and calculate the radius of its tracks
         # if they are different it is a plane
-        radius = np.sqrt(self.x ** 2 + self.y ** 2)
+        radius = np.sqrt(self.x**2 + self.y**2)
         if np.std(radius) < 1e-4:
-            return 'cyl'
+            return "cyl"
         else:
-            return 'plane'
+            return "plane"
 
 
 # --- Helper Functions ---
@@ -400,7 +422,8 @@ def _read_fortran_record(file: BinaryIO):
     count_2 = np.fromfile(file, INT, 1)[0]
     if count_1 != count_2:
         raise ValueError(
-            "The integers that go before and after the Fortran record are not equal...")
+            "The integers that go before and after the Fortran record are not equal..."
+        )
     return data
 
 
@@ -408,14 +431,16 @@ def _read_header(file: BinaryIO) -> Dict:
     # First record
     data = _read_fortran_record(file)
     # The first line of the file with information like the code version, date and title
-    format_record_id = data.tobytes().decode('UTF-8')
-    if 'd1suned' in format_record_id:
+    format_record_id = data.tobytes().decode("UTF-8")
+    if "d1suned" in format_record_id:
         # TODO: we could parse and store information like datetime and title
         _last_dump = np.frombuffer(data[-4:], INT)
         pass
     else:
-        raise NotImplementedError(f'The code that generated this RSSA file has not been implemented'
-                                  f' in this parser, see the code here: {format_record_id}...')
+        raise NotImplementedError(
+            f"The code that generated this RSSA file has not been implemented"
+            f" in this parser, see the code here: {format_record_id}..."
+        )
 
     # Second record
     data = _read_fortran_record(file)
@@ -426,7 +451,8 @@ def _read_header(file: BinaryIO) -> Dict:
     niss = np.frombuffer(data, LONG, 1, 24)[0]
     if nrcd != 11:
         raise NotImplementedError(
-            f"The amount of values recorded for each particle should be 11 instead of {nrcd}...")
+            f"The amount of values recorded for each particle should be 11 instead of {nrcd}..."
+        )
 
     # Third record
     if np1 < 0:
@@ -434,20 +460,21 @@ def _read_header(file: BinaryIO) -> Dict:
         niwr, mipts, kjaq = np.frombuffer(data, INT, 3)
     else:
         raise NotImplementedError(
-            "The np1 value is not negative, as far as we understand it should be negative...")
+            "The np1 value is not negative, as far as we understand it should be negative..."
+        )
 
     # Fourth record
     surfaces = []
     for i in range(njsw):
         data = _read_fortran_record(file)
-        surface = {'id': np.frombuffer(data, INT, 1, 0)[0]}
+        surface = {"id": np.frombuffer(data, INT, 1, 0)[0]}
         if kjaq == 1:
-            surface['info'] = np.frombuffer(data, INT, 1, 4)[0]
+            surface["info"] = np.frombuffer(data, INT, 1, 4)[0]
         else:
-            surface['info'] = -1
-        surface['type'] = np.frombuffer(data, INT, 1, 8)[0]
-        surface['num_params'] = np.frombuffer(data, INT, 1, 12)[0]
-        surface['params'] = np.frombuffer(data, INT, offset=16)
+            surface["info"] = -1
+        surface["type"] = np.frombuffer(data, INT, 1, 8)[0]
+        surface["num_params"] = np.frombuffer(data, INT, 1, 12)[0]
+        surface["params"] = np.frombuffer(data, INT, offset=16)
         surfaces.append(surface)
 
     # we read any extra records as determined by njsw+niwr...
@@ -455,21 +482,24 @@ def _read_header(file: BinaryIO) -> Dict:
     for j in range(njsw, njsw + niwr):
         _data = _read_fortran_record(file)
         raise NotImplementedError(
-            'njsw + niwr values are bigger than njsw, behavior not explained')
+            "njsw + niwr values are bigger than njsw, behavior not explained"
+        )
 
     # Summary record
     _data = _read_fortran_record(file)
     # Summary record not processed, its information does not interest us for now
 
-    parameters = {'np1': np1,  # Number of histories of the simulation, given as a negative number
-                  'nrss': nrss,  # Number of tracks recorded
-                  'nrcd': nrcd,  # Number of values recorded for each particle, it should be 11
-                  'njsw': njsw,  # Number of surfaces in JASW
-                  'niss': niss,  # Number of different histories that reached the SSW surfaces
-                  'niwr': niwr,  # Number of cells in RSSA file
-                  'mipts': mipts,  # Source particle type
-                  'kjaq': kjaq,  # Flag for macrobodies surfaces
-                  'surfaces': surfaces}
+    parameters = {
+        "np1": np1,  # Number of histories of the simulation, given as a negative number
+        "nrss": nrss,  # Number of tracks recorded
+        "nrcd": nrcd,  # Number of values recorded for each particle, it should be 11
+        "njsw": njsw,  # Number of surfaces in JASW
+        "niss": niss,  # Number of different histories that reached the SSW surfaces
+        "niwr": niwr,  # Number of cells in RSSA file
+        "mipts": mipts,  # Source particle type
+        "kjaq": kjaq,  # Flag for macrobodies surfaces
+        "surfaces": surfaces,
+    }
     return parameters
 
 

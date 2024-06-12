@@ -162,7 +162,9 @@ def test_read_meshtally_file_cart():
         ]
     ]
 
-    result = read_meshtally_file(Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart")
+    result = read_meshtally_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart"
+    )
 
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
@@ -193,7 +195,9 @@ def test_read_meshtally_file_cyl():
     )
     expected_energies = [[100]]
 
-    result = read_meshtally_file(Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl")
+    result = read_meshtally_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl"
+    )
 
     assert expected_ww_header == result.header
     # TODO: In meshtal_module the first item of vector_i is modified if 0
@@ -313,7 +317,9 @@ def test_write_complex_cart(tmp_path):
         [123, 3],
     ]
 
-    with open(Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart") as infile:
+    with open(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
+    ) as infile:
         expected = infile.read()
 
     write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
