@@ -4,7 +4,9 @@ Parsing of D1S-UNED additional files
 Parsers for the irradiation and reaction files necessary for Direct-1-Step
 calculation using D1S-UNED.
 """
+
 from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -27,15 +29,19 @@ from f4enix.input.libmanager import LibManager
 
 # PAT_COMMENT = re.compile('[Cc]+')
 
-REACFORMAT = '{:>13s}{:>7s}{:>9s}{:>40s}'
+REACFORMAT = "{:>13s}{:>7s}{:>9s}{:>40s}"
 
 
 class IrradiationFile:
 
-    def __init__(self, nsc: int, irr_schedules: list[Irradiation],
-                 header: str = None,
-                 formatting: list[int] = [8, 14, 13, 9],
-                 name: str = 'irrad') -> None:
+    def __init__(
+        self,
+        nsc: int,
+        irr_schedules: list[Irradiation],
+        header: str = None,
+        formatting: list[int] = [8, 14, 13, 9],
+        name: str = "irrad",
+    ) -> None:
         """
         Object representing an irradiation D1S-UNED file.
 
@@ -106,11 +112,11 @@ class IrradiationFile:
         w3 = str(formatting[2])
         w4 = str(formatting[3])
 
-        head = '{:>'+w1+'s}{:>'+w2+'s}{:>'
+        head = "{:>" + w1 + "s}{:>" + w2 + "s}{:>"
         for i in range(nsc):
-            head += w3+'s}{:>'
+            head += w3 + "s}{:>"
 
-        head += w4+'s}'
+        head += w4 + "s}"
 
         self._irrformat = head
         self.name = name
@@ -172,13 +178,13 @@ class IrradiationFile:
         None.
 
         """
-        logging.info('Parsing {}'.format(filepath))
-        pat_nsc = re.compile('(?i)(nsc)')
-        pat_num = re.compile(r'\d+')
+        logging.info("Parsing {}".format(filepath))
+        pat_nsc = re.compile("(?i)(nsc)")
+        pat_num = re.compile(r"\d+")
         # name = os.path.basename(filepath)
-        with open(filepath, 'r') as infile:
+        with open(filepath, "r") as infile:
             inheader = True
-            header = ''
+            header = ""
             irr_schedules = []
             for line in infile:
                 # check if we need to exit header mode
@@ -192,12 +198,14 @@ class IrradiationFile:
                 # data
                 else:
                     # Avoid comments and blank lines
-                    if (PAT_BLANK.match(line) is None and
-                            PAT_COMMENT.match(line) is None):
+                    if (
+                        PAT_BLANK.match(line) is None
+                        and PAT_COMMENT.match(line) is None
+                    ):
 
                         irr_schedules.append(Irradiation.from_text(line, nsc))
 
-        logging.info('{} correctly parsed'.format(filepath))
+        logging.info("{} correctly parsed".format(filepath))
 
         return cls(nsc, irr_schedules, header=header)
 
@@ -217,31 +225,32 @@ class IrradiationFile:
 
         """
         filepath = os.path.join(path, self.name)
-        with open(filepath, 'w') as outfile:
+        with open(filepath, "w") as outfile:
             if self.header is not None:
                 outfile.write(self.header)
             # write nsc
-            outfile.write('nsc '+str(self.nsc)+'\n')
+            outfile.write("nsc " + str(self.nsc) + "\n")
 
             # --- Write irradiation schedules ---
             # write header
-            args = ['Daught.', 'lambda(1/s)']
+            args = ["Daught.", "lambda(1/s)"]
             for i in range(self.nsc):
-                args.append('time_fact_'+str(i+1))
-            args.append('comments')
-            outfile.write('C '+self._irrformat.format(*args)+'\n')
+                args.append("time_fact_" + str(i + 1))
+            args.append("comments")
+            outfile.write("C " + self._irrformat.format(*args) + "\n")
 
             # write schedules
             for schedule in self.irr_schedules:
                 args = schedule._get_format_args()
-                outfile.write(self._irrformat.format(*args)+'\n')
+                outfile.write(self._irrformat.format(*args) + "\n")
 
-        logging.info('Irradiation file written at {}'.format(outfile))
+        logging.info("Irradiation file written at {}".format(outfile))
 
 
 class Irradiation:
-    def __init__(self, daughter: str, lambd: str, times: list[str],
-                 comment: str = None) -> None:
+    def __init__(
+        self, daughter: str, lambd: str, times: list[str], comment: str = None
+    ) -> None:
         """
         Irradiation object
 
@@ -294,7 +303,7 @@ class Irradiation:
             else:
                 times_eq = False
 
-            condition = (daugther_eq and lamb_eq and times_eq)
+            condition = daugther_eq and lamb_eq and times_eq
 
             return condition
         else:
@@ -322,7 +331,7 @@ class Irradiation:
         """
         pieces = PAT_SPACE.split(text)
         # Check for empty start
-        if pieces[0] == '':
+        if pieces[0] == "":
             pieces.pop(0)
 
         daughter = pieces[0]
@@ -334,14 +343,14 @@ class Irradiation:
             times.append(pieces[j])
             j += 1
         # Get comment
-        comment = ''
+        comment = ""
         try:
             for piece in pieces[j:]:
-                comment += ' '+piece
+                comment += " " + piece
         except IndexError:
             comment = None
 
-        if comment == '':
+        if comment == "":
             comment = None
         else:
             comment = comment.strip()
@@ -361,7 +370,9 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(self.daughter, self.lambd, self.times, self.comment)
+""".format(
+            self.daughter, self.lambd, self.times, self.comment
+        )
 
         return text
 
@@ -373,7 +384,7 @@ comment: {}
 
 
 class ReactionFile:
-    def __init__(self, reactions: list[Reaction], name: str = 'react') -> None:
+    def __init__(self, reactions: list[Reaction], name: str = "react") -> None:
         """
         Reaction file object
 
@@ -424,17 +435,16 @@ class ReactionFile:
 
         """
         # read all reactions
-        logging.info('Parsing {}'.format(filepath))
+        logging.info("Parsing {}".format(filepath))
         reactions = []
-        with open(filepath, 'r') as infile:
+        with open(filepath, "r") as infile:
             for line in infile:
                 # Ignore if it is a blank line or a full line comment
-                if (PAT_BLANK.match(line) is None and
-                        PAT_COMMENT.match(line) is None):
+                if PAT_BLANK.match(line) is None and PAT_COMMENT.match(line) is None:
                     # parse reactions
                     reaction = Reaction.from_text(line)
                     reactions.append(reaction)
-        logging.info('{} correctly parsed'.format(filepath))
+        logging.info("{} correctly parsed".format(filepath))
 
         return cls(reactions)  # , name=os.path.basename(filepath))
 
@@ -450,7 +460,7 @@ class ReactionFile:
         """
         parents = []
         for reaction in self.reactions:
-            parent = reaction.parent.split('.')[0]
+            parent = reaction.parent.split(".")[0]
             if parent not in parents:
                 parents.append(parent)
         return sorted(set(parents))
@@ -476,7 +486,7 @@ class ReactionFile:
         # Correctly parse the lib input. It may be a dic than only the
         # first dic value needs to be cosidered
         pat_libs = re.compile(r'"\d\d[a-zA-Z]"')
-        if newlib[0] == '{':
+        if newlib[0] == "{":
             libs = pat_libs.findall(newlib)
             lib = libs[1][1:-1]
         else:
@@ -489,12 +499,12 @@ class ReactionFile:
                 reaction.change_lib(lib)
             else:
                 # get the available libraries for the parent
-                zaid = reaction.parent.split('.')[0]
+                zaid = reaction.parent.split(".")[0]
                 libs = libmanager.check4zaid(zaid)
                 if newlib in libs:
                     reaction.change_lib(lib)
                 else:
-                    warning = '{} is not available in xsdir, not translated'
+                    warning = "{} is not available in xsdir, not translated"
                     logging.warning(warning.format(zaid))
 
     def write(self, path: os.PathLike) -> None:
@@ -512,15 +522,15 @@ class ReactionFile:
 
         """
         filepath = os.path.join(path, self.name)
-        with open(filepath, 'w') as outfile:
+        with open(filepath, "w") as outfile:
             for reaction in self.reactions:
-                outfile.write(REACFORMAT.format(*reaction._get_text())+'\n')
-        logging.info('Reaction file written at {}'.format(outfile))
+                outfile.write(REACFORMAT.format(*reaction._get_text()) + "\n")
+        logging.info("Reaction file written at {}".format(outfile))
 
     def _print(self) -> str:
-        text = REACFORMAT.format('Parent', 'MT', 'Daughter', 'Comment')+'\n'
+        text = REACFORMAT.format("Parent", "MT", "Daughter", "Comment") + "\n"
         for reaction in self.reactions:
-            text = text+REACFORMAT.format(*reaction._get_text())+'\n'
+            text = text + REACFORMAT.format(*reaction._get_text()) + "\n"
         return text
 
     def __repr__(self) -> str:
@@ -531,8 +541,9 @@ class ReactionFile:
 
 
 class Reaction:
-    def __init__(self, parent: str, MT: int | str, daughter: str,
-                 comment: str = None) -> None:
+    def __init__(
+        self, parent: str, MT: int | str, daughter: str, comment: str = None
+    ) -> None:
         """
         Represents a single reaction of the reaction file
 
@@ -590,9 +601,9 @@ class Reaction:
         None.
 
         """
-        pieces = self.parent.split('.')
+        pieces = self.parent.split(".")
         # Override lib
-        self.parent = pieces[0]+'.'+newlib
+        self.parent = pieces[0] + "." + newlib
 
     def _get_text(self) -> list[str]:
         """
@@ -607,7 +618,7 @@ class Reaction:
         # compute text
         textpieces = [self.parent, self.MT, self.daughter]
         if self.comment is None:
-            comment = ''
+            comment = ""
         else:
             comment = self.comment
         textpieces.append(comment)
@@ -620,7 +631,9 @@ parent: {}
 MT channel: {}
 daughter: {}
 comment: {}
-""".format(self.parent, self.MT, self.daughter, self.comment)
+""".format(
+            self.parent, self.MT, self.daughter, self.comment
+        )
         return text
 
     @classmethod
@@ -647,10 +660,10 @@ comment: {}
         MT = pieces[1]
         daughter = pieces[2]
         # the rest is comments
-        comment = ''
+        comment = ""
         if len(pieces) > 3:
             for piece in pieces[3:]:
-                comment = comment+' '+piece
+                comment = comment + " " + piece
 
         comment = comment.strip()
 

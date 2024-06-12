@@ -13,8 +13,12 @@ from tests.test_ww_gvr.resources import expected_values_ww_complex_cart
 
 
 def test_init_ww_from_ww_file_cart_simple():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
-    assert ww.file_path == Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
+    assert (
+        ww.file_path == Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     assert ww.particles == [ParticleType.NEUTRON]
     assert ww.geometry.coordinate_type == CoordinateType.CARTESIAN
     assert ww.geometry.director_1 is None
@@ -44,7 +48,9 @@ def test_init_ww_from_ww_file_cart_simple():
 
 
 def test_init_ww_from_ww_file_cyl_simple():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl"
+    )
     assert ww.geometry.coordinate_type == CoordinateType.CYLINDRICAL
     assert ww.geometry.director_1 == [0.0, 0.0, 11.0]
     assert ww.geometry.director_2 == [15.0, 0.0, -5.0]
@@ -55,7 +61,9 @@ def test_init_ww_from_ww_file_cyl_simple():
 
 
 def test_init_ww_from_ww_complex_cart():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
+    )
 
     assert ww.particles == [ParticleType.NEUTRON, ParticleType.PHOTON]
 
@@ -74,7 +82,9 @@ def test_init_ww_from_ww_complex_cart():
 
 
 def test_values_setter_recalculates_ratios():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
 
     # Create a grid with 8 cells for convenience, Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart" only has 6 cells
     dummy_grid = pv.StructuredGrid()
@@ -120,14 +130,17 @@ def test_create_gvr_from_meshtally_file_cart():
     MAX_FLUX = flat_values.max()
     expected_values = flat_values / MAX_FLUX * 2 / (MAXIMUM_SPLITTING_RATIO + 1)
 
-    ww = WW.create_gvr_from_meshtally_file(Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart")
+    ww = WW.create_gvr_from_meshtally_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart"
+    )
     _nested_energies, nested_values = ww._format_nested_energies_and_values()
     result_flat_values = np.array(nested_values[0])
 
     assert_array_almost_equal(expected_values, result_flat_values)
 
     softened_ww = WW.create_gvr_from_meshtally_file(
-        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart", softening_factor=0.5
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart",
+        softening_factor=0.5,
     )
 
     assert np.allclose(
@@ -137,16 +150,22 @@ def test_create_gvr_from_meshtally_file_cart():
 
 
 def test_info():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
 
-    with open(Path("tests") / "test_ww_gvr" / "resources" / "expected_info_simple_cart.txt" ) as infile:
+    with open(
+        Path("tests") / "test_ww_gvr" / "resources" / "expected_info_simple_cart.txt"
+    ) as infile:
         expected = infile.read()
 
     assert ww.info == expected
 
 
 def test_repr():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     assert repr(ww) == ww.info
 
 
@@ -155,7 +174,7 @@ def test_repr():
     [
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart",
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl",
-        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart",
     ],
 )
 def test_write_to_ww_file(tmp_path, ww_file):
@@ -172,7 +191,9 @@ def test_write_to_ww_file(tmp_path, ww_file):
 
 
 def test_write_to_ww_file_no_path(tmp_path):
-    shutil.copy(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart", tmp_path)
+    shutil.copy(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart", tmp_path
+    )
     tmp_ww_path = Path(tmp_path / "ww_simple_cart")
 
     original_ww = WW.load_from_ww_file(tmp_ww_path)
@@ -189,7 +210,10 @@ def test_write_to_ww_file_no_path(tmp_path):
 
 @pytest.mark.parametrize(
     "ww_file",
-    [Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart", Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl"],
+    [
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart",
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl",
+    ],
 )
 def test_write_to_ww_file_gvr(tmp_path, ww_file):
     original_ww = WW.create_gvr_from_meshtally_file(ww_file)
@@ -211,7 +235,7 @@ def test_write_to_ww_file_gvr(tmp_path, ww_file):
     [
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart",
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cyl",
-        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart",
     ],
 )
 def test_export_as_vtk(tmp_path, ww_file):
@@ -224,7 +248,9 @@ def test_export_as_vtk(tmp_path, ww_file):
 
 
 def test_export_as_vtk_no_path(tmp_path):
-    shutil.copy(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart", tmp_path)
+    shutil.copy(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart", tmp_path
+    )
     tmp_ww_path = Path(tmp_path / "ww_simple_cart")
 
     ww = WW.load_from_ww_file(tmp_ww_path)
@@ -236,7 +262,9 @@ def test_export_as_vtk_no_path(tmp_path):
 
 
 def test_export_as_vtk_wrong_suffix(tmp_path):
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     ww.export_as_vtk(tmp_path / "test.wrong")
 
     written_grid = pv.read(tmp_path / "test.vts")
@@ -245,7 +273,9 @@ def test_export_as_vtk_wrong_suffix(tmp_path):
 
 
 def test_soften():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     original_ratios = ww.ratios[ParticleType.NEUTRON][100.0].copy()
 
     ww.soften(0.5)
@@ -261,7 +291,9 @@ def test_soften():
 
 
 def test_soften_quick_return():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     original_ratios = ww.ratios[ParticleType.NEUTRON][100.0].copy()
 
     # Now we modify directly the values and then do a soften(1.0), this should not
@@ -277,7 +309,9 @@ def test_soften_quick_return():
 
 
 def test_multiply():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
 
     expected_values = np.array([[[1.1576, 0.93197], [6.7316, 5], [0.99821, 0.898]]])
     ww.multiply(10.0)
@@ -285,7 +319,9 @@ def test_multiply():
 
 
 def test_multiply_quick_return():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
 
     expected_values = np.array(
         [[[0.11576, 0.093197], [0.67316, 0.5], [0.099821, 0.0898]]]
@@ -295,7 +331,9 @@ def test_multiply_quick_return():
 
 
 def test_add_particle_identical():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     ww.add_particle(norm=1, soft=1)
 
     assert len(ww.particles) == 2
@@ -314,14 +352,18 @@ def test_add_particle_identical():
 
 
 def test_add_particle_already_exists():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     ww.add_particle(norm=1, soft=1)
     with pytest.raises(ValueError):
         ww.add_particle(norm=1, soft=1)
 
 
 def test_add_particle_different():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     ww.add_particle(norm=2, soft=0.5)
 
     for energy in ww.energies[ParticleType.NEUTRON]:
@@ -332,7 +374,9 @@ def test_add_particle_different():
 
 
 def test_remove_particle():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
+    )
     ww.remove_particle()
 
     assert len(ww.particles) == 1
@@ -343,13 +387,17 @@ def test_remove_particle():
 
 
 def test_remove_particle_only_one():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     with pytest.raises(ValueError):
         ww.remove_particle()
 
 
 def test_mitigate_long_histories():
-    ww = WW.load_from_ww_file(Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart")
+    ww = WW.load_from_ww_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
+    )
     previous_max_ratio = np.max(ww.ratios[ParticleType.NEUTRON][100.0])
 
     ww.mitigate_long_histories(max_ratio=6.57)

@@ -2,6 +2,7 @@
 Auxiliary functions used by different modules
 
 """
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -36,7 +37,7 @@ def get_comments(card: Card) -> str:
     str
         comments as a single string
     """
-    comments = ''
+    comments = ""
     for line in card.lines:
         # check if either dollar or c comments are matched and store them
         c_comm = PAT_COMMENT_TEXT.match(line)
@@ -44,7 +45,7 @@ def get_comments(card: Card) -> str:
 
         for match in [c_comm, d_comm]:
             if match is not None:
-                comments = comments+match.group()
+                comments = comments + match.group()
 
     return comments
 
@@ -59,8 +60,7 @@ def _detect_decoding_errors_line(l, _s=_surrogates.finditer):  # pragma: no cove
 
     """
     # DC80 - DCFF encode bad bytes 80-FF
-    return [(m.start(), bytes([ord(m.group()) - 0xDC00]))
-            for m in _s(l)]
+    return [(m.start(), bytes([ord(m.group()) - 0xDC00])) for m in _s(l)]
 
 
 def debug_file_unicode(file: os.PathLike) -> str:  # pragma: no cover
@@ -77,13 +77,13 @@ def debug_file_unicode(file: os.PathLike) -> str:  # pragma: no cover
     str
         bug found
     """
-    txt = ''
-    with open(file, 'r', errors="surrogateescape") as f:
+    txt = ""
+    with open(file, "r", errors="surrogateescape") as f:
         for i, line in enumerate(f, 1):
             errors = _detect_decoding_errors_line(line)
             if errors:
-                txt += (f"Found errors on line {i}:")
-                for (col, b) in errors:
-                    txt += (f" {col + 1:2d}: {b[0]:02x}")
-                txt += '\n'
+                txt += f"Found errors on line {i}:"
+                for col, b in errors:
+                    txt += f" {col + 1:2d}: {b[0]:02x}"
+                txt += "\n"
     return txt

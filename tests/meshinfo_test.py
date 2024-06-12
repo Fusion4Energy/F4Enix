@@ -3,14 +3,20 @@ from importlib.resources import files, as_file
 import pytest
 
 import tests.resources.meshinfo as res
-from f4enix.output.meshinfo import (MeshInfoFile, CoordinateType, MeshInfo,
-                                    MeshInfoCyl, COLUMN_KEY_MASS_GRAMS)
+from f4enix.output.meshinfo import (
+    MeshInfoFile,
+    CoordinateType,
+    MeshInfo,
+    MeshInfoCyl,
+    COLUMN_KEY_MASS_GRAMS,
+)
+
 RESOURCES = files(res)
 
 
 class TestMeshInfoFile:
     def test_read_file_cart(self):
-        with as_file(RESOURCES.joinpath('meshinfo_cart')) as infile:
+        with as_file(RESOURCES.joinpath("meshinfo_cart")) as infile:
             meshinfofile = MeshInfoFile.from_file(infile)
 
         meshinfo = meshinfofile.info[9014]
@@ -31,7 +37,7 @@ class TestMeshInfoFile:
         assert 940030 in cells
 
     def test_read_file_cyl(self):
-        with as_file(RESOURCES.joinpath('meshinfo_cyl')) as infile:
+        with as_file(RESOURCES.joinpath("meshinfo_cyl")) as infile:
             meshinfofile = MeshInfoFile.from_file(infile)
 
         meshinfo = meshinfofile.info[4]
@@ -59,9 +65,10 @@ class TestMeshInfoFile:
         # I reduce the precision, surely a harmless decimals thing
         assert pytest.approx(manual_volume, abs=1e-2) == expected_mass
 
-    @pytest.mark.parametrize(['file', 'key', 'obj'],
-                             [['meshinfo_cyl', 4, MeshInfoCyl],
-                              ['meshinfo_cart', 9014, MeshInfo]])
+    @pytest.mark.parametrize(
+        ["file", "key", "obj"],
+        [["meshinfo_cyl", 4, MeshInfoCyl], ["meshinfo_cart", 9014, MeshInfo]],
+    )
     def test_save_load(self, file, key, obj, tmpdir):
         with as_file(RESOURCES.joinpath(file)) as infile:
             meshinfofile = MeshInfoFile.from_file(infile)
@@ -72,10 +79,11 @@ class TestMeshInfoFile:
         assert meshinfo == newmeshinfo
 
     def test_can_read_multiple_meshes_same_file(self):
-        with as_file(RESOURCES.joinpath('meshinfo_two_meshes')) as infile:
+        with as_file(RESOURCES.joinpath("meshinfo_two_meshes")) as infile:
             meshinfofile = MeshInfoFile.from_file(infile)
 
         mesh_1 = meshinfofile.info[4]
         mesh_2 = meshinfofile.info[234]
-        assert (mesh_1.data_mass.df.values[-1].sum() ==
-                mesh_2.data_mass.df.values[-1].sum())
+        assert (
+            mesh_1.data_mass.df.values[-1].sum() == mesh_2.data_mass.df.values[-1].sum()
+        )

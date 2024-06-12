@@ -11,6 +11,7 @@ ITER_TOROIDAL_SLICES: list[list[str, float, float, float, float, float, float]]
     format is [name, origin[x,y,x], norm[x, y, z]]
 
 """
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 

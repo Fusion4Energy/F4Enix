@@ -1,7 +1,9 @@
 """This module is related to the parsing of D1S-UNED meshinfo files.
 
 """
+
 from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -134,8 +136,7 @@ class DataMass:
             mask *= self.df.index.isin(filter_values, level=key)
         return self.df.iloc[mask]
 
-    def get_cells_from_materials(self,
-                                 materials: list[int] | None) -> pd.DataFrame:
+    def get_cells_from_materials(self, materials: list[int] | None) -> pd.DataFrame:
         """
         Returns an array with all the cell ids that are filled with the
         materials given as argument.
@@ -185,12 +186,14 @@ class DataMass:
 
 
 class MeshInfo:
-    def __init__(self,
-                 coordinates: CoordinateType,
-                 data_mass: DataMass,
-                 vector_i: list[float],
-                 vector_j: list[float],
-                 vector_k: list[float]) -> None:
+    def __init__(
+        self,
+        coordinates: CoordinateType,
+        data_mass: DataMass,
+        vector_i: list[float],
+        vector_j: list[float],
+        vector_k: list[float],
+    ) -> None:
         """This class represents the information read in the meshinfo file
         produced by D1SUNED when using a CuV tally. This class represents a
         cartesian mesh or serves as base class for a cylindrical mesh
@@ -300,8 +303,7 @@ class MeshInfo:
             assert (self.vector_i == __value.vector_i).all()
             assert (self.vector_j == __value.vector_j).all()
             assert (self.vector_k == __value.vector_k).all()
-            assert self.data_mass.df.equals(
-                __value.data_mass.df)
+            assert self.data_mass.df.equals(__value.data_mass.df)
             if type(self) == MeshInfoCyl:
                 assert (self.origin == __value.origin).all()
                 assert (self.axis == __value.axis).all()
@@ -315,15 +317,17 @@ class MeshInfo:
 
 class MeshInfoCyl(MeshInfo):
 
-    def __init__(self,
-                 coordinates: CoordinateType,
-                 data_mass: Optional[DataMass],
-                 vector_i: list[float],
-                 vector_j: list[float],
-                 vector_k: list[float],
-                 origin: list[float],
-                 axis: list[float],
-                 vec: list[float]) -> None:
+    def __init__(
+        self,
+        coordinates: CoordinateType,
+        data_mass: Optional[DataMass],
+        vector_i: list[float],
+        vector_j: list[float],
+        vector_k: list[float],
+        origin: list[float],
+        axis: list[float],
+        vec: list[float],
+    ) -> None:
         """Same as MeshInfo but adding cylindrical coordinates specific
         parameters like origin, axis and vec.
 
