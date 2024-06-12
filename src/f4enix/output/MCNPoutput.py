@@ -636,11 +636,12 @@ class Output:
                 version = pat_version.search(line).group().strip()
                 return f"d1suned{version}"
 
-        # In case of MCNP, it is in the first line
+        # In case of MCNP, it is in the first lines
         pat_mcnp = re.compile(r"(?<=MCNP_)[\d.]+")
-        if pat_mcnp.search(self.lines[0]) is not None:
-            version = pat_mcnp.search(self.lines[0]).group().strip("0")
-            return version
+        for line in self.lines[:4]:
+            if pat_mcnp.search(self.lines[0]) is not None:
+                version = pat_mcnp.search(self.lines[0]).group().strip("0")
+                return version
 
         # In case is not in the header (it happens on sbatch runs) try to look
         # in the same folder for a .out or .dump file

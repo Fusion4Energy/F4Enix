@@ -35,6 +35,7 @@ from tqdm import tqdm
 from copy import deepcopy
 from f4enix.constants import CONV
 
+
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 ALLOWED_PARTICLES = [
@@ -1660,11 +1661,21 @@ class Meshtal:
             mesh.write(outpath, out_format=out_format)
 
     def __readHeadMCNP__(self) -> None:
-        vals = self.f.readline().split()
-        self.code = vals[0]
-        self.version = vals[2]
-        self.probid = vals[-2] + " " + vals[-1]
-        self.title = self.f.readline().strip()
+        # there is a different version that has a different header
+        vals = self.f.readline()
+        if "C ====" in vals:
+            # this is the weird header that do not give you data
+            self.code = None
+            self.version = None
+            self.probid = None
+            self.title = None
+        else:
+            vals = vals.split()
+            self.code = vals[0]
+            self.version = vals[2]
+            self.probid = vals[-2] + " " + vals[-1]
+            self.title = self.f.readline().strip()
+
         self.nps = int(
             float((self.f.readline().split()[-1]))
         )  # nps: int doesnt like decimals

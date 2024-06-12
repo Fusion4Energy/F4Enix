@@ -33,19 +33,21 @@ jobs:
 
       # Install python
       - name: Set up Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
 
       # Install the package
       - name: Install the package
         run: |
-          pip install .
-          pip install pytest pytest-cov
-      
+          python -m pip install --upgrade pip
+          python -m pip install .
+          python -c 'import f4enix'
+
       # Run pytest
       - name: Testing
         run: |
+          python -m pip install .[tests]
           pytest --cov=. --cov-report html -cov-config=".coveragerc" | tee pytest_output.log
       
       - name: Archive test coverage

@@ -59,6 +59,7 @@ class TestMeshtal:
             "meshtal_CUBE_ONES",
             "test_srcimp",
             "assembly_meshtal_test",
+            "meshtal_bug",
         ],
     )
     def test_read_mesh(self, input_meshtal):
