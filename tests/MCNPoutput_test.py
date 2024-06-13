@@ -2,7 +2,7 @@ from importlib.resources import files, as_file
 import pandas as pd
 import os
 
-from f4enix.output.MCNPoutput import Output, MCNPoutput, SphereSDDRMCNPoutput
+from f4enix.output.MCNPoutput import Output
 from f4enix.input.MCNPinput import Input
 import tests.resources.output as resources
 import pytest
@@ -119,32 +119,3 @@ class TestOutput:
         with as_file(RESOURCES.joinpath(rel_filepath)) as file:
             outp = Output(file)
         assert outp.get_code_version() == expected
-
-
-cp = os.path.dirname(os.path.abspath(__file__))
-# Files
-OUTP_SDDR = os.path.join(cp, "resources", "output", "SphereSDDR_11023_Na-23_102_o")
-OUTM_SDDR = os.path.join(cp, "resources", "output", "SphereSDDR_11023_Na-23_102_m")
-
-
-class TestSphereSDDRMCNPoutput:
-
-    out = SphereSDDRMCNPoutput(OUTM_SDDR, OUTP_SDDR)
-
-    def test_get_single_excel_data(self):
-        vals, errors = self.out.get_single_excel_data()
-        assert isinstance(vals, pd.Series)
-        assert isinstance(errors, pd.Series)
-        assert len(vals) == 23
-        assert len(errors) == 23
-
-
-class TestMCNPoutput:
-    def test_mcnpoutput(self):
-        out = MCNPoutput(OUTM_SDDR, OUTP_SDDR)
-        t4 = out.tallydata[4]
-        t2 = out.tallydata[2]
-        assert list(t4.columns) == ["Cells", "Segments", "Value", "Error"]
-        assert len(t4) == 1
-        assert len(t2) == 176
-        assert list(t2.columns) == ["Energy", "Value", "Error"]
