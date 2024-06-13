@@ -39,8 +39,8 @@ from f4enix.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
 # idNeighbour = 'NEAREST NEIGHBOR DATA 1ST ORDER TETS'
 # id2Neighbour = 'NEAREST NEIGHBOR DATA 2ND ORDER TETS'
 # Common patterns
-PAT_INFO_NAME = re.compile(r'[A-Za-z\s\d]+')
-PAT_VALUE = re.compile(r'\s[\s-]\d')
+PAT_INFO_NAME = re.compile(r"[A-Za-z\s\d]+")
+PAT_VALUE = re.compile(r"\s[\s-]\d")
 # patNumber = re.compile(r'\d+')
 # patNumberSci = re.compile(r'[-+]*\d+.\d+E[+-]\d+')
 # patSpace = re.compile(r'\s+')
@@ -48,8 +48,8 @@ PAT_VALUE = re.compile(r'\s[\s-]\d')
 # patHeat = re.compile(r'd*6$')
 # # special patterns
 # patTets = re.compile(r'\d\d+')
-TETRA1 = '1st tetra'
-TETRA2 = '2nd tetra'
+TETRA1 = "1st tetra"
+TETRA2 = "2nd tetra"
 
 
 class EEOUT:
@@ -57,7 +57,7 @@ class EEOUT:
     def __init__(self, filepath: os.PathLike) -> None:
         """Representation of an MCNP .eeout output file
 
-        This class is used to parse and manipulate a .eeout file. The main 
+        This class is used to parse and manipulate a .eeout file. The main
         feature is the possibility to convert the results to a .vtk format
 
         Parameters
@@ -93,11 +93,11 @@ class EEOUT:
         NotImplementedError
             Only 1st and 2nd order tetras are supported
         """
-        self.filename = os.path.basename(filepath).split('.')[0]
-        logging.info(f'Parsing {self.filename}')
+        self.filename = os.path.basename(filepath).split(".")[0]
+        logging.info(f"Parsing {self.filename}")
         # store file lines
         lines = []
-        with open(filepath, 'r', errors="surrogateescape") as infile:
+        with open(filepath, "r", errors="surrogateescape") as infile:
             for line in infile:
                 lines.append(line)
         self.lines = lines
@@ -110,9 +110,9 @@ class EEOUT:
 
         # Determine mesh elements used. Only first and second order tetras
         # are supported. No mixed formulation are supported
-        tetra1 = self.info['NUMBER OF 1st TETS']
-        tetra2 = self.info['NUMBER OF 2nd TETS']
-        self.n_nodes = self.info['NUMBER OF NODES']
+        tetra1 = self.info["NUMBER OF 1st TETS"]
+        tetra2 = self.info["NUMBER OF 2nd TETS"]
+        self.n_nodes = self.info["NUMBER OF NODES"]
         if tetra1 > 0 and tetra2 == 0:
             self.elem_type = TETRA1
             self.n_elem = tetra1
@@ -121,11 +121,12 @@ class EEOUT:
             self.n_elem = tetra2
         else:
             raise NotImplementedError(
-                'Only 1st and 2nd order tetra are supported. No mixed formulation')
+                "Only 1st and 2nd order tetra are supported. No mixed formulation"
+            )
 
         # get the particle list
         self.p_list = self._read_particle_list()
-        assert len(self.p_list) == self.info['NUMBER OF PARTICLES']
+        assert len(self.p_list) == self.info["NUMBER OF PARTICLES"]
 
         points, idx_elem_type = self._read_nodes_xyz()
 
@@ -136,8 +137,7 @@ class EEOUT:
         # formulations
 
         # get connectivity
-        elem_connectivity, idx_neigh = self._read_connectivity(
-            start_idx=idx_connect)
+        elem_connectivity, idx_neigh = self._read_connectivity(start_idx=idx_connect)
 
         # get edits
         edits, idx_centroids = self._read_edits(start_idx=idx_neigh)
@@ -151,23 +151,23 @@ class EEOUT:
         elif self.elem_type == TETRA2:
             cell_type = np.full(self.n_elem, pv.CellType.TETRA, dtype=np.uint8)
         else:
-            raise NotImplementedError(f'{self.elem_type} not implemented')
+            raise NotImplementedError(f"{self.elem_type} not implemented")
 
-        grid = pv.UnstructuredGrid(elem_connectivity.ravel(), cell_type,
-                                   points)
-        grid['material'] = np.vectorize(mat_names.get)(material_ids)
-        grid['density'] = rhos
-        grid['volume'] = volumes
+        grid = pv.UnstructuredGrid(elem_connectivity.ravel(), cell_type, points)
+        grid["material"] = np.vectorize(mat_names.get)(material_ids)
+        grid["density"] = rhos
+        grid["volume"] = volumes
         for key, field in edits.items():
-            grid[f'{key} - value'] = field['values']
-            grid[f'{key} - error'] = field['errors']
+            grid[f"{key} - value"] = field["values"]
+            grid[f"{key} - error"] = field["errors"]
 
         self.grid = grid
 
-        logging.info('Parsing completed correctly')
+        logging.info("Parsing completed correctly")
 
-    def export(self, outfolder: os.PathLike, filename: str = None,
-               format: str = 'vtu') -> None:
+    def export(
+        self, outfolder: os.PathLike, filename: str = None, format: str = "vtu"
+    ) -> None:
         """Export the eeout to different format.
 
         at the moment only unstructured mesh vtk (vtu) is the only supported
@@ -190,15 +190,15 @@ class EEOUT:
             if the output folder does not exists.
         """
         if not os.path.exists(outfolder):
-            raise ValueError(f'{outfolder} does not exist')
+            raise ValueError(f"{outfolder} does not exist")
 
-        if format not in ['vtu']:
-            raise NotImplementedError(f'{format} is not a valid format')
+        if format not in ["vtu"]:
+            raise NotImplementedError(f"{format} is not a valid format")
 
         if filename is None:
             filename = self.filename
 
-        outpath = os.path.join(outfolder, filename+'.'+format)
+        outpath = os.path.join(outfolder, filename + "." + format)
         self.grid.save(outpath)
 
     def _read_info(self) -> dict:
@@ -206,7 +206,7 @@ class EEOUT:
         infos = {}
         for line in self.lines:
             # read infos between n. of particles and number of com edits
-            if line.find('NUMBER OF PARTICLES') != -1:
+            if line.find("NUMBER OF PARTICLES") != -1:
                 read = True
 
             if read:
@@ -214,24 +214,24 @@ class EEOUT:
                 value = PAT_DIGIT.findall(line)[-1]
                 infos[info_name] = int(value)
 
-            if line.find('NUMBER OF EDITS') != -1:
+            if line.find("NUMBER OF EDITS") != -1:
                 return infos
 
         raise RuntimeError("No 'NUMBER OF EDITS' tag was found")
 
     def _get_materials_name(self) -> dict[int, str]:
-        n_materials = self.info['NUMBER OF MATERIALS']
+        n_materials = self.info["NUMBER OF MATERIALS"]
         for idx, line in enumerate(self.lines):
-            pat_flag = re.compile(r'\s+MATERIALS')
+            pat_flag = re.compile(r"\s+MATERIALS")
             if pat_flag.match(line):
                 break
 
-        pat_whatever = re.compile('.+')
+        pat_whatever = re.compile(".+")
         materials = {}
         for i in range(n_materials):
-            line = self.lines[i+1+idx]
+            line = self.lines[i + 1 + idx]
             mat = pat_whatever.match(line).group().strip()
-            materials[i+1] = mat
+            materials[i + 1] = mat
 
         return materials
 
@@ -243,7 +243,7 @@ class EEOUT:
                 particleList = [int(x) for x in particleList]  # get ints
                 return particleList
 
-            if line.find('PARTICLE LIST') != -1:
+            if line.find("PARTICLE LIST") != -1:
                 readFlag = True
 
         raise RuntimeError("Particles list was not found")
@@ -254,9 +254,9 @@ class EEOUT:
 
         for idx, line in enumerate(self.lines[idx_init:]):
             # No more materials to be read
-            if line.find('CONNECTIVITY DATA') != -1:
+            if line.find("CONNECTIVITY DATA") != -1:
                 del materialsList[-6:]
-                return materialsList, idx+idx_init
+                return materialsList, idx + idx_init
 
             if materialFlag:
                 strippedline = line.strip()
@@ -265,7 +265,7 @@ class EEOUT:
                     materialsList.append(int(mat))
 
             # trigger
-            if line.find('ELEMENT MATERIAL') != -1:
+            if line.find("ELEMENT MATERIAL") != -1:
                 materialFlag = True
 
     def _read_nodes_xyz(self) -> tuple[np.ndarray, int]:
@@ -279,7 +279,7 @@ class EEOUT:
         nodesY = []
         nodesZ = []
 
-        pat_trigger_end = re.compile(' ELEMENT TYPE')
+        pat_trigger_end = re.compile(" ELEMENT TYPE")
 
         for idx, line in enumerate(self.lines):
 
@@ -305,20 +305,21 @@ class EEOUT:
                     if a is not None:
                         nodesZ.append(float(a.group()))
 
-            if line.find('NODES X') != -1:
+            if line.find("NODES X") != -1:
                 readFlagX = True
-            if line.find('NODES Y') != -1:
+            if line.find("NODES Y") != -1:
                 readFlagY = True
                 readFlagX = False
-            if line.find('NODES Z') != -1:
+            if line.find("NODES Z") != -1:
                 readFlagZ = True
                 readFlagY = False
 
             # trigger exit
             if pat_trigger_end.match(line) is not None:
-                points = np.concatenate([np.array([nodesX]).T,
-                                         np.array([nodesY]).T,
-                                         np.array([nodesZ]).T], axis=1)
+                points = np.concatenate(
+                    [np.array([nodesX]).T, np.array([nodesY]).T, np.array([nodesZ]).T],
+                    axis=1,
+                )
                 return points, idx
 
         raise RuntimeError("Could not find the element tag 'ELEMENT TYPE'")
@@ -331,14 +332,13 @@ class EEOUT:
         for idx, line in enumerate(self.lines[start_idx:]):
             if readFlagCon:
                 data.append(line)
-            if line.find('CONNECTIVITY DATA') != -1:
+            if line.find("CONNECTIVITY DATA") != -1:
                 readFlagCon = True
-                if line.find('NODE ORDERED') != -1:
-                    raise NotImplementedError(
-                        'Only element ordered is supported')
+                if line.find("NODE ORDERED") != -1:
+                    raise NotImplementedError("Only element ordered is supported")
 
             # trigger exit
-            if line.find('NEAREST NEIGHBOR DATA') != -1:
+            if line.find("NEAREST NEIGHBOR DATA") != -1:
                 readFlagCon = False
                 break
 
@@ -357,7 +357,7 @@ class EEOUT:
             newline = string.strip()
             substrings = PAT_SPACE.split(newline)
             for substring in substrings:
-                num = int(PAT_DIGIT.search(substring).group())-1
+                num = int(PAT_DIGIT.search(substring).group()) - 1
                 conn.append(num)
 
         conn = np.reshape(np.array(conn), (-1, n_nodes))
@@ -367,14 +367,13 @@ class EEOUT:
         # finally concat
         connectivity = np.concatenate([describer, conn], axis=1)
 
-        return connectivity, idx+start_idx
+        return connectivity, idx + start_idx
 
-    def _read_edits(self, start_idx: int = 0
-                    ) -> tuple[dict[str, dict[str, list]], int]:
+    def _read_edits(self, start_idx: int = 0) -> tuple[dict[str, dict[str, list]], int]:
 
-        pat_particle = re.compile(r'(?<=DATA OUTPUT PARTICLE :)\s+\d+')
-        pat_edit = re.compile(r'(?<=EDIT LIST :)\s+\d+')
-        pat_type = re.compile(r'(?<=TYPE :)\s+\w+')
+        pat_particle = re.compile(r"(?<=DATA OUTPUT PARTICLE :)\s+\d+")
+        pat_edit = re.compile(r"(?<=EDIT LIST :)\s+\d+")
+        pat_type = re.compile(r"(?<=TYPE :)\s+\w+")
 
         valuesFlag = False
 
@@ -382,12 +381,12 @@ class EEOUT:
 
         for idx, line in enumerate(self.lines[start_idx:]):
             # a new edit is found, initialize it
-            if line.find('DATA OUTPUT PARTICLE') != -1:
+            if line.find("DATA OUTPUT PARTICLE") != -1:
                 par = int(pat_particle.search(line).group())
                 edit_num = int(pat_edit.search(line).group())
                 edit_type = pat_type.search(line).group().strip()
-                current_tally = f'Tally{edit_num}_par{par}_{edit_type}'
-                logging.info(f'parsing {current_tally}')
+                current_tally = f"Tally{edit_num}_par{par}_{edit_type}"
+                logging.info(f"parsing {current_tally}")
                 edits[current_tally] = {}
 
             # We need to read data (either values or errors)
@@ -404,26 +403,26 @@ class EEOUT:
                     valuesFlag = False
 
             # triggers for following line
-            if (line.find('DATA SETS RESULT TIME BIN') != -1 or
-                line.find('DATA SETS REL ERROR TIME BIN') != -1):
+            if (
+                line.find("DATA SETS RESULT TIME BIN") != -1
+                or line.find("DATA SETS REL ERROR TIME BIN") != -1
+            ):
                 valuesFlag = True
                 values_list = []
-                if 'RESULT' in line:
-                    value_type = 'values'
-                elif 'REL ERROR' in line:
-                    value_type = 'errors'
+                if "RESULT" in line:
+                    value_type = "values"
+                elif "REL ERROR" in line:
+                    value_type = "errors"
                 else:
                     value_type = None
 
             # triggers the end of the data section
-            if line.find('CENTROIDS X') != -1:
-                return edits, idx+start_idx
+            if line.find("CENTROIDS X") != -1:
+                return edits, idx + start_idx
 
-        raise RuntimeError(
-            "Could not parse edits properly, missing 'CENTROIDS X'")
+        raise RuntimeError("Could not parse edits properly, missing 'CENTROIDS X'")
 
-    def _read_rho_vol(self, start_index: int = 0) -> tuple[list[float],
-                                                           list[float]]:
+    def _read_rho_vol(self, start_index: int = 0) -> tuple[list[float], list[float]]:
         densityFlag = False
         volumeFlag = False
         densityList = []
@@ -440,9 +439,9 @@ class EEOUT:
                         elif volumeFlag:
                             volumesList.append(float(value))
 
-            if line.find('DENSITY') != -1:
+            if line.find("DENSITY") != -1:
                 densityFlag = True
-            if line.find('VOLUMES') != -1:
+            if line.find("VOLUMES") != -1:
                 volumeFlag = True
                 densityFlag = False
 

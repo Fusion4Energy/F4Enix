@@ -2,6 +2,7 @@
 Module related to the parsing of xsdir files. Originally developed at
 https://github.com/pyne/pyne
 """
+
 """
 @author: Pyne https://github.com/pyne/pyne
 
@@ -80,7 +81,7 @@ class Xsdir(object):
         filename : str
             Path to xsdir file.
         """
-        self.f = open(filename, 'r')
+        self.f = open(filename, "r")
         self.filename = os.path.abspath(filename)
         self.directory = os.path.dirname(filename)
         self.awr = {}
@@ -99,8 +100,7 @@ class Xsdir(object):
         self.tablenames = tablenames
 
     def read(self):
-        """Populate the Xsdir object by reading the file.
-        """
+        """Populate the Xsdir object by reading the file."""
         # Go to beginning of file
         self.f.seek(0)
 
@@ -108,31 +108,31 @@ class Xsdir(object):
         line = self.f.readline()
         words = line.split()
         if words:
-            if words[0].lower().startswith('datapath'):
-                index = line.index('=')
-                self.datapath = line[index+1:].strip()
+            if words[0].lower().startswith("datapath"):
+                index = line.index("=")
+                self.datapath = line[index + 1 :].strip()
 
         # Read second section
         line = self.f.readline()
         words = line.split()
         assert len(words) == 3
-        assert words[0].lower() == 'atomic'
-        assert words[1].lower() == 'weight'
-        assert words[2].lower() == 'ratios'
+        assert words[0].lower() == "atomic"
+        assert words[1].lower() == "weight"
+        assert words[2].lower() == "ratios"
 
         while True:
             line = self.f.readline()
             words = line.split()
 
             # Check for end of second section
-            if len(words) % 2 != 0 or words[0] == 'directory':
+            if len(words) % 2 != 0 or words[0] == "directory":
                 break
 
             for zaid, awr in zip(words[::2], words[1::2]):
                 self.awr[zaid] = awr
 
         # Read third section
-        while words[0] != 'directory':
+        while words[0] != "directory":
             words = self.f.readline().split()
 
         while True:
@@ -141,7 +141,7 @@ class Xsdir(object):
                 break
 
             # Handle continuation lines
-            while words[-1] == '+':
+            while words[-1] == "+":
                 extraWords = self.f.readline().split()
                 words = words[:-1] + extraWords  # Correction
             assert len(words) >= 7
@@ -166,9 +166,9 @@ class Xsdir(object):
             if len(words) > 9:
                 table.temperature = float(words[9])
             if len(words) > 10:
-                table.ptable = (words[10] == 'ptable')
+                table.ptable = words[10] == "ptable"
 
-    def find_table(self, name, mode='default'):
+    def find_table(self, name, mode="default"):
         """Find all tables for a given ZAID.
 
         Modified for JADE, a bug was corrected since table.name do not
@@ -189,11 +189,11 @@ class Xsdir(object):
         tables : list
             All XsdirTable objects for a given ZAID.
         """
-        if mode == 'exact':
+        if mode == "exact":
             # Faster, checks for the exact name
             ans = self._exact_loop(name, self.tablenames)
 
-        elif mode == 'default':
+        elif mode == "default":
             # Checks all available libraries for the zaid
             tables = []
             for table in self:
@@ -203,7 +203,7 @@ class Xsdir(object):
 
             ans = tables
 
-        elif mode == 'default-fast':
+        elif mode == "default-fast":
             ans = self._all_fast_loop(name, self.tablenames)
 
         return ans
@@ -211,7 +211,7 @@ class Xsdir(object):
     @staticmethod
     def _exact_loop(name: str, tablenames: List[Tuple[str, str]]) -> bool:
         for zaidname, libname in tablenames:
-            if name == zaidname+'.'+libname:
+            if name == zaidname + "." + libname:
                 return True
 
         return False
@@ -225,7 +225,7 @@ class Xsdir(object):
 
         return libs
 
-#################  Added by Davide Laghi ###############################  
+    #################  Added by Davide Laghi ###############################
     def find_zaids(self, lib):
         """Find all zaids for a given library.
 
@@ -239,16 +239,17 @@ class Xsdir(object):
         tables : list
             All XsdirTable objects for a given library.
         """
-        
+
         tables = []
-        
+
         for table in self:
-            tablelib = table.name.split('.')[-1]
+            tablelib = table.name.split(".")[-1]
             if lib == tablelib:
                 tables.append(table)
 
         return tables
-############################################################################
+
+    ############################################################################
 
     def to_xsdata(self, filename):
         """Writes a Serpent xsdata file for all continuous energy xs tables.
@@ -259,12 +260,11 @@ class Xsdir(object):
             The output filename.
 
         """
-        xsdata = open(filename, 'w')
+        xsdata = open(filename, "w")
         for table in self.tables:
             if table.serpent_type == 1:
-                xsdata.write(table.to_serpent() + '\n')
+                xsdata.write(table.to_serpent() + "\n")
         xsdata.close()
-
 
     def __iter__(self):
         for table in self.tables:
@@ -279,9 +279,11 @@ class Xsdir(object):
         valid_nucs : set
             The valid nuclide ids.
         """
-        valid_nucs = set(nucname.id(table.name.split('.')[0])
-                         for table in self.tables if
-                         nucname.isnuclide(table.name.split('.')[0]))
+        valid_nucs = set(
+            nucname.id(table.name.split(".")[0])
+            for table in self.tables
+            if nucname.isnuclide(table.name.split(".")[0])
+        )
         return valid_nucs
 
 
@@ -337,22 +339,21 @@ class XsdirTable(object):
 
     @property
     def alias(self):
-        """Returns the name of the table entry <ZIAD>.<library id>.
-        """
+        """Returns the name of the table entry <ZIAD>.<library id>."""
         return self.name
 
     @property
     def serpent_type(self):
         """Converts cross section table type to Serpent format:
-            :1: continuous energy (c).
-            :2: dosimetry table (y).
-            :3: termal (t).
+        :1: continuous energy (c).
+        :2: dosimetry table (y).
+        :3: termal (t).
         """
-        if self.name.endswith('c'):
+        if self.name.endswith("c"):
             return 1
-        elif self.name.endswith('y'):
+        elif self.name.endswith("y"):
             return 2
-        elif self.name.endswith('t'):
+        elif self.name.endswith("t"):
             return 3
         else:
             return None
@@ -363,17 +364,17 @@ class XsdirTable(object):
         otherwise.
         """
         # Only valid for neutron cross-sections
-        if not self.name.endswith('c'):
+        if not self.name.endswith("c"):
             return
 
         # Handle special case of Am-242 and Am-242m
-        if self.zaid == '95242':
+        if self.zaid == "95242":
             return 1
-        elif self.zaid == '95642':
+        elif self.zaid == "95642":
             return 0
 
         # All other cases
-        A = int(self.name.split('.')[0]) % 1000
+        A = int(self.name.split(".")[0]) % 1000
         if A > 600:
             return 1
         else:
@@ -381,11 +382,10 @@ class XsdirTable(object):
 
     @property
     def zaid(self):
-        """Returns the ZIAD of the nuclide.
-        """
-        return self.name[:self.name.find('.')]
+        """Returns the ZIAD of the nuclide."""
+        return self.name[: self.name.find(".")]
 
-    def to_serpent(self, directory=''):
+    def to_serpent(self, directory=""):
         """Converts table to serpent format.
 
         Parameters
@@ -395,15 +395,19 @@ class XsdirTable(object):
         """
         # Adjust directory
         if directory:
-            if not directory.endswith('/'):
-                directory = directory.strip() + '/'
+            if not directory.endswith("/"):
+                directory = directory.strip() + "/"
 
         return "{0} {0} {1} {2} {3} {4} {5:.11e} {6} {7}".format(
             self.name,
-            self.serpent_type, self.zaid, 1 if self.metastable else 0,
-            self.awr, self.temperature/8.6173423e-11, self.filetype - 1,
-            directory + self.filename)
-
+            self.serpent_type,
+            self.zaid,
+            1 if self.metastable else 0,
+            self.awr,
+            self.temperature / 8.6173423e-11,
+            self.filetype - 1,
+            directory + self.filename,
+        )
 
     def __repr__(self):
         return "<XsDirTable: {0}>".format(self.name)

@@ -1,6 +1,7 @@
 """
 CLI for the ww_gvr package.
 """
+
 import os
 from copy import deepcopy
 from enum import Enum
