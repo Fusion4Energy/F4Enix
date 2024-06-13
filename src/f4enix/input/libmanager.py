@@ -32,11 +32,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
-import pandas as pd
-
 from importlib.resources import files, as_file
 
-from f4enix.input.xsdirpyne import Xsdir
 import f4enix.resources as pkg_res
 import f4enix.input.xsdirpyne as xs
 from f4enix.input.xsdirpyne import Xsdir, OpenMCXsdir, SerpentXsdir
@@ -61,11 +58,10 @@ MSG_DEFLIB = " The Default library {} was used for zaid {}"
 class IsotopeDataParser:
     def __init__(self, isotopes_file: os.PathLike) -> None:
         # load the natural abundance file
-        with isotopes_file as iso:
-            abundances = pd.read_csv(iso, skiprows=2)
-            abundances["idx"] = abundances["idx"].astype(str)
-            abundances.set_index("idx", inplace=True)
-            self.isotopes = abundances
+        abundances = pd.read_csv(isotopes_file, skiprows=2)
+        abundances["idx"] = abundances["idx"].astype(str)
+        abundances.set_index("idx", inplace=True)
+        self.isotopes = abundances
 
     def get_formulazaid(self, formula: str) -> str:
         """Returns the zaid for a given formula
@@ -163,10 +159,12 @@ class LibManager:
         if isotopes_file is None:
             resources = files(pkg_res)
             iso_file = as_file(resources.joinpath("Isotopes.txt"))
+            with iso_file as iso:
+                self.isotope_parser = IsotopeDataParser(iso)
         else:
-            iso_file = as_file(Path(isotopes_file))
+            iso_file = Path(isotopes_file)
+            self.isotope_parser = IsotopeDataParser(iso_file)
 
-        self.isotope_parser = IsotopeDataParser(iso_file)
         self.isotopes = self.isotope_parser.isotopes
 
         # Convert all columns to lower case
@@ -264,8 +262,7 @@ class LibManager:
         # Load the activation reaction data if available
         reactions = {}
         if activationfile is not None:
-            with as_file(Path(activationfile)) as infile:
-                file = pd.ExcelFile(infile)
+            file = pd.ExcelFile(activationfile)
         else:
             resources = files(pkg_res)
             with as_file(resources.joinpath("activation_libs.xlsx")) as infile:

@@ -222,20 +222,29 @@ class TestMultiCodeLibManger:
 
     @pytest.fixture
     def lm(self):
-        df_rows = [
-            ["99c", "sda", "", XSDIR_FILE],
-            ["98c", "acsdc", "", XSDIR_FILE],
-            ["21c", "adsadsa", "", XSDIR_FILE],
-            ["31c", "adsadas", "", XSDIR_FILE],
-            ["00c", "sdas", "yes", XSDIR_FILE],
-            ["71c", "sdasxcx", "", XSDIR_FILE],
-        ]
+        resources2 = files(pkg_res)
+        XSDIR_FILE2 = as_file(resources2.joinpath("xsdir.txt"))
+        with XSDIR_FILE2 as xsdir_file:
+            df_rows = [
+                ["99c", "sda", "", xsdir_file],
+                ["98c", "acsdc", "", xsdir_file],
+                ["21c", "adsadsa", "", xsdir_file],
+                ["31c", "adsadas", "", xsdir_file],
+                ["00c", "sdas", "yes", xsdir_file],
+                ["71c", "sdasxcx", "", xsdir_file],
+            ]
         df_lib = pd.DataFrame(df_rows)
         df_lib.columns = ["Suffix", "Name", "Default", "MCNP"]
+        resources2 = files(pkg_res)
+        lib_resources2 = files(lib_res)
+        ACT_FILE2 = as_file(lib_resources2.joinpath("Activation libs.xlsx"))
+        ISOTOPES_FILE2 = as_file(resources2.joinpath("Isotopes.txt"))
+        with ISOTOPES_FILE2 as isotopes_file, ACT_FILE2 as act_file:
+            lm = LibManager(
+                df_lib, isotopes_file=isotopes_file, activationfile=act_file
+            )
 
-        return LibManager(
-            df_lib, activationfile=ACTIVATION_FILE, isotopes_file=ISOTOPES_FILE
-        )
+        return lm
 
     def test_available_libs(self, lm: LibManager):
         """

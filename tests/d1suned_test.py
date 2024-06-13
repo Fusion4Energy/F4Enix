@@ -75,6 +75,25 @@ class TestIrradiationFile:
         irradiation = irrfile.get_irrad("26055")
         assert irradiation.daughter == "26055"
 
+    def test_select_daughters_irradiation_file(self):
+        """
+        Updates a D1S irradiation file selecting a subset of daughters from a list
+
+        Parameters
+        ----------
+        daughters : list.
+            daughter zaids to be selected
+
+        """
+        with as_file(RESOURCES.joinpath("irr_test")) as inp:
+            irrfile = IrradiationFile.from_text(inp)
+        ans = irrfile.select_daughters_irradiation_file(["24051", "26055"])
+        # Keep only useful irradiations
+        assert ans is True
+        assert len(irrfile.irr_schedules) == 2
+        assert irrfile.irr_schedules[0].daughter == "24051"
+        assert irrfile.irr_schedules[1].daughter == "26055"
+
 
 class TestIrradiation:
 

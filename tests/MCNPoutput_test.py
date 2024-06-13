@@ -4,6 +4,7 @@ import os
 
 from f4enix.output.MCNPoutput import Output
 from f4enix.input.MCNPinput import Input
+from f4enix.output.mctal import Mctal
 import tests.resources.output as resources
 import pytest
 
@@ -119,3 +120,13 @@ class TestOutput:
         with as_file(RESOURCES.joinpath(rel_filepath)) as file:
             outp = Output(file)
         assert outp.get_code_version() == expected
+
+    def test_assign_tally_description(self):
+        with as_file(RESOURCES.joinpath("Sphere_5010_B-10_o")) as file:
+            outp = Output(file)
+        with as_file(RESOURCES.joinpath("Sphere_5010_B-10_m")) as file:
+            mctal = Mctal(file)
+        df = outp.get_statistical_checks_tfc_bins()
+        df_2 = outp.assign_tally_description(df, mctal.tallies)
+        assert len(df_2) == 11
+        assert df_2["Neutron heating F6 [6]"] == "Passed"

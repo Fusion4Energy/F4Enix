@@ -264,14 +264,6 @@ class IrradiationFile:
                 new_irradiations.append(irradiation)
 
         if len(new_irradiations) != len(daughters):
-            # Here put a proper warning, discuss with Davide
-            #             print(
-            #                 CORANGE
-            #                 + """
-            #  Warning: irradiation schedules were not found for all specified daughters.
-            #  """
-            #                 + CEND
-            #             )
             ans = False
         else:
             ans = True
