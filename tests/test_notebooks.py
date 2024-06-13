@@ -36,7 +36,6 @@ def _notebook_run(path):
 
     return nb, errors
 
-
 @pytest.mark.parametrize(
     "filename", Path(os.path.join("docs", "source")).rglob("*.ipynb")
 )

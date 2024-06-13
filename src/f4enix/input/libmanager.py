@@ -30,18 +30,22 @@ from f4enix.input.xsdirpyne import Xsdir
 import f4enix.resources as pkg_res
 
 # colors
-CRED = '\033[91m'
-CEND = '\033[0m'
+CRED = "\033[91m"
+CEND = "\033[0m"
 
 
-MSG_DEFLIB = ' The Default library {} was used for zaid {}'
+MSG_DEFLIB = " The Default library {} was used for zaid {}"
 
 
 class LibManager:
 
-    def __init__(self, xsdir_file: os.PathLike = None,
-                 defaultlib: str = '81c', activationfile: os.PathLike = None,
-                 isotopes_file: os.PathLike = None) -> None:
+    def __init__(
+        self,
+        xsdir_file: os.PathLike = None,
+        defaultlib: str = "81c",
+        activationfile: os.PathLike = None,
+        isotopes_file: os.PathLike = None,
+    ) -> None:
         """
         Object dealing with all complex operations that involves nuclear data
 
@@ -84,8 +88,8 @@ class LibManager:
         if xsdir_file is None and isotopes_file is None:
             # get the handlers for the default data files
             resources = files(pkg_res)
-            XSDIR_FILE = as_file(resources.joinpath('xsdir.txt'))
-            ISOTOPES_FILE = as_file(resources.joinpath('Isotopes.txt'))
+            XSDIR_FILE = as_file(resources.joinpath("xsdir.txt"))
+            ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
             with XSDIR_FILE as xsdir, ISOTOPES_FILE as isotopes:
                 abundances = pd.read_csv(isotopes, skiprows=2)
                 self.XS = Xsdir(xsdir)
@@ -94,7 +98,7 @@ class LibManager:
         elif xsdir_file is None:
             # get the handlers for the default data files
             resources = files(pkg_res)
-            XSDIR_FILE = as_file(resources.joinpath('xsdir.txt'))
+            XSDIR_FILE = as_file(resources.joinpath("xsdir.txt"))
             with XSDIR_FILE as xsdir:
                 self.XS = Xsdir(xsdir)
             abundances = pd.read_csv(isotopes_file, skiprows=2)
@@ -103,7 +107,7 @@ class LibManager:
         elif isotopes_file is None:
             # get the handlers for the default data files
             resources = files(pkg_res)
-            ISOTOPES_FILE = as_file(resources.joinpath('Isotopes.txt'))
+            ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
             with ISOTOPES_FILE as isotopes:
                 abundances = pd.read_csv(isotopes, skiprows=2)
             self.XS = Xsdir(xsdir_file)
@@ -113,8 +117,8 @@ class LibManager:
             self.XS = Xsdir(xsdir_file)
             abundances = pd.read_csv(isotopes_file, skiprows=2)
 
-        abundances['idx'] = abundances['idx'].astype(str)
-        abundances.set_index('idx', inplace=True)
+        abundances["idx"] = abundances["idx"].astype(str)
+        abundances.set_index("idx", inplace=True)
         self.isotopes = abundances
 
         self.defaultlib = defaultlib
@@ -124,7 +128,7 @@ class LibManager:
         # libraries.extend(self.check4zaid('1000'))  # photons
         libraries = []
         for table in self.XS:
-            lib = table.name.split('.')[1]
+            lib = table.name.split(".")[1]
             if lib not in libraries:
                 libraries.append(lib)
 
@@ -136,19 +140,19 @@ class LibManager:
             file = pd.ExcelFile(activationfile)
         else:
             resources = files(pkg_res)
-            with as_file(resources.joinpath('activation_libs.xlsx')) as infile:
+            with as_file(resources.joinpath("activation_libs.xlsx")) as infile:
                 file = pd.ExcelFile(infile)
         for sheet in file.sheet_names:
             # Load the df that also needs to be filled
             reactions[sheet] = file.parse(sheet).ffill()
 
         # These are needed for faster operations
-        newiso = self.isotopes.set_index(['E'])
-        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+        newiso = self.isotopes.set_index(["E"])
+        newiso = newiso.loc[~newiso.index.duplicated(keep="first")]
         self._newiso_byE = newiso.sort_index()
 
-        newiso = self.isotopes.set_index(['Z'])
-        newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
+        newiso = self.isotopes.set_index(["Z"])
+        newiso = newiso.loc[~newiso.index.duplicated(keep="first")]
         self._newiso_byZ = newiso.sort_index()
 
         self.reactions = reactions
@@ -169,13 +173,12 @@ class LibManager:
 
         """
         libraries = []
-        for libname in self.XS.find_table(zaid, mode='default-fast'):
+        for libname in self.XS.find_table(zaid, mode="default-fast"):
             libraries.append(libname)
 
         return libraries
 
-    def convertZaid(self, zaid: str, lib: str
-                    ) -> dict[str, tuple[str, float, float]]:
+    def convertZaid(self, zaid: str, lib: str) -> dict[str, tuple[str, float, float]]:
         """
         This methods will convert a zaid into the requested library
 
@@ -206,33 +209,33 @@ class LibManager:
         """
         # Check if library is available in Xsdir
         if lib not in self.libraries:
-            raise ValueError('Library '+lib+' is not available in xsdir file')
+            raise ValueError("Library " + lib + " is not available in xsdir file")
 
         zaidlibs = self.check4zaid(zaid)
         # Natural zaid
-        if zaid[-3:] == '000':
+        if zaid[-3:] == "000":
             # Check if zaid has natural info
-            if self.XS.find_table(zaid+'.'+lib, mode='exact'):
+            if self.XS.find_table(zaid + "." + lib, mode="exact"):
                 translation = {zaid: (lib, 1, 1)}  # mass not important
 
             else:  # Has to be expanded
                 translation = {}
-                reduced = self.isotopes[self.isotopes['Z'] == int(zaid[:-3])]
+                reduced = self.isotopes[self.isotopes["Z"] == int(zaid[:-3])]
                 for idx, row in reduced.iterrows():
                     # zaid availability must be checked
-                    if self.XS.find_table(idx+'.'+lib, mode='exact'):
+                    if self.XS.find_table(idx + "." + lib, mode="exact"):
                         newlib = lib
-                    elif self.XS.find_table(idx+'.'+self.defaultlib,
-                                            mode='exact'):
-                        logging.warning(
-                            MSG_DEFLIB.format(self.defaultlib, zaid))
+                    elif self.XS.find_table(idx + "." + self.defaultlib, mode="exact"):
+                        logging.warning(MSG_DEFLIB.format(self.defaultlib, zaid))
                         newlib = self.defaultlib
                     else:
-                        raise ValueError('No available translation for zaid :' +
-                                         zaid+'It is needed for natural zaid expansion.')
+                        raise ValueError(
+                            "No available translation for zaid :"
+                            + zaid
+                            + "It is needed for natural zaid expansion."
+                        )
 
-                    translation[idx] = (newlib, row['Mean value'],
-                                        row['Atomic Mass'])
+                    translation[idx] = (newlib, row["Mean value"], row["Atomic Mass"])
         # 1to1
         elif lib in zaidlibs:
             translation = {zaid: (lib, 1, 1)}  # mass not important
@@ -240,13 +243,12 @@ class LibManager:
         # No possible correspondence, natural or default lib has to be used
         else:
             # Check if the natural zaid is available
-            natzaid = zaid[:-3]+'000'
-            if self.XS.find_table(natzaid+'.'+lib, mode='exact'):
+            natzaid = zaid[:-3] + "000"
+            if self.XS.find_table(natzaid + "." + lib, mode="exact"):
                 translation = {natzaid: (lib, 1, 1)}  # mass not important
             # Check if default lib is available
-            elif self.XS.find_table(zaid+'.'+self.defaultlib, mode='exact'):
-                logging.warning(
-                    MSG_DEFLIB.format(self.defaultlib, zaid))
+            elif self.XS.find_table(zaid + "." + self.defaultlib, mode="exact"):
+                logging.warning(MSG_DEFLIB.format(self.defaultlib, zaid))
                 translation = {zaid: (self.defaultlib, 1, 1)}  # mass not imp
             else:
                 # Check if any zaid cross section is available
@@ -261,8 +263,7 @@ class LibManager:
                     translation = {zaid: (None, 1, 1)}  # no masses
                 # If no possible translation is found raise error
                 else:
-                    raise ValueError('No available translation for zaid :' +
-                                     zaid)
+                    raise ValueError("No available translation for zaid :" + zaid)
 
         return translation
 
@@ -284,7 +285,7 @@ class LibManager:
         zaids = []
 
         for table in self.XS.find_zaids(lib):
-            zaid = table.name.split('.')[0]
+            zaid = table.name.split(".")[0]
             if zaid not in zaids:
                 zaids.append(zaid)
 
@@ -309,7 +310,7 @@ class LibManager:
 
         """
         if type(zaid) == str:
-            splitted = zaid.split('.')
+            splitted = zaid.split(".")
             elem = splitted[0][:-3]
             i = int(elem)
             isotope = splitted[0][-3:]
@@ -321,8 +322,8 @@ class LibManager:
         # newiso = self.isotopes.set_index('Z')
         # newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
 
-        name = self._newiso_byZ['Element'].loc[i]
-        formula = self._newiso_byZ['E'].loc[i]+'-'+str(int(isotope))
+        name = self._newiso_byZ["Element"].loc[i]
+        formula = self._newiso_byZ["E"].loc[i] + "-" + str(int(isotope))
 
         return name, formula
 
@@ -347,15 +348,15 @@ class LibManager:
         # newiso = newiso.loc[~newiso.index.duplicated(keep='first')]
 
         # split the name
-        patnum = re.compile(r'\d+')
-        patname = re.compile(r'[a-zA-Z]+')
+        patnum = re.compile(r"\d+")
+        patname = re.compile(r"[a-zA-Z]+")
         try:
             num = patnum.search(zaidformula).group()
             name = patname.search(zaidformula).group()
         except AttributeError:
-            raise ValueError('No correspondent zaid found for '+zaidformula)
+            raise ValueError("No correspondent zaid found for " + zaidformula)
 
-        atomnumber = self._newiso_byE.loc[name, 'Z']
+        atomnumber = self._newiso_byE.loc[name, "Z"]
 
         zaidnum = "{}{:03d}".format(atomnumber, int(num))
 
@@ -371,19 +372,23 @@ class LibManager:
             Library to assess.
 
         """
-        error = CRED+'''
+        error = (
+            CRED
+            + """
  Error: {}
  The selected library is not available.
- '''+CEND
+ """
+            + CEND
+        )
         # Add a counter to avoid falling in an endless loop
         i = 0
         while True:
             i += 1
-            lib = input(' Select library (e.g. 31c or 99c-31c): ')
+            lib = input(" Select library (e.g. 31c or 99c-31c): ")
             if lib in self.libraries:
                 break
 
-            elif lib[0] == '{':
+            elif lib[0] == "{":
                 libs = json.loads(lib)
                 # all libraries should be available
                 tocheck = list(libs.values())
@@ -396,8 +401,8 @@ class LibManager:
                 if flag:
                     break
 
-            elif '-' in lib:
-                libs = lib.split('-')
+            elif "-" in lib:
+                libs = lib.split("-")
                 flag = True
                 for val in libs:
                     if val not in self.libraries:
@@ -410,7 +415,7 @@ class LibManager:
                 print(error.format(lib))
 
             if i > 20:
-                raise ValueError('Too many wrong inputs')
+                raise ValueError("Too many wrong inputs")
         return lib
 
     def get_zaid_mass(self, zaid: str) -> float:
@@ -429,13 +434,13 @@ class LibManager:
 
         """
         try:
-            m = self.isotopes['Atomic Mass'].loc[zaid.element+zaid.isotope]
+            m = self.isotopes["Atomic Mass"].loc[zaid.element + zaid.isotope]
         except KeyError:  # It means that it is a natural zaid
             # For a natural zaid the natural abundance mass is used
             df = self.isotopes.reset_index()
-            df['Partial mass'] = df['Atomic Mass']*df['Mean value']
-            masked = df.set_index('Z').loc[int(zaid.element)]
-            m = masked['Partial mass'].sum()
+            df["Partial mass"] = df["Atomic Mass"] * df["Mean value"]
+            masked = df.set_index("Z").loc[int(zaid.element)]
+            m = masked["Partial mass"].sum()
 
         return float(m)
 
@@ -458,22 +463,22 @@ class LibManager:
         """
         reactions = []
         try:
-            df = self.reactions[lib].set_index('Parent')
+            df = self.reactions[lib].set_index("Parent")
             _, formula = self.get_zaidname(parent)
-            formulazaid = formula.replace('-', '')  # eliminate the '-'
+            formulazaid = formula.replace("-", "")  # eliminate the '-'
             # collect and provide as tuples
             subset = df.loc[formulazaid]
             try:
                 for _, row in subset.iterrows():
-                    MT = str(int(row['MT']))
-                    daughter = row['Daughter']
+                    MT = str(int(row["MT"]))
+                    daughter = row["Daughter"]
                     daughter = self.get_zaidnum(daughter)
                     reactions.append((MT, daughter))
 
             except AttributeError:
                 # then is not a DF but a Series
-                MT = str(int(subset['MT']))
-                daughter = subset['Daughter']
+                MT = str(int(subset["MT"]))
+                daughter = subset["Daughter"]
                 daughter = self.get_zaidnum(daughter)
                 reactions.append((MT, daughter))
 

@@ -9,22 +9,25 @@ import tests.resources.libmanager as lib_res
 
 resources = files(pkg_res)
 lib_resources = files(lib_res)
-ACTIVATION_FILE = as_file(lib_resources.joinpath('Activation libs.xlsx'))
-XSDIR_FILE = as_file(lib_resources.joinpath('xsdir'))
-ISOTOPES_FILE = as_file(resources.joinpath('Isotopes.txt'))
+ACTIVATION_FILE = as_file(lib_resources.joinpath("Activation libs.xlsx"))
+XSDIR_FILE = as_file(lib_resources.joinpath("xsdir"))
+ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
 
 
 class TestLibManger:
 
-    with (XSDIR_FILE as xsdir_file,
-          ACTIVATION_FILE as activation_file,
-          ISOTOPES_FILE as isotopes_file):
-        lm = LibManager(xsdir_file, activationfile=activation_file,
-                        isotopes_file=isotopes_file)
+    with (
+        XSDIR_FILE as xsdir_file,
+        ACTIVATION_FILE as activation_file,
+        ISOTOPES_FILE as isotopes_file,
+    ):
+        lm = LibManager(
+            xsdir_file, activationfile=activation_file, isotopes_file=isotopes_file
+        )
 
     def test_reactionfilereading(self):
-        assert len(self.lm.reactions['99c']) == 100
-        assert len(self.lm.reactions['98c']) == 34
+        assert len(self.lm.reactions["99c"]) == 100
+        assert len(self.lm.reactions["98c"]) == 34
 
     def test_default_lm(self):
         LibManager()
@@ -34,32 +37,32 @@ class TestLibManger:
         """
         Test ability to recover reactions for parent zaid (one)
         """
-        parent = '9019'
-        reaction = self.lm.get_reactions('99c', parent)[0]
-        assert reaction[0] == '16'
-        assert reaction[1] == '9018'
+        parent = "9019"
+        reaction = self.lm.get_reactions("99c", parent)[0]
+        assert reaction[0] == "16"
+        assert reaction[1] == "9018"
 
     def test_get_reactions2(self):
         """
         Test ability to recover reactions for parent zaid (multiple)
         """
-        parent = '11023'
-        reactions = self.lm.get_reactions('99c', parent)
+        parent = "11023"
+        reactions = self.lm.get_reactions("99c", parent)
         print(reactions)
         reaction1 = reactions[0]
         reaction2 = reactions[1]
 
-        assert reaction1[0] == '16'
-        assert reaction1[1] == '11022'
-        assert reaction2[0] == '102'
-        assert reaction2[1] == '11024'
+        assert reaction1[0] == "16"
+        assert reaction1[1] == "11022"
+        assert reaction2[0] == "102"
+        assert reaction2[1] == "11024"
 
     def test_formula_conversion(self):
         """
         Test the abilty to switch between isotopes formulas and zaid number
         """
-        tests = ['N15', 'Er164', 'Kr83']
-        finals = ['N-15', 'Er-164', 'Kr-83']
+        tests = ["N15", "Er164", "Kr83"]
+        finals = ["N-15", "Er-164", "Kr-83"]
         for test, final in zip(tests, finals):
             conversion = self.lm.get_zaidnum(test)
             name, formula = self.lm.get_zaidname(conversion)
@@ -70,19 +73,19 @@ class TestLibManger:
         """
         Correctly checks availability of zaids
         """
-        zaid = '1001'
+        zaid = "1001"
         libs = self.lm.check4zaid(zaid)
         assert len(libs) > 1
         assert len(libs[0]) == 3
 
-        zaid = '1010'
+        zaid = "1010"
         assert len(self.lm.check4zaid(zaid)) == 0
 
     def test_convertZaid(self):
         # --- Exception if library is not available ---
         try:
-            zaid = '1001'
-            lib = '44c'
+            zaid = "1001"
+            lib = "44c"
             self.lm.convertZaid(zaid, lib)
             assert False
         except ValueError:
@@ -90,43 +93,43 @@ class TestLibManger:
 
         # --- Natural zaid ---
         # 1 to 1
-        zaid = '12000'
-        lib = '21c'
+        zaid = "12000"
+        lib = "21c"
         translation = self.lm.convertZaid(zaid, lib)
         assert translation == {zaid: (lib, 1, 1)}
         # expansion
-        lib = '31c'
+        lib = "31c"
         translation = self.lm.convertZaid(zaid, lib)
         assert len(translation) == 3
         # not available in the requested lib but available in default
 
         # not available
         try:
-            zaid = '84000'
+            zaid = "84000"
             translation = self.lm.convertZaid(zaid, lib)
             assert False
         except ValueError:
             assert True
 
         # --- 1 to 1 ---
-        zaid = '1001'
+        zaid = "1001"
         translation = self.lm.convertZaid(zaid, lib)
         assert translation == {zaid: (lib, 1, 1)}
 
         # --- absent ---
         # Use the natural zaid
-        zaid = '12024'
-        lib = '21c'
+        zaid = "12024"
+        lib = "21c"
         translation = self.lm.convertZaid(zaid, lib)
-        assert translation == {'12000': (lib, 1, 1)}
+        assert translation == {"12000": (lib, 1, 1)}
 
         # zaid available in default or other library
-        zaid = '84210'
+        zaid = "84210"
         translation = self.lm.convertZaid(zaid, lib)
         assert translation[zaid][0] != lib
 
         # zaid does not exist or not available in any library
-        zaid = '84200'
+        zaid = "84200"
         try:
             translation = self.lm.convertZaid(zaid, lib)
             assert False
@@ -134,50 +137,50 @@ class TestLibManger:
             assert True
 
     def test_get_libzaids(self):
-        lib = '44c'
+        lib = "44c"
         zaids = self.lm.get_libzaids(lib)
         assert len(zaids) == 0
 
-        lib = '21c'
+        lib = "21c"
         zaids = self.lm.get_libzaids(lib)
         assert len(zaids) == 76
-        assert zaids[0] == '1001'
+        assert zaids[0] == "1001"
 
     def test_get_zaidname(self):
-        zaid = '1001'
+        zaid = "1001"
         name, formula = self.lm.get_zaidname(zaid)
-        assert name == 'hydrogen'
-        assert formula == 'H-1'
+        assert name == "hydrogen"
+        assert formula == "H-1"
 
-        zaid = '1000'
+        zaid = "1000"
         name, formula = self.lm.get_zaidname(zaid)
-        assert name == 'hydrogen'
-        assert formula == 'H-0'
+        assert name == "hydrogen"
+        assert formula == "H-0"
 
     def test_get_zaidnum(self):
-        zaid = '92235'
+        zaid = "92235"
         try:
             zaidnum = self.lm.get_zaidnum(zaid)
             assert False
         except ValueError:
             assert True
 
-        zaid = 'U235'
+        zaid = "U235"
         zaidnum = self.lm.get_zaidnum(zaid)
-        assert zaidnum == '92235'
+        assert zaidnum == "92235"
 
     def test_select_lib(self, monkeypatch):
         # monkeypatch the "input" function
 
         # Good trials
-        for lib in ['31c', '{"21c": "31c", "00c": "71c"}', '21c-31c']:
-            monkeypatch.setattr('builtins.input', lambda _: lib)
+        for lib in ["31c", '{"21c": "31c", "00c": "71c"}', "21c-31c"]:
+            monkeypatch.setattr("builtins.input", lambda _: lib)
             selectedlib = self.lm.select_lib()
             assert selectedlib == lib
 
         # Not found
-        for lib in ['44c', '{"21c": "44c", "44c": "71c"}', '21c-44c']:
-            monkeypatch.setattr('builtins.input', lambda _: lib)
+        for lib in ["44c", '{"21c": "44c", "44c": "71c"}', "21c-44c"]:
+            monkeypatch.setattr("builtins.input", lambda _: lib)
             try:
                 selectedlib = self.lm.select_lib()
                 print(lib)
@@ -187,12 +190,12 @@ class TestLibManger:
 
     def test_get_zaid_mass(self):
         # Normal zaid
-        zaid = '99235.31c  -1'
+        zaid = "99235.31c  -1"
         zaid = Zaid.from_string(zaid)
         mass = self.lm.get_zaid_mass(zaid)
         assert mass == 252.08298
         # Natural zaid
-        zaid = '8000.21c  1'
+        zaid = "8000.21c  1"
         zaid = Zaid.from_string(zaid)
         mass = self.lm.get_zaid_mass(zaid)
         assert mass == 15.99937442590581
@@ -204,8 +207,8 @@ class TestLibManger:
         # these need to be reinitialized because they have already been
         # "consumed"
         resources2 = files(pkg_res)
-        XSDIR_FILE2 = as_file(resources2.joinpath('xsdir.txt'))
-        ISOTOPES_FILE2 = as_file(resources2.joinpath('Isotopes.txt'))
+        XSDIR_FILE2 = as_file(resources2.joinpath("xsdir.txt"))
+        ISOTOPES_FILE2 = as_file(resources2.joinpath("Isotopes.txt"))
 
         # only xsdir default
         with ISOTOPES_FILE2 as isotopes_file:

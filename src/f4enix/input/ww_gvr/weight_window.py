@@ -1,6 +1,7 @@
 """
 This file includes the main class of the ww_gvr package, the WW class.
 """
+
 # flake8: noqa: PLR2004
 from pathlib import Path
 from typing import List, Optional
@@ -102,10 +103,10 @@ class WW:
         values = cls._nested_to_values_by_particle(parse_result)
         cls._convert_flux_values_to_gvr(values, maximum_splitting_ratio)
         gvr = WW(file_path, geometry, values)
-        
+
         if softening_factor != 1.0:
             gvr.soften(softening_factor)
-        
+
         return gvr
 
     @staticmethod
@@ -429,9 +430,9 @@ class WW:
             "if_": 1,
             "iv": 1,
             "ni": len(self.particles),
-            "nr": 10
-            if self.geometry.coordinate_type == CoordinateType.CARTESIAN
-            else 16,
+            "nr": (
+                10 if self.geometry.coordinate_type == CoordinateType.CARTESIAN else 16
+            ),
             "probid": "Created by f4enix_ww",
             "ne": [len(energies) for energies in self.energies.values()],
             "nfx": self.geometry.i_ints,
