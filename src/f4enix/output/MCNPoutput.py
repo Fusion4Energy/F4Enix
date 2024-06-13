@@ -615,13 +615,16 @@ class Output:
         for file in os.listdir(folder):
             if file.endswith(".out") or file.endswith(".dump"):
                 with open(os.path.join(folder, file), "r", encoding="utf-8") as infile:
-                    for line in infile:
+                    for i, line in enumerate(infile):  # check a few lines
                         if pat_d1s.search(line) is not None:
                             version = pat_d1s.search(line).group()
                             return f"d1suned{version}"
                         if pat_mcnp.search(line) is not None:
                             version = pat_mcnp.search(line).group().strip("0")
                             return version
-                        break  # only the first line is needed
+                        if i > 2:
+                            break
+                        else:
+                            i += 1
 
         return ValueError("No version was found in the output file or aux files")

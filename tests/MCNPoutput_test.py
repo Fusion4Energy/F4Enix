@@ -113,6 +113,7 @@ class TestOutput:
             ["out_lp.txt", "6.2"],
             ["FNG-W_Alo", "d1suned411"],
             ["d1sunedout/example", "d1suned411"],
+            ["otheroutp/example", "6.2"],
         ],
     )
     def test_get_code_version(self, rel_filepath: os.PathLike, expected: str):
