@@ -196,6 +196,7 @@ class LibManager:
         # it is not registered as available. If the path is not empty but
         # library is not found, a warning is raised, choice for interrupting the
         # session is left to the user.
+        prev_path = "dummy"
         for code in xsdir_path.columns[2:]:
             code = code.lower()
             self.codes.append(code)
@@ -206,7 +207,6 @@ class LibManager:
                 if path is None or path == "":
                     logging.info("No path for %s library", library)
                     continue
-
                 # if the path is not empty, check if the file exists
                 # and if it does not, raise a warning since it may not be the
                 # intended behaviour by the user
@@ -217,9 +217,11 @@ class LibManager:
                     # fatal_exception(path + " does not exist")
 
                 if code in MCNP_TYPE_XSDIR:
-                    xsdir = XSDIR_CLASS[code](path)
-                    # verify that the library is actually in the xsdir
-                    available_libs = set(np.array(xsdir.tablenames)[:, 1])
+                    if prev_path != path:
+                        xsdir = XSDIR_CLASS[code](path)
+                        prev_path = path
+                        # verify that the library is actually in the xsdir
+                        available_libs = set(np.array(xsdir.tablenames)[:, 1])
                     if library in available_libs:
                         self.data[code][library] = xsdir
                     else:
