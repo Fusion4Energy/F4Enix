@@ -627,4 +627,4 @@ class Output:
                         else:
                             i += 1
 
-        return ValueError("No version was found in the output file or aux files")
+        raise ValueError("No version was found in the output file or aux files")
