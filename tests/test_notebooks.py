@@ -1,6 +1,8 @@
-import os
+import pytest
 import sys
 from pathlib import Path
+import sys
+import os
 
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
@@ -15,7 +17,7 @@ def _notebook_run(path):
     kernel_name = "python%d" % sys.version_info[0]
     errors = []
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=4)
         nb.metadata.get("kernelspec", {})["name"] = kernel_name
         ep = ExecutePreprocessor(
@@ -34,9 +36,11 @@ def _notebook_run(path):
 
     return nb, errors
 
+@pytest.mark.parametrize(
+    "filename", Path(os.path.join("docs", "source")).rglob("*.ipynb")
+)
+def test_task_1(filename):
 
-def test_task_1():
-    for notebook in Path("docs").rglob("*.ipynb"):
-        print(f"Attempting to run {notebook}")
-        _, errors = _notebook_run(notebook)
-        assert errors == []
+    print(f"Attempting to run {filename}")
+    _, errors = _notebook_run(filename)
+    assert errors == []
