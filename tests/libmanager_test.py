@@ -1,4 +1,5 @@
-import os
+import pytest
+import pandas as pd
 from importlib.resources import files, as_file
 
 from f4enix.input.libmanager import LibManager
@@ -215,3 +216,35 @@ class TestLibManger:
         # only isotopes default
         with XSDIR_FILE2 as xsdir_file:
             lm = LibManager(xsdir_path=xsdir_file)
+
+
+class TestMultiCodeLibManger:
+
+    @pytest.fixture
+    def lm(self):
+        df_rows = [
+            ["99c", "sda", "", XSDIR_FILE],
+            ["98c", "acsdc", "", XSDIR_FILE],
+            ["21c", "adsadsa", "", XSDIR_FILE],
+            ["31c", "adsadas", "", XSDIR_FILE],
+            ["00c", "sdas", "yes", XSDIR_FILE],
+            ["71c", "sdasxcx", "", XSDIR_FILE],
+        ]
+        df_lib = pd.DataFrame(df_rows)
+        df_lib.columns = ["Suffix", "Name", "Default", "MCNP"]
+
+        return LibManager(
+            df_lib, activationfile=ACTIVATION_FILE, isotopes_file=ISOTOPES_FILE
+        )
+
+    def test_available_libs(self, lm: LibManager):
+        """
+        Test the ability to recover the available libraries
+        """
+        libs = lm.libraries["mcnp"]
+        assert "99c" in libs
+        assert "98c" in libs
+        assert "21c" in libs
+        assert "31c" in libs
+        assert "00c" in libs
+        assert "71c" in libs

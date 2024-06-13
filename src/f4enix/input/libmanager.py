@@ -67,7 +67,19 @@ class IsotopeDataParser:
             abundances.set_index("idx", inplace=True)
             self.isotopes = abundances
 
-    def get_formulazaid(self, formula):
+    def get_formulazaid(self, formula: str) -> str:
+        """Returns the zaid for a given formula
+
+        Parameters
+        ----------
+        formula : str
+            formula of the isotope (e.g. H1).
+
+        Returns
+        -------
+        str
+            zaid of the isotope.
+        """
         match = re.match(r"([a-z]+)([0-9]+)", formula, re.I)
         parts = match.groups()
         E, A = parts[0], int(parts[1])
@@ -97,7 +109,7 @@ class LibManager:
             table related to libraries variables.
         defaultlib : str, optional
             lib suffix to be used as default in translation operations.
-            If None, it reads from lib_df
+            If None, it reads from lib_df. If not provided, default is "81c".
         activationfile : str or path, optional
             path to the config file containing the reactions data for
             activation libraries. The default is None.
@@ -130,22 +142,13 @@ class LibManager:
 
         """
         if xsdir_path is None:
-            datapath = (
-                os.path.join(os.getenv("DATAPATH", ""), "xsdir_mcnp6.2")
-                if os.getenv("DATAPATH")
-                else None
-            )
-            xsdir_path = Path(datapath)
-
-        if xsdir_path is None:
             resources = files(pkg_res)
-            xsdir_path = as_file(resources.joinpath("xsdir.txt"))
-            xsdir = Xsdir(xsdir_path)
-
-        try:
-            xsdir_path = Path(xsdir_path)
-        except TypeError:
-            pass
+            xsdir_path = Path(resources.joinpath("xsdir.txt"))
+        else:
+            try:
+                xsdir_path = Path(xsdir_path)
+            except TypeError:
+                pass
 
         if isinstance(xsdir_path, os.PathLike):
             xsdir = Xsdir(xsdir_path)
@@ -167,6 +170,7 @@ class LibManager:
         self.isotopes = self.isotope_parser.isotopes
 
         # Convert all columns to lower case
+        xsdir_path = xsdir_path.copy()
         new_columns = []
         for column in xsdir_path:
             new_columns.append(column.lower())

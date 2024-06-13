@@ -1108,14 +1108,14 @@ class Input:
         # reset universe private value (i know this is not a good practice, tbd)
         cell._Card__u = None
 
-    def add_stopCard(self, nps):
+    def add_stopCard(self, nps: int = 1e7):
         """
         Add STOP card
 
         Parameters
         ----------
         nps : int
-            number of particles to simulate.
+            number of particles to simulate. Default 1e7
 
         Returns
         -------

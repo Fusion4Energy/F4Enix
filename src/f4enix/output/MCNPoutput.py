@@ -26,6 +26,7 @@ import numpy as np
 
 from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
 from f4enix.input.MCNPinput import Input
+from f4enix.output.mctal import Tally
 
 # -- Identifiers --
 SURFACE_ID = "currently being tracked has reached surface"
@@ -487,23 +488,24 @@ class Output:
 
         return df.sort_index()
 
-    def assign_tally_description(self, stat_checks, tallylist, warning=False):
-        """
-        Include the tally descriptions in the statistical checks dictionary
+    def assign_tally_description(
+        self, stat_checks: dict[int, str], tallylist: list[Tally], warning=False
+    ) -> dict[str, str]:
+        """Include the tally descriptions in the statistical checks dictionary.
 
         Parameters
         ----------
-        tallylist : list
-            List of tallies.
-        warning : bool
-            if True a warning is printed to video when the tally description
-            is not found
+        stat_checks : dict[int, str]
+            _description_
+        tallylist : list[Tally]
+            _description_
+        warning : bool, optional
+            _description_, by default False
 
         Returns
         -------
-        new_stat_check : dic
-            the adjourned result of the statistical checks results.
-
+        dict[str, str]
+            _description_
         """
         new_stat_check = {}
         for tnumber, result in stat_checks.items():

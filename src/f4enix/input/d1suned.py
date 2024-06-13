@@ -246,7 +246,7 @@ class IrradiationFile:
 
         logging.info("Irradiation file written at {}".format(outfile))
 
-    def update_irradiation_file(self, daughters: list[str]):
+    def select_daughters_irradiation_file(self, daughters: list[str]):
         """
         Updates a D1S irradiation file selecting a subset of daughters from a list
 

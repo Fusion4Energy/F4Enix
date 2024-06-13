@@ -47,7 +47,7 @@ PAT_MAT = re.compile(r"[\s\t]*[mM]\d+")
 PAT_MX = re.compile(r"[\s\t]*mx\d+", re.IGNORECASE)
 
 
-def indent(elem, level=0) -> None:
+def indent(elem, level: int = 0) -> None:
     """Indent an XML element and its children to make the XML structure more human-readable.
 
     Parameters
@@ -195,7 +195,7 @@ class Zaid:
 
         return "{0:>15} {1:>18} {2:<12} {3:<10}".format(*args)
 
-    def to_xml(self, libmanager, submaterial) -> None:
+    def to_xml(self, libmanager: LibManager, submaterial: SubMaterial) -> None:
         """Generate XML content for a nuclide within a material.
 
         Parameters
@@ -524,7 +524,7 @@ class SubMaterial:
 
         return text.strip("\n")
 
-    def to_xml(self, libmanager, material) -> None:
+    def to_xml(self, libmanager: LibManager, material: Material) -> None:
         """Generate XML content for a material and add it to a material tree.
 
         Parameters
@@ -998,7 +998,7 @@ class Material:
 
         return text.strip("\n")
 
-    def to_xml(self, libmanager, material_tree):
+    def to_xml(self, libmanager: LibManager, material_tree: ET.Element) -> None:
         """Generate XML content for a material and its submaterials.
 
         Parameters
@@ -1338,7 +1338,7 @@ class MatCardsList(Sequence):
 
         return text.strip("\n")
 
-    def to_xml(self, libmanager) -> str:
+    def to_xml(self, libmanager: LibManager) -> str:
         """Generate an XML representation of materials and return it as a string.
 
         Parameters
