@@ -307,7 +307,7 @@ class LibManager:
         if code in MCNP_TYPE_XSDIR:
             for lib in self.libraries[code]:
                 xsdir = self.data[code][lib]
-                if lib in xsdir.find_table(zaid, mode="default-fast"):
+                if lib in xsdir.available_libraries[zaid]:
                     libraries.append(lib)
         else:
             raise NotImplementedError("{} not implemented yet".format(code))
@@ -368,7 +368,7 @@ class LibManager:
             # Natural zaid
             if zaid[-3:] == "000":
                 # Check if zaid has natural info
-                if XS.find_table(zaid + "." + lib, mode="exact"):
+                if lib in XS.available_libraries[zaid]:
                     translation = {zaid: (lib, 1, 1)}  # mass not important
 
                 else:  # Has to be expanded
@@ -376,10 +376,11 @@ class LibManager:
                     reduced = self.isotopes[self.isotopes["Z"] == int(zaid[:-3])]
                     for idx, row in reduced.iterrows():
                         # zaid availability must be checked
-                        if XS.find_table(idx + "." + lib, mode="exact"):
+                        if lib in XS.available_libraries[idx]:
                             newlib = lib
-                        elif self.data[code][self.defaultlib].find_table(
-                            idx + "." + self.defaultlib, mode="exact"
+                        elif (
+                            self.defaultlib
+                            in self.data[code][self.defaultlib].available_libraries[idx]
                         ):
                             warnings.warn(MSG_DEFLIB.format(self.defaultlib, zaid))
                             newlib = self.defaultlib
@@ -403,11 +404,12 @@ class LibManager:
             else:
                 # Check if the natural zaid is available
                 natzaid = zaid[:-3] + "000"
-                if XS.find_table(natzaid + "." + lib, mode="exact"):
+                if lib in XS.available_libraries[natzaid]:
                     translation = {natzaid: (lib, 1, 1)}  # mass not important
                 # Check if default lib is available
-                elif self.data[code][self.defaultlib].find_table(
-                    zaid + "." + self.defaultlib, mode="exact"
+                elif (
+                    self.defaultlib
+                    in self.data[code][self.defaultlib].available_libraries[zaid]
                 ):
                     warnings.warn(MSG_DEFLIB.format(self.defaultlib, zaid))
                     translation = {zaid: (self.defaultlib, 1, 1)}  # mass not imp

@@ -69,6 +69,8 @@ class Xsdir(object):
     tables : list
         Entries are XsdirTable objects, that appear in the same order as the
         xsdir table lines.
+    available_libraries : dict
+        keys are zaids in the xsdir and values are lists of available libraries
 
     Notes
     -----
@@ -98,6 +100,7 @@ class Xsdir(object):
             libname = name[-3:]
             tablenames.append((zaidname, libname))
         self.tablenames = tablenames
+        self.available_libraries = self._precompute_available_libs()
 
     def read(self):
         """Populate the Xsdir object by reading the file."""
@@ -207,6 +210,14 @@ class Xsdir(object):
             ans = self._all_fast_loop(name, self.tablenames)
 
         return ans
+
+    def _precompute_available_libs(self) -> dict[list]:
+        available_libs = {}
+        for zaidname, libname in self.tablenames:
+            if zaidname not in available_libs:
+                available_libs[zaidname] = []
+            available_libs[zaidname].append(libname)
+        return available_libs
 
     @staticmethod
     def _exact_loop(name: str, tablenames: List[Tuple[str, str]]) -> bool:
