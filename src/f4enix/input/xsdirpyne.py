@@ -70,7 +70,7 @@ class Xsdir(object):
         Entries are XsdirTable objects, that appear in the same order as the
         xsdir table lines.
     available_libraries : dict
-        keys are zaids in the xsdir and values are lists of available libraries
+        keys are zaids in the xsdir and values are the libraries available for
 
     Notes
     -----
@@ -210,6 +210,29 @@ class Xsdir(object):
             ans = self._all_fast_loop(name, self.tablenames)
 
         return ans
+
+    def zaid_has_table(self, zaidname: str, lib: str) -> bool:
+        """Check if a ZAID has a table in a given library.
+
+        Parameters
+        ----------
+        zaidname : str
+            The ZAID name (e.g. 1001).
+        lib : str
+            The lib suffix (e.g. 31c)
+
+        Returns
+        -------
+        bool
+            True if the ZAID has a table in the given library.
+        """
+        try:
+            if lib in self.available_libraries[zaidname]:
+                return True
+            else:
+                return False
+        except KeyError:
+            return False
 
     def _precompute_available_libs(self) -> dict[list]:
         available_libs = {}
