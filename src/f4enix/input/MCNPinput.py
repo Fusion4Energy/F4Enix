@@ -1123,22 +1123,10 @@ class Input:
 
         """
 
-        line = "STOP "
-        if nps is not None:
-            try:
-                line = line + "NPS " + str(int(nps)) + " "
-            except ValueError:
-                pass  # an escaped NaN
-        if line == "STOP ":
-            raise ValueError(
-                """
-Specify an nps for the simulation"""
-            )
-
-        line = line + "\n"
+        line = "NPS " + str(int(nps)) + " \n"
 
         card = parser.Card([line], 5, -1)
-        self.other_data["STOP"] = card
+        self.other_data["NPS"] = card
 
 
 class D1S_Input(Input):

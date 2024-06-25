@@ -39,13 +39,6 @@ from contextlib import contextmanager
 from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
 
-# -------------------------------------
-#         == COMMON PATTERNS ==
-# -------------------------------------
-PAT_COMMENT = re.compile(r"[cC][\s\t]+")
-PAT_MAT = re.compile(r"[\s\t]*[mM]\d+")
-PAT_MX = re.compile(r"[\s\t]*mx\d+", re.IGNORECASE)
-
 
 def indent(elem, level: int = 0) -> None:
     """Indent an XML element and its children to make the XML structure more human-readable.

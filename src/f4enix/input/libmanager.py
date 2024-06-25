@@ -139,19 +139,28 @@ class LibManager:
         """
         if xsdir_path is None:
             resources = files(pkg_res)
-            xsdir_path = Path(resources.joinpath("xsdir.txt"))
+            xsdir_file = as_file(resources.joinpath("xsdir.txt"))
         else:
             try:
                 xsdir_path = Path(xsdir_path)
             except TypeError:
                 pass
 
-        if isinstance(xsdir_path, os.PathLike):
-            xsdir = Xsdir(xsdir_path)
+        if isinstance(xsdir_path, os.PathLike) or xsdir_path is None:
+            if xsdir_path is None:
+                with xsdir_file as xs_file:
+                    xsdir = Xsdir(xs_file)
+            else:
+                xsdir = Xsdir(xsdir_path)
             available_libs = list(set(np.array(xsdir.tablenames)[:, 1]))
             df_rows = []
             for lib in available_libs:
-                df_rows.append([lib, "", "", xsdir_path])
+                if xsdir_path is not None:
+                    df_rows.append([lib, "", "", xsdir_path])
+                else:
+                    xsdir_file = as_file(resources.joinpath("xsdir.txt"))
+                    with xsdir_file as xs_file:
+                        df_rows.append([lib, "", "", xs_file])
             df_lib = pd.DataFrame(df_rows)
             df_lib.columns = ["Suffix", "Name", "Default", "MCNP"]
             xsdir_path = df_lib
@@ -285,7 +294,7 @@ class LibManager:
 
         self.reactions = reactions
 
-    def check4zaid(self, zaid: str, code: str = "mcnp"):
+    def check4zaid(self, zaid: str, code: str = "mcnp") -> list[str]:
         # Needs fixing
         """
         Check which libraries are available for the selected zaid and return it
@@ -299,7 +308,7 @@ class LibManager:
 
         Returns
         -------
-        libraries : list
+        libraries : list[str]
             list of libraries available for the zaid.
 
         """
@@ -435,7 +444,7 @@ class LibManager:
 
         return translation
 
-    def get_libzaids(self, lib: str, code: str = "mcnp"):
+    def get_libzaids(self, lib: str, code: str = "mcnp") -> list[str]:
         # Needs fixing
         """
         Given a library, returns all zaids available

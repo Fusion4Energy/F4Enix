@@ -379,7 +379,9 @@ class Output:
                     elif line.find(allzero) != -1:
                         result = "All zeros"
                     else:
-                        print("Warning: tally n." + str(tnumber) + " not retrieved")
+                        logging.warning(
+                            "Warning: tally n." + str(tnumber) + " not retrieved"
+                        )
 
                     stat_checks[tnumber] = result
 
@@ -496,16 +498,18 @@ class Output:
         Parameters
         ----------
         stat_checks : dict[int, str]
-            _description_
+            A dictionary of the statistical checks results.
+            It should come from the method get_statistical_checks_tfc_bins.
         tallylist : list[Tally]
-            _description_
+            Tallies list where to put the descriptions.
         warning : bool, optional
-            _description_, by default False
+            Check for the actual presence of a tally description,
+            by default False
 
         Returns
         -------
         dict[str, str]
-            _description_
+            Statistical checks dictionary with the tally descriptions
         """
         new_stat_check = {}
         for tnumber, result in stat_checks.items():
@@ -515,7 +519,9 @@ class Output:
                         tdescr = tally.tallyComment[0]
                     except IndexError:
                         if warning:
-                            print(" WARNING: No description t. " + str(tnumber))
+                            logging.warning(
+                                " WARNING: No description t. " + str(tnumber)
+                            )
                         tdescr = ""
             newkey = tdescr + " [" + str(tnumber) + "]"
             new_stat_check[newkey] = result
