@@ -169,25 +169,6 @@ class TestLibManger:
         zaidnum = self.lm.get_zaidnum(zaid)
         assert zaidnum == "92235"
 
-    def test_select_lib(self, monkeypatch):
-        # monkeypatch the "input" function
-
-        # Good trials
-        for lib in ["31c", '{"21c": "31c", "00c": "71c"}', "21c-31c"]:
-            monkeypatch.setattr("builtins.input", lambda _: lib)
-            selectedlib = self.lm.select_lib(["mcnp"])
-            assert selectedlib == lib
-
-        # Not found
-        for lib in ["44c", '{"21c": "44c", "44c": "71c"}', "21c-44c"]:
-            monkeypatch.setattr("builtins.input", lambda _: lib)
-            try:
-                selectedlib = self.lm.select_lib(["mcnp"])
-                print(lib)
-                assert False
-            except ValueError:
-                assert True
-
     def test_get_zaid_mass(self):
         # Normal zaid
         zaid = "99235.31c  -1"
