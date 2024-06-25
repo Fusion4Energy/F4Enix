@@ -22,8 +22,6 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-
-import json
 import logging
 import os
 import re
@@ -46,11 +44,6 @@ XSDIR_CLASS = {
     "d1s": Xsdir,
 }
 MCNP_TYPE_XSDIR = ["mcnp", "d1s", "serpent"]
-
-# colors
-CRED = "\033[91m"
-CEND = "\033[0m"
-
 
 MSG_DEFLIB = " The Default library {} was used for zaid {}"
 
@@ -555,76 +548,22 @@ class LibManager:
 
         return zaidnum
 
-    def select_lib(self, codes: list[str] = ["mcnp"]) -> str:
-        """
-        Prompt a library input selection with Xsdir availabilty check
+    def is_lib_available(self, lib: str, codes: list[str] = ["mcnp"]) -> bool:
+        """Check if a library is available in the xsdirs of the codes in the list
 
         Parameters
         ----------
-        code: list[str], optional
-            code for which the library is selected. default is MCNP
+        lib : str
+            Name of the library to check.
+        codes : list[str], optional
+            list of the codes for which the presence of the library is checked
+            in the xsdir, by default ["mcnp"]
 
         Returns
         -------
-        lib : str
-            Library to assess.
-
+        bool
+            True if library is present, False otherwise.
         """
-        error = (
-            CRED
-            + """
- Error: {}
- The selected library is not available.
- """
-            + CEND
-        )
-        # Add a counter to avoid falling in an endless loop
-        i = 0
-        while True:
-            i += 1
-            lib = input(" Select library (e.g. 31c or 99c-31c): ")
-            # check that library is available in all requested codes
-
-            if self._is_lib_available(lib, codes):
-                break  # if the library is available for all codes, break loop
-
-            elif lib[0] == "{":
-                libs = json.loads(lib)
-                # all libraries should be available
-                tocheck = list(libs.values())
-                tocheck.extend(list(libs.keys()))
-                flag = True
-                for val in tocheck:
-                    if not self._is_lib_available(val, codes):
-                        print(error.format(val))
-                        flag = False
-                if flag:
-                    break
-
-            elif "-" in lib:
-                libs = lib.split("-")
-                flag = True
-                for val in libs:
-                    if not self._is_lib_available(val, codes):
-                        print(error.format(val))
-                        flag = False
-                if flag:
-                    break
-
-            elif lib == "back":
-                break
-
-            elif lib == "exit":
-                break
-
-            else:
-                print(error.format(lib))
-
-            if i > 20:
-                raise ValueError("Too many wrong inputs")
-        return lib
-
-    def _is_lib_available(self, lib: str, codes: list[str] = ["mcnp"]) -> bool:
         flag_present = True
         for code in codes:
             if lib not in self.libraries[code]:
