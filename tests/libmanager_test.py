@@ -10,7 +10,7 @@ import tests.resources.libmanager as lib_res
 resources = files(pkg_res)
 lib_resources = files(lib_res)
 ACTIVATION_FILE = as_file(lib_resources.joinpath("Activation libs.xlsx"))
-XSDIR_FILE = as_file(lib_resources.joinpath("xsdir.txt"))
+XSDIR_FILE = as_file(lib_resources.joinpath("xsdir"))
 ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
 
 
