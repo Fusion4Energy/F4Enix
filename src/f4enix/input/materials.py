@@ -34,9 +34,38 @@ from decimal import Decimal
 import copy
 import sys
 import os
+import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
+
+
+def indent(elem, level: int = 0) -> None:
+    """Indent an XML element and its children to make the XML structure more human-readable.
+
+    Parameters
+    ----------
+    elem : xml.etree.ElementTree.Element
+        XML element to be indented
+    level : int, optional
+        Current level of indentation, by default 0
+    """
+
+    # Create the indentation string based on the specified level
+    i = "\n" + level * "  "
+    if len(elem):
+        # If the element has child elements
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level + 1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
 
 
 # -------------------------------------
@@ -158,6 +187,26 @@ class Zaid:
         args = (zaidname, fraction, inline_comm, abundance)
 
         return "{0:>15} {1:>18} {2:<12} {3:<10}".format(*args)
+
+    def to_xml(self, libmanager: LibManager, submaterial: SubMaterial) -> None:
+        """Generate XML content for a nuclide within a material.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+        submaterial :
+            The XML element for the material where the nuclide content will be added.
+        """
+        nuclide = self.get_fullname(libmanager).replace("-", "")
+        if self.fraction < 0.0:
+            ET.SubElement(
+                submaterial, "nuclide", name=nuclide, wo=str(abs(self.fraction))
+            )
+        else:
+            ET.SubElement(
+                submaterial, "nuclide", name=nuclide, ao=str(abs(self.fraction))
+            )
 
     def get_fullname(self, libmanager: LibManager) -> str:
         """
@@ -468,7 +517,41 @@ class SubMaterial:
 
         return text.strip("\n")
 
-    def translate(self, newlib: dict | str, lib_manager: LibManager) -> None:
+    def to_xml(self, libmanager: LibManager, material: Material) -> None:
+        """Generate XML content for a material and add it to a material tree.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager handling the libraries operations.
+        material :
+            The XML tree where the material content will be added.
+        """
+
+        # matid = id
+        # matname = str(self.name)
+        # matdensity = str(abs(density))
+        # if density < 0:
+        #    density_units = "g/cc"
+        # else:
+        #    density_units = "atom/b-cm"
+        # submaterial = ET.SubElement(material_tree, "material", id=matid, name=matname)
+        # ET.SubElement(submaterial, "density", value=matdensity, units=density_units)
+        if self.elements is not None:
+            for elem in self.elements:
+                for zaid in elem.zaids:
+                    zaid.to_xml(libmanager, material)
+        else:
+            for zaid in self.zaidList:
+                zaid.to_xml(libmanager, material)
+
+    def translate(
+        self,
+        newlib: dict | str,
+        lib_manager: LibManager,
+        code: str = "mcnp",
+        update: bool = True,
+    ) -> None:
         """
         This method implements the translation logic of JADE. All zaids are
         translated accordingly to the newlib specified.
@@ -536,7 +619,7 @@ class SubMaterial:
 
             try:
                 translation = lib_manager.convertZaid(
-                    zaid.element + zaid.isotope, newtag
+                    zaid.element + zaid.isotope, newtag, code
                 )
             except ValueError:
                 # No Available translation was found, ignore zaid
@@ -716,6 +799,7 @@ class Material:
         submaterials: list[SubMaterial] = None,
         mx_cards: list = None,
         header: str = None,
+        density: float = None,
     ) -> None:
         """
         Object representing an MCNP material
@@ -734,7 +818,8 @@ class Material:
             list of mx_cards in the material if present. The default is None.
         header : str, optional
             material header. The default is None.
-
+        density : float, optional
+            material density, used for OpenMC materials. Default is None.
         Returns
         -------
         None.
@@ -754,6 +839,7 @@ class Material:
         else:
             self.mx_cards = mx_cards
         self.header = header
+        self.density = density
 
         # Adjust the submaterial and headers reading
         try:
@@ -824,7 +910,7 @@ class Material:
         Parameters
         ----------
         text : list[str]
-            MCNP formatted text.
+            Transport code formatted text representing the material.
 
         Returns
         -------
@@ -875,10 +961,22 @@ class Material:
             MCNP formatte text representing the material.
 
         """
-        if self.header is not None:
-            text = self.header.strip("\n") + "\n" + self.name.upper().strip("\n")
+        if self.density is not None:
+            if self.header is not None:
+                text = (
+                    self.header.strip("\n")
+                    + "\n"
+                    + self.name.lower().strip("\n")
+                    + " "
+                    + str(self.density)
+                )
+            else:
+                text = self.name.lower() + " " + str(self.density)
         else:
-            text = self.name.upper()
+            if self.header is not None:
+                text = self.header.strip("\n") + "\n" + self.name.upper().strip("\n")
+            else:
+                text = self.name.upper()
         if self.submaterials is not None:
             for submaterial in self.submaterials:
                 text = text + "\n" + submaterial.to_text()
@@ -893,7 +991,36 @@ class Material:
 
         return text.strip("\n")
 
-    def translate(self, newlib: dict | str, lib_manager: LibManager) -> None:
+    def to_xml(self, libmanager: LibManager, material_tree: ET.Element) -> None:
+        """Generate XML content for a material and its submaterials.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+        material_tree :
+            The XML element for the material where content will be added.
+        """
+        matid = re.sub("[^0-9]", "", str(self.name))
+        matname = str(self.name)
+        matdensity = str(abs(self.density))
+        if self.density < 0:
+            density_units = "g/cc"
+        else:
+            density_units = "atom/b-cm"
+        material = ET.SubElement(material_tree, "material", id=matid, name=matname)
+        ET.SubElement(material, "density", value=matdensity, units=density_units)
+        if self.submaterials is not None:
+            for submaterial in self.submaterials:
+                submaterial.to_xml(libmanager, material)
+
+    def translate(
+        self,
+        newlib: dict | str,
+        lib_manager: LibManager,
+        code: str = "mcnp",
+        update: bool = None,
+    ) -> None:
         """
         This method allows to translate all submaterials to another library
 
@@ -913,13 +1040,17 @@ class Material:
             on the zaidnum.
         lib_manager : libmanager.LibManager
             object handling all libraries operations.
+        code : str, optional
+            Monte Carlo code for material format. The default is 'mcnp'.
+        update : bool, optional
+            if True, material infos are updated. The default is True.
 
         Returns
         -------
         None.
         """
         for submat in self.submaterials:
-            submat.translate(newlib, lib_manager)
+            submat.translate(newlib, lib_manager, code)
 
         self._update_info(lib_manager)
 
@@ -1200,7 +1331,34 @@ class MatCardsList(Sequence):
 
         return text.strip("\n")
 
-    def translate(self, newlib: str | dict, lib_manager: LibManager) -> None:
+    def to_xml(self, libmanager: LibManager) -> str:
+        """Generate an XML representation of materials and return it as a string.
+
+        Parameters
+        ----------
+        libmanager :
+            libmanager
+
+        Returns
+        -------
+        str
+            The XML representation of materials as a string.
+        """
+
+        # Create XML element to represent the collection of materials.
+        material_tree = ET.Element("materials")
+
+        for material in self.materials:
+            material.to_xml(libmanager, material_tree)
+
+        # Apply indentation to the generated XML data.
+        indent(material_tree)
+
+        return ET.tostring(material_tree, encoding="unicode", method="xml")
+
+    def translate(
+        self, newlib: str | dict, lib_manager: LibManager, code: str = "mcnp"
+    ) -> None:
         """
         This method allows to translate the material cards to another library.
         The zaid are collapsed again to get the new elements

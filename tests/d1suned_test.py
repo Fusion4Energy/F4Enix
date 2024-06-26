@@ -12,8 +12,10 @@ from f4enix.input.d1suned import (
 )
 from f4enix.input.libmanager import LibManager
 import tests.resources.d1suned as res
+import f4enix.resources as pkg_res
 
 RESOURCES = files(res)
+PKG_RESOURCES = files(pkg_res)
 # INP = os.path.join(cp, 'TestFiles', 'parserD1S', 'reac_fe')
 # Files
 
@@ -72,6 +74,25 @@ class TestIrradiationFile:
         # Check true value
         irradiation = irrfile.get_irrad("26055")
         assert irradiation.daughter == "26055"
+
+    def test_select_daughters_irradiation_file(self):
+        """
+        Updates a D1S irradiation file selecting a subset of daughters from a list
+
+        Parameters
+        ----------
+        daughters : list.
+            daughter zaids to be selected
+
+        """
+        with as_file(RESOURCES.joinpath("irr_test")) as inp:
+            irrfile = IrradiationFile.from_text(inp)
+        ans = irrfile.select_daughters_irradiation_file(["24051", "26055"])
+        # Keep only useful irradiations
+        assert ans is True
+        assert len(irrfile.irr_schedules) == 2
+        assert irrfile.irr_schedules[0].daughter == "24051"
+        assert irrfile.irr_schedules[1].daughter == "26055"
 
 
 class TestIrradiation:
@@ -160,9 +181,9 @@ class TestReactionFile:
 
     @pytest.fixture
     def lm(self):
-        # xsdirpath = os.path.join(cp, 'TestFiles', 'libmanager', 'xsdir')
+        xsdirpath = os.path.join(PKG_RESOURCES, "xsdir.txt")
         # isotopes_file = os.path.join(root, 'jade', 'resources', 'Isotopes.txt')
-        return LibManager()
+        return LibManager(xsdir_path=xsdirpath)
 
     def test_fromtext(self):
         """

@@ -146,3 +146,5 @@ SECTOR_NAMES = [1, "2 & 3", 4, 5, 6, 7, 8, 9]
 #                     'SF', 'FS', 'SD', 'FU', 'FT', 'TF', 'NOTRN']
 
 UNION_INTERSECT_SYMBOLS = {"union": ":", "intersect": ""}
+
+CONV = {"Result": "Value", "Rel": "Error", "R": "Cor A", "Z": "Cor B", "Theta": "Cor C"}

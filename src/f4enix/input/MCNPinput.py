@@ -1108,6 +1108,26 @@ class Input:
         # reset universe private value (i know this is not a good practice, tbd)
         cell._Card__u = None
 
+    def add_stopCard(self, nps: int = 1e7):
+        """
+        Add STOP card
+
+        Parameters
+        ----------
+        nps : int
+            number of particles to simulate. Default 1e7
+
+        Returns
+        -------
+        None.
+
+        """
+
+        line = "NPS " + str(int(nps)) + " \n"
+
+        card = parser.Card([line], 5, -1)
+        self.other_data["NPS"] = card
+
 
 class D1S_Input(Input):
     def __init__(

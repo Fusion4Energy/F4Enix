@@ -106,6 +106,13 @@ class TestMeshtal:
 
         assert True
 
+    @pytest.mark.parametrize("input_meshtal", ["1D_mesh"])
+    def test_1d_features(self, input_meshtal, tmpdir):
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        fake_tal = meshtal.mesh[214].convert2tally()
+
     def test_write_cyl(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
             meshtally = Meshtal(inp)
