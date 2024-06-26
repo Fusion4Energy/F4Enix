@@ -26,6 +26,7 @@ import numpy as np
 
 from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
 from f4enix.input.MCNPinput import Input
+from f4enix.output.mctal import Tally
 
 # -- Identifiers --
 SURFACE_ID = "currently being tracked has reached surface"
@@ -378,7 +379,9 @@ class Output:
                     elif line.find(allzero) != -1:
                         result = "All zeros"
                     else:
-                        print("Warning: tally n." + str(tnumber) + " not retrieved")
+                        logging.warning(
+                            "Warning: tally n." + str(tnumber) + " not retrieved"
+                        )
 
                     stat_checks[tnumber] = result
 
@@ -486,6 +489,44 @@ class Output:
         df["Other TFC bins"] = pd.Series(summary)
 
         return df.sort_index()
+
+    def assign_tally_description(
+        self, stat_checks: dict[int, str], tallylist: list[Tally], warning=False
+    ) -> dict[str, str]:
+        """Include the tally descriptions in the statistical checks dictionary.
+
+        Parameters
+        ----------
+        stat_checks : dict[int, str]
+            A dictionary of the statistical checks results.
+            It should come from the method get_statistical_checks_tfc_bins.
+        tallylist : list[Tally]
+            Tallies list where to put the descriptions.
+        warning : bool, optional
+            Check for the actual presence of a tally description,
+            by default False
+
+        Returns
+        -------
+        dict[str, str]
+            Statistical checks dictionary with the tally descriptions
+        """
+        new_stat_check = {}
+        for tnumber, result in stat_checks.items():
+            for tally in tallylist:
+                if int(tally.tallyNumber) == int(tnumber):
+                    try:
+                        tdescr = tally.tallyComment[0]
+                    except IndexError:
+                        if warning:
+                            logging.warning(
+                                " WARNING: No description t. " + str(tnumber)
+                            )
+                        tdescr = ""
+            newkey = tdescr + " [" + str(tnumber) + "]"
+            new_stat_check[newkey] = result
+
+        return new_stat_check
 
     def get_table(self, table_num: int) -> pd.DataFrame:
         """Extract a printed table from the MCNP output file.

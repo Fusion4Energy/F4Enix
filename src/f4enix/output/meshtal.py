@@ -24,13 +24,16 @@ import numpy as np
 import vtk
 import csv
 import pyvista as pv
+import pandas as pd
 import os
 import time
 from scipy.spatial.transform import Rotation as R
+from typing import Tuple
 from io import open
 import logging
 from tqdm import tqdm
 from copy import deepcopy
+from f4enix.constants import CONV
 
 
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
@@ -1387,6 +1390,45 @@ class Fmesh:
         self.grid = grid
 
 
+class Fmesh1D(Fmesh):
+    def __init__(self, mshtl: Meshtal, fmsh: Fmesh, x_var: str) -> None:
+        super().__init__(mshtl)
+        attributes = vars(fmsh)
+        for attribute, value in attributes.items():
+            setattr(self, attribute, value)
+        self._values_tag = "Result"
+        self._error_tag = "Rel"
+        self._x_var = x_var
+
+    def convert2tally(self):
+        """_summary_
+
+        Returns
+        -------
+        Tuple[int, pd.DataFrame, str]
+            _description_
+        """
+
+        newcols = [CONV[self._x_var], CONV[self._values_tag], CONV[self._error_tag]]
+        if self.cart:
+            dim_tup = self.cvarsCart
+        else:
+            dim_tup = self.cvarsCyl
+        dim_tup = ("Energy",) + dim_tup
+        idx = dim_tup.index(self._x_var)
+        indices = [0] * len(dim_tup)
+        indices[idx] = slice(None)
+        df = pd.DataFrame(
+            {
+                newcols[0]: self.dims[idx][1:],
+                newcols[1]: self.dat[tuple(indices)][:],
+                newcols[2]: self.err[tuple(indices)][:],
+            }
+        )
+
+        return self.ntally, df, self.comment.strip()
+
+
 class Meshtal:
     def __init__(self, fn: os.PathLike, filetype: str = "MCNP") -> None:
         """Class representing a parsed Meshtal file
@@ -1527,6 +1569,24 @@ class Meshtal:
                 t.__readMeshCom__(self.f)
                 t.__readMeshDim__(self.f)
                 t.readHead = True
+                # Counter for values different from 1
+                x_vars = []
+
+                # Iterate over the list
+                for p, dim_check_val in enumerate(t.ldims):
+                    # Check if the value is different from 1
+                    if dim_check_val != 1:
+                        # Increment the counter
+                        if t.cart:
+                            tup = ("Energy",) + t.cvarsCart
+                        else:
+                            tup = ("Energy",) + t.cvarsCyl
+                        x_var = tup[p]
+                        x_vars.append(x_var)
+
+                # Check if there are more than 1 value different from 1
+                if len(x_vars) == 1:
+                    t = Fmesh1D(self, t, x_vars[0])
 
                 mesh[ntally] = t
         return mesh

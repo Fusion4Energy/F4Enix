@@ -1,11 +1,11 @@
-import os
+import pytest
+import pandas as pd
 from importlib.resources import files, as_file
 
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Zaid
 import f4enix.resources as pkg_res
 import tests.resources.libmanager as lib_res
-
 
 resources = files(pkg_res)
 lib_resources = files(lib_res)
@@ -155,7 +155,7 @@ class TestLibManger:
         zaid = "1000"
         name, formula = self.lm.get_zaidname(zaid)
         assert name == "hydrogen"
-        assert formula == "H-0"
+        assert formula == "H"
 
     def test_get_zaidnum(self):
         zaid = "92235"
@@ -168,25 +168,6 @@ class TestLibManger:
         zaid = "U235"
         zaidnum = self.lm.get_zaidnum(zaid)
         assert zaidnum == "92235"
-
-    def test_select_lib(self, monkeypatch):
-        # monkeypatch the "input" function
-
-        # Good trials
-        for lib in ["31c", '{"21c": "31c", "00c": "71c"}', "21c-31c"]:
-            monkeypatch.setattr("builtins.input", lambda _: lib)
-            selectedlib = self.lm.select_lib()
-            assert selectedlib == lib
-
-        # Not found
-        for lib in ["44c", '{"21c": "44c", "44c": "71c"}', "21c-44c"]:
-            monkeypatch.setattr("builtins.input", lambda _: lib)
-            try:
-                selectedlib = self.lm.select_lib()
-                print(lib)
-                assert False
-            except ValueError:
-                assert True
 
     def test_get_zaid_mass(self):
         # Normal zaid
@@ -215,4 +196,45 @@ class TestLibManger:
             lm = LibManager(isotopes_file=isotopes_file)
         # only isotopes default
         with XSDIR_FILE2 as xsdir_file:
-            lm = LibManager(xsdir_file=xsdir_file)
+            lm = LibManager(xsdir_path=xsdir_file)
+
+
+class TestMultiCodeLibManger:
+
+    @pytest.fixture
+    def lm(self):
+        resources2 = files(pkg_res)
+        XSDIR_FILE2 = as_file(resources2.joinpath("xsdir.txt"))
+        with XSDIR_FILE2 as xsdir_file:
+            df_rows = [
+                ["99c", "sda", "", xsdir_file],
+                ["98c", "acsdc", "", xsdir_file],
+                ["21c", "adsadsa", "", xsdir_file],
+                ["31c", "adsadas", "", xsdir_file],
+                ["00c", "sdas", "yes", xsdir_file],
+                ["71c", "sdasxcx", "", xsdir_file],
+            ]
+        df_lib = pd.DataFrame(df_rows)
+        df_lib.columns = ["Suffix", "Name", "Default", "MCNP"]
+        resources2 = files(pkg_res)
+        lib_resources2 = files(lib_res)
+        ACT_FILE2 = as_file(lib_resources2.joinpath("Activation libs.xlsx"))
+        ISOTOPES_FILE2 = as_file(resources2.joinpath("Isotopes.txt"))
+        with ISOTOPES_FILE2 as isotopes_file, ACT_FILE2 as act_file:
+            lm = LibManager(
+                df_lib, isotopes_file=isotopes_file, activationfile=act_file
+            )
+
+        return lm
+
+    def test_available_libs(self, lm: LibManager):
+        """
+        Test the ability to recover the available libraries
+        """
+        libs = lm.libraries["mcnp"]
+        assert "99c" in libs
+        assert "98c" in libs
+        assert "21c" in libs
+        assert "31c" in libs
+        assert "00c" in libs
+        assert "71c" in libs

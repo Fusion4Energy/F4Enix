@@ -246,6 +246,31 @@ class IrradiationFile:
 
         logging.info("Irradiation file written at {}".format(outfile))
 
+    def select_daughters_irradiation_file(self, daughters: list[str]):
+        """
+        Updates a D1S irradiation file selecting a subset of daughters from a list
+
+        Parameters
+        ----------
+        daughters : list.
+            daughter zaids to be selected
+
+        """
+
+        # Keep only useful irradiations
+        new_irradiations = []
+        for irradiation in self.irr_schedules:
+            if irradiation.daughter in daughters:
+                new_irradiations.append(irradiation)
+
+        if len(new_irradiations) != len(daughters):
+            ans = False
+        else:
+            ans = True
+
+        self.irr_schedules = new_irradiations
+        return ans
+
 
 class Irradiation:
     def __init__(

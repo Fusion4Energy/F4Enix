@@ -122,6 +122,12 @@ class TestSubmaterial:
 
 class TestMaterial:
 
+    def test_natural_expansion(self):
+        lm = LibManager()
+        material = Material.from_text(["C Header", "M1 1000.31c   -2.3"])
+        material.translate("31c", lm)
+        assert len(material.submaterials[0].zaidList) == 2
+
     def test_switch_fraction(self):
         """test needs to be conducted both for the creation through
         from_input() and from the creation from the input class

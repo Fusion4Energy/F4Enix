@@ -4,6 +4,7 @@ f4enix/f4enix.egg-info
 f4enix.egg-info
 .coverage
 htmlcov/*
+prof
 docs/source/_build/**
 docs/build/**
 docs/source/_autosummary/*
