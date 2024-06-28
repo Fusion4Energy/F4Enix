@@ -57,6 +57,14 @@ class TestLibManger:
         assert reaction2[0] == "102"
         assert reaction2[1] == "11024"
 
+    def test_get_reactions_default(self):
+        lm = LibManager()
+        # test for metastable reactions
+        parent = "78195"  # Pt-195
+        reaction = lm.get_reactions("93c", parent)[0]
+        assert reaction[0] == "304"
+        assert reaction[1] == "78195900"
+
     def test_formula_conversion(self):
         """
         Test the abilty to switch between isotopes formulas and zaid number

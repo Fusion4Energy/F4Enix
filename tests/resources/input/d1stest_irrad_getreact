@@ -13,6 +13,7 @@ C *******************************************
 C           D1S  time correction factor   
 C *******************************************
 nsc 1
-C Daught.  lambda(1/s)  time_fact_0   comments
-  24051     2.896e-07    1.569e+01     Cr51
-  25054     2.570e-08    1.181e+01     Mn54
+C Daught.      lambda(1/s)  time_fact_0   comments
+  24051        2.896e-07    1.569e+01     Cr51
+  25054        2.570e-08    1.181e+01     Mn54
+  78195900     2.570e-08    1.181e+01     Pt195m

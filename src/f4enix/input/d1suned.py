@@ -29,7 +29,7 @@ from f4enix.input.libmanager import LibManager
 
 # PAT_COMMENT = re.compile('[Cc]+')
 
-REACFORMAT = "{:>13s}{:>7s}{:>9s}{:>40s}"
+REACFORMAT = "{:>13s}{:>7s}{:>12s}{:>40s}"
 
 
 class IrradiationFile:
@@ -39,7 +39,7 @@ class IrradiationFile:
         nsc: int,
         irr_schedules: list[Irradiation],
         header: str = None,
-        formatting: list[int] = [8, 14, 13, 9],
+        formatting: list[int] = [11, 14, 13, 9],
         name: str = "irrad",
     ) -> None:
         """
@@ -56,7 +56,7 @@ class IrradiationFile:
         header : str, optional
             Header of the file. The default is None.
         formatting : list of int, optional
-            fwf values for the output columns. The default is [8, 14, 13, 9].
+            fwf values for the output columns. The default is [11, 14, 13, 9].
         name : str, optional
             name of the file. The default is 'irrad'.
 
@@ -69,7 +69,7 @@ class IrradiationFile:
         header : str, optional
             Header of the file. The default is None.
         formatting : list of int, optional
-            fwf values for the output columns. The default is [8, 14, 13, 9].
+            fwf values for the output columns. The default is [11, 14, 13, 9].
         name : str, optional
             name of the file. The default is 'irrad'.
 
@@ -282,7 +282,8 @@ class Irradiation:
         Parameters
         ----------
         daughter : str
-            daughter nuclide (e.g. 24051).
+            daughter nuclide (e.g. 24051). If metastable, it will have an
+            additional '900' appended to the zaid number.
         lambd : str
             disintegration constant [1/s].
         times : list of strings
@@ -293,7 +294,8 @@ class Irradiation:
         Attributes
         ----------
         daughter : str
-            daughter nuclide (e.g. 24051).
+            daughter nuclide (e.g. 24051). If metastable, it will have an
+            additional '900' appended to the zaid number.
         lambd : str
             disintegration constant [1/s].
         times : list of strings
@@ -582,8 +584,9 @@ class Reaction:
             integer, reaction type (ENDF definition, e.g. 102).
         daughter : str
             integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide, but any other identification
-            type (with integer value) can be used.
+            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
+            state. Theoretically, any other identification type
+            (with integer value) can be used.
         comment : str, optional
             comment to the reaction. The default is None.
 
@@ -597,8 +600,9 @@ class Reaction:
             integer, reaction type (ENDF definition, e.g. '102').
         daughter : str
             integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide, but any other identification
-            type (with integer value) can be used.
+            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
+            state. Theoretically, any other identification type
+            (with integer value) can be used.
         comment : str, optional
             comment to the reaction. The default is None.
 
