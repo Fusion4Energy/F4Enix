@@ -448,7 +448,8 @@ class TestD1S_Input:
 
         lib = "99c"
         reacfile = newinp.get_reaction_file(self.lm, lib)
-        assert ["24050"] == reacfile.get_parents()
+        assert ["24050", "78195"] == reacfile.get_parents()
+        reacfile.reactions[1].daughter == "78195900"
 
     def test_get_potential_paths(self):
         reaction_list = self.inp.get_potential_paths(self.lm, "98c")

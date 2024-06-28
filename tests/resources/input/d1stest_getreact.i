@@ -261,7 +261,8 @@ m1    1001.21c 1.45983e-01    $ NO Activation
 c
 c M2: Steel
 m2    5010.21c 1.02286e-05
-      24050.99c 6.34370e-03 
+      24050.99c 6.34370e-03
+	  78195.99c  6.34370e-03
 
 C END OF MATERIALS
 mode n p

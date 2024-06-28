@@ -1262,7 +1262,12 @@ class D1S_Input(Input):
             parent = parent + "." + lib
             # Build a comment
             _, parent_formula = libmanager.get_zaidname(parent)
-            _, daughter_formula = libmanager.get_zaidname(daughter)
+            if daughter[-3:] == "900":
+                # Then it is metastable
+                _, daughter_formula = libmanager.get_zaidname(daughter[:-3])
+                daughter_formula += "m"
+            else:  # ground state
+                _, daughter_formula = libmanager.get_zaidname(daughter)
             comment = "{} -> {}".format(parent_formula, daughter_formula)
 
             rx = Reaction(parent, MT, daughter, comment=comment)

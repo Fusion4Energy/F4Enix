@@ -610,7 +610,8 @@ class LibManager:
         Returns
         -------
         reactions : list[tuple[str, str]]
-            contains tuple of (MT, daughter).
+            contains tuple of (MT, daughter). If daughters are metastable, a
+            '900' is appended to their number.
 
         """
         reactions = []
@@ -624,14 +625,22 @@ class LibManager:
                 for _, row in subset.iterrows():
                     MT = str(int(row["MT"]))
                     daughter = row["Daughter"]
-                    daughter = self.get_zaidnum(daughter)
+                    if daughter[-1] == "m":
+                        daughter = self.get_zaidnum(daughter[:-1])
+                        daughter += "900"
+                    else:
+                        daughter = self.get_zaidnum(daughter)
                     reactions.append((MT, daughter))
 
             except AttributeError:
                 # then is not a DF but a Series
                 MT = str(int(subset["MT"]))
                 daughter = subset["Daughter"]
-                daughter = self.get_zaidnum(daughter)
+                if daughter[-1] == "m":
+                    daughter = self.get_zaidnum(daughter[:-1])
+                    daughter += "900"
+                else:
+                    daughter = self.get_zaidnum(daughter)
                 reactions.append((MT, daughter))
 
         except KeyError:

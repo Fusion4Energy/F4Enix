@@ -36,7 +36,7 @@ class TestIrradiationFile:
 
     @staticmethod
     def _assert_file1(irrfile: IrradiationFile):
-        assert len(irrfile.irr_schedules) == 4
+        assert len(irrfile.irr_schedules) == 6
         TestIrradiation.assert_irr(irrfile.irr_schedules[0])
 
     @staticmethod
@@ -63,7 +63,7 @@ class TestIrradiationFile:
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
             irrfile = IrradiationFile.from_text(inp)
         daughters = irrfile.get_daughters()
-        assert daughters == ["24051", "25054", "26055", "26059"]
+        assert daughters == ["24051", "25054", "26055", "26059", "27062", "27062900"]
 
     def test_get_irrad(self):
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
@@ -192,7 +192,7 @@ class TestReactionFile:
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
         print(reac_file.reactions)
-        assert len(reac_file.reactions) == 10
+        assert len(reac_file.reactions) == 11
 
     def test_write(self, tmpdir):
         """
@@ -208,7 +208,7 @@ class TestReactionFile:
         os.remove(outpath)
         # do some operations
         newfile.change_lib("31c")
-        assert len(newfile.reactions) == 10
+        assert len(newfile.reactions) == 11
         # Check also first line
         rx = newfile.reactions[0]
         assert rx.parent == "26054.31c"
