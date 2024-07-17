@@ -297,6 +297,39 @@ class Input:
 
         logging.info("File was written correctly")
 
+    def merge(self, other_inp: Input, ensure_updated_dicts: bool = False) -> None:
+        """Merge the input with another input object
+
+        Parameters
+        ----------
+        other_inp : Input
+            input to be merged
+        ensure_updated_dicts : bool
+            if True, the keys of both inputs are updated. This may not be needed
+            in certain applications and can be set to false if it is sure that
+            the keys are already up to date. Default is False.
+        """
+        if ensure_updated_dicts:
+            self._update_card_keys()
+            other_inp._update_card_keys()
+
+        self._safe_dict_update(self.cells, other_inp.cells)
+        self._safe_dict_update(self.surfs, other_inp.surfs)
+        self.materials.extend(other_inp.materials.materials)
+        self._safe_dict_update(self.transformations, other_inp.transformations)
+        # I do not want to stop merging for 2 SDEF cards for instance
+        self.other_data.update(other_inp.other_data)
+        # ignore duplicated keys for these for the moment being
+        self.tally_keys.extend(other_inp.tally_keys)
+        self.fmesh_keys.extend(other_inp.fmesh_keys)
+
+    @staticmethod
+    def _safe_dict_update(original_dict: dict, ext_dict: dict):
+        for key, val in ext_dict.items():
+            if key in original_dict.keys():
+                raise KeyError("Duplicated card entry: " + key)
+            original_dict[key] = val
+
     def _update_card_keys(self) -> None:
         """This function is pretty costly but it allows to ensure that cards
         values and cards keys are consistent. It useful for instance after
