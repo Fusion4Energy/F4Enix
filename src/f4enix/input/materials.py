@@ -1234,6 +1234,15 @@ class MatCardsList(Sequence):
         self.materials.append(material)
         self.matdic = self._compute_dic()
 
+    def extend(self, materials: list[Material]) -> None:
+        if type(materials) is not list:
+            raise TypeError("'materials' should be a list of materials")
+        # manually extend to be sure there are no duplicates
+        for material in materials:
+            if material.name.upper() not in self.matdic.keys():
+                self.materials.append(material)
+        self.matdic = self._compute_dic()
+
     def remove(self, item: Material) -> None:
         self.materials.remove(item)  # TODO this should get the key instead
         self.matdic = self._compute_dic()

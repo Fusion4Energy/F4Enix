@@ -102,6 +102,27 @@ class TestInput:
 
         assert True
 
+    def test_merge(self):
+        with as_file(resources_inp.joinpath("test_1.i")) as FILE1:
+            inp1 = Input.from_input(FILE1)
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE2:
+            inp2 = Input.from_input(FILE2)
+
+        # this should not be allowed due to duplicate surf
+        dest = deepcopy(inp1)
+        try:
+            dest.merge(inp2)
+            assert False
+        except KeyError:
+            assert True
+
+        # renumber and try again
+        dest = deepcopy(inp1)
+        inp2.renumber(renum_all=1000, update_keys=True)
+        dest.merge(inp2)
+        assert len(dest.cells) == 14
+        assert len(dest.surfs) == 9
+
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
         assert inp.header[0].strip("\n") == "This is the header"
