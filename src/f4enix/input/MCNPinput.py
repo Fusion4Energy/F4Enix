@@ -1161,6 +1161,96 @@ class Input:
         parser.Card
             numjuggler card of the modified cell
         """
+        if add_surface >= 0:
+            template_addition = (
+                UNION_INTERSECT_SYMBOLS[mode]
+                + "{:<"
+                + str(len(str(add_surface)))
+                + "} "
+            )
+        else:
+            template_addition = (
+                UNION_INTERSECT_SYMBOLS[mode]
+                + "-{:<"
+                + str(len(str(add_surface)) - 1)
+                + "} "
+            )
+
+        new_cell = Input._add_symbol_to_cell_input(
+            cell, template_addition, inplace=inplace
+        )
+
+        for k in range(len(new_cell.values) - 1, -1, -1):
+            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
+                break
+
+        new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
+
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
+
+    @staticmethod
+    def hash_cell(
+        cell: parser.Card,
+        hash_id: int,
+        new_cell_num: int = None,
+        inplace: bool = True,
+    ) -> parser.Card:
+        """Hash a cell to a new cell number and update the hash dictionary.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            numjuggler cell card to be hashed
+        hash_id : int
+            id of the hash cell.
+        new_cell_num : int, optional
+            new cell number to which the cell will be hashed. By default is None
+        inplace : bool, optional
+            if False a deepcopy is created. By default is True.
+        """
+        template_addition = "#{:<" + str(len(str(hash_id)) - 1) + "} "
+        new_cell = Input._add_symbol_to_cell_input(
+            cell, template_addition, inplace=inplace
+        )
+        # add the hash cell to the cell values
+        for k in range(len(new_cell.values) - 1, -1, -1):
+            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
+                break
+
+        new_cell.values.insert(k + 1, (hash_id, "cel"))
+
+        # renumber the cell if requested
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
+
+        return new_cell
+
+    def hash_multiple_cells(
+        self, hash_dict: dict[int, int]) -> None:
+        """all keys in the hash dict correspond to hash cells to be added
+        to the cells inlcuded in the hash dict value.
+
+        Parameters
+        ----------
+        hash_dict : dict[int, int]
+            info on the cells to hash and with what
+
+        """
+        for hash_id, cells in hash_dict.items():
+            for cell_num in cells:
+                cell = self.cells[str(cell_num)]
+                self.hash_cell(cell, hash_id, inplace=True)
+
+    @staticmethod
+    def _add_symbol_to_cell_input(
+        cell: parser.Card,
+        add_symbol: str,
+        inplace: bool = True,
+    ) -> parser.Card:
+
         if inplace:
             new_cell = cell
         else:
@@ -1188,40 +1278,12 @@ class Input:
             if not keywords:
                 param_cards_idx = len(row)
             if keywords or (not keywords and i == len(new_cell.input) - 1):
-                if add_surface >= 0:
-                    row.insert(
-                        param_cards_idx,
-                        ") "
-                        + UNION_INTERSECT_SYMBOLS[mode]
-                        + "{:<"
-                        + str(len(str(add_surface)))
-                        + "} ",
-                    )
-                else:
-                    row.insert(
-                        param_cards_idx,
-                        ") "
-                        + UNION_INTERSECT_SYMBOLS[mode]
-                        + "-{:<"
-                        + str(len(str(add_surface)) - 1)
-                        + "} ",
-                    )
-
+                row.insert(param_cards_idx, ") " + add_symbol)
                 new_cell.input[i] = " ".join(row)
 
                 if new_cell.input[i][:5] != "     " and i != 0:
                     new_cell.input[i] = "     " + new_cell.input[i]
                 break
-
-        for k in range(len(new_cell.values) - 1, -1, -1):
-            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
-                break
-
-        new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
-
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 

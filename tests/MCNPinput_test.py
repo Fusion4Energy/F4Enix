@@ -47,6 +47,16 @@ class TestInput:
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
 
+    def test_hash_cell(self):
+        cell = self.testInput.cells["2"]
+        hashed_cell = Input.hash_cell(cell, 12, inplace=False)
+        assert hashed_cell.card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+
+    def test_hash_multiple_cells(self):
+        inp = deepcopy(self.testInput)
+        inp.hash_multiple_cells({12: [2, 3, 4]})
+        assert inp.cells["2"].card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+
     # def test_jt60_bug(self, tmpdir):
     #     with as_file(resources_inp.joinpath('jt60.i')) as file:
     #         # MT AND MX CARDS
