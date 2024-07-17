@@ -1622,7 +1622,8 @@ def _get_num_tally(key: str) -> int:
 def _get_card_key(card: parser.Card) -> str:
     # it may happen that comments have been added to the card. The first non
     # comment line is the one to be used
-    lines = card.card().split("\n")
+    d = "\n"
+    lines = [e + d for e in card.card().split(d) if e]
     for line in lines:
         if PAT_COMMENT.match(line) is None:
             return line.split()[0].upper()

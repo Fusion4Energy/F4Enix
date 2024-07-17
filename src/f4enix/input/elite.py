@@ -18,10 +18,7 @@ from f4enix.constants import (
 class Elite_Input(Input):
     def __init__(
         self,
-        cells: list[Card],
-        surfs: list[Card],
-        data: list[Card],
-        header: list = None,
+        *args,
     ) -> None:
         """Children of the :py:class:`Input`.
 
@@ -30,14 +27,8 @@ class Elite_Input(Input):
 
         Parameters
         ----------
-        cells : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP cells.
-        surfs : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP surfaces.
-        data : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP data cards.
-        header : list, optional
-            list of strings that compose the MCNP header, by default None
+        *args
+            all arguments of parent class Input
 
         Examples
         --------
@@ -50,7 +41,7 @@ class Elite_Input(Input):
         ... elite_inp = Elite_Input.from_input('Elite.i')
         ... elite_inp.extract_sector(1, 'Elite_excel.xlsx', 'sector1.i', tol=1e-5, True)
         """
-        super().__init__(cells, surfs, data, header)
+        super().__init__(*args)
         self.__initialized = False
         self._block_structure = None
         self._sectors_L0_cells_names = {}
