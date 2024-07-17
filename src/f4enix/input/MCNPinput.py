@@ -25,6 +25,7 @@ import logging
 import json
 import re
 from numjuggler import parser
+from numjuggler import likefunc as lf
 import pandas as pd
 
 from f4enix.input.materials import MatCardsList, Material
@@ -279,6 +280,86 @@ class Input:
 
         logging.info("File was written correctly")
 
+    def _update_card_keys(self) -> None:
+        """This function is pretty costly but it allows to ensure that cards
+        values and cards keys are consistent. It useful for instance after
+        a renumbering operation
+        """
+        newcells = {}
+        newsurfs = {}
+        newdata = {}
+        newtrans = {}
+        for cards, newset in zip(
+            [self.cells, self.surfs, self.other_data, self.transformations],
+            [newcells, newsurfs, newdata, newtrans],
+        ):
+            for card in cards.values():
+                key = _get_card_key(card)
+                newset[key] = card
+        # update all dicts
+        self.cells = newcells
+        self.surfs = newsurfs
+        self.other_data = newdata
+        self.transformations = newtrans
+
+    def renumber(
+        self,
+        cells: int = None,
+        surfs: int = None,
+        universes: int = None,
+        translations: int = None,
+        renum_all: int = None,
+        update_keys: bool = False,
+    ) -> None:
+        """Renumber cards of the input files. Either all cards can be renumbered
+        using the renum_all parameter or onnly a subset between cells, surfs,
+        universes and translations. Materials are not supported for the time
+        being.
+
+        Parameters
+        ----------
+        cells : int, optional
+            offset to be used for cells, by default None
+        surfs : int, optional
+            offset to be used for surfaces, by default None
+        universes : int, optional
+            offset to be used for universes, by default None
+        translations : int, optional
+            offset to be used for translations, by default None
+        renum_all : int, optional
+            offset to be used for all supported cards, by default None. It will
+            trump all other specified offsets.
+        update_keys : bool, optional
+            if True, the keys of the different dictionaries are updated according
+            to the new numbering. This is useful if more operations are needed
+            on the file. If the file will be directly written after renumbering
+            though, this costly operation is unnecessary. Default is False.
+        """
+        if renum_all is not None:
+            # assign the same value to all the other variables
+            cells = surfs = universes = translations = renum_all
+        # for the moment do not care about logging the changes
+        # see here https://github.com/travleev/numjuggler/blob/e7659eb5abe54d84e3982e8fa0775ad5caf3a04a/numjuggler/main.py#L1423
+        maps = {}
+        for offset, card_type in zip(
+            [cells, surfs, universes, translations],
+            ["cel", "sur", "u", "tr"],
+        ):
+            if offset is not None:
+                # renumber only requested cards
+                maps[card_type] = lf.LikeFunction()
+                maps[card_type].default = lf.add_func(int(offset))
+                # do not modify zero numbers (important for material
+                # numbers)
+                maps[card_type].mappings[lf.Range(0)] = lf.const_func(0)
+                maps[card_type].doc = f"Function for {offset} from command line"
+        for cards in [self.cells, self.surfs, self.other_data, self.transformations]:
+            for card in cards.values():
+                card.apply_map(maps)
+
+        if update_keys:
+            self._update_card_keys()
+
     def translate(self, newlib: str, libmanager: LibManager) -> None:
         """
         Translate the input to another library
@@ -363,7 +444,7 @@ class Input:
             card.get_values()
             try:
                 key = card.name
-                key = card.card().split()[0].upper()
+                key = _get_card_key(card)
                 if key in new_cards.keys():
                     raise KeyError("Duplicated card entry: " + key)
 
@@ -1494,3 +1575,12 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key + " is not a valid tally ID")
 
     return int(num)
+
+
+def _get_card_key(card: parser.Card) -> str:
+    # it may happen that comments have been added to the card. The first non
+    # comment line is the one to be used
+    lines = card.card().split("\n")
+    for line in lines:
+        if not line.startswith("C") and not line.startswith("c"):
+            return line.split()[0].upper()

@@ -13,11 +13,12 @@ c Universe level 1
 
 C Surfaces section
 1 SO 3000
-21 SX 25 10
+21 1 SX 25 10
 22 SX -25 10
 
 C Data cards section
 sdef pos 0 0 0
+TR1 0 0 0
 m4
         2003.31c 2.46082E-08   $ He3  0.000134%
         2004.31c 1.83643E-02   $ He4 99.999866%

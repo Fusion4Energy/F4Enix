@@ -68,6 +68,21 @@ class TestInput:
     #         for line1, line2 in zip(infile1, infile2):
     #             assert line1 == line2
 
+    def test_renumber(self, tmpdir):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            testInput = Input.from_input(FILE1)
+        testInput.renumber(renum_all=100, update_keys=True)
+        testInput.write(tmpdir.join("renum.i"))
+        # check that the update keys have worked
+        assert testInput.transformations["TR101"]
+        assert testInput.cells["101"]
+        # check some
+        newinp = Input.from_input(tmpdir.join("renum.i"))
+        assert newinp.cells["101"].get_f() == 225
+        assert "122 0      -122 imp:n=1" in newinp.cells["122"].card()
+        assert newinp.cells["122"].get_u() == 225
+        assert newinp.transformations["TR101"]
+
     def test_write(self, tmpdir):
         # read
         inp = deepcopy(self.testInput)
