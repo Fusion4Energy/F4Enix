@@ -1190,6 +1190,8 @@ class Input:
             new_cell.name = new_cell_num
             new_cell._set_value_by_type("cel", new_cell_num)
 
+        return new_cell
+
     @staticmethod
     def hash_cell(
         cell: parser.Card,
@@ -1228,8 +1230,7 @@ class Input:
 
         return new_cell
 
-    def hash_multiple_cells(
-        self, hash_dict: dict[int, int]) -> None:
+    def hash_multiple_cells(self, hash_dict: dict[int, int]) -> None:
         """all keys in the hash dict correspond to hash cells to be added
         to the cells inlcuded in the hash dict value.
 
