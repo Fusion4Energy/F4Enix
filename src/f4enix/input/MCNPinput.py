@@ -50,10 +50,14 @@ ADD_LINE_FORMAT = "         {}\n"
 class Input:
     def __init__(
         self,
-        cells: list[parser.Card],
-        surfs: list[parser.Card],
-        data: list[parser.Card],
-        header: list = None,
+        cells: dict[str, parser.Card],
+        surfs: dict[str, parser.Card],
+        materials: MatCardsList,
+        transformations: list[parser.Card],
+        other_data: list[parser.Card],
+        tally_keys: list[int],
+        fmesh_keys: list[int],
+        header: str,
     ) -> None:
         """Class representing an MCNP input file.
 
@@ -63,14 +67,24 @@ class Input:
 
         Parameters
         ----------
-        cells : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP cells.
-        surfs : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP surfaces.
-        data : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP data cards.
-        header : list, optional
-            list of strings that compose the MCNP header, by default None
+        cells: dict[str, parser.Card]
+            cleaned numjuggler cards for each cells in the input. keys are the
+            number of the cells.
+        surfs: dict[str, parser.Card]
+            cleaned numjuggler cards for each surface in the input. keys are
+            the number of the surfaces.
+        materials: MatCardsList
+            material cards section of the input.
+        transformations: list[parser.Card]
+            list of transformation datacards (i.e. TRn)
+        other_data: list[parser.Card]
+            list of all remaining datacards that are treated in a generic way
+        tally_keys: list[int]
+            ids of the tallies available in the input
+        fmesh_keys: list[int]
+            ids of the fmeshes available in the input
+        header: str
+            header of the input file
 
         Attributes
         ----------
@@ -90,6 +104,8 @@ class Input:
             ids of the tallies available in the input
         fmesh_keys: list[int]
             ids of the fmeshes available in the input
+        header: str
+            header of the input file
 
         Examples
         --------
@@ -197,28 +213,14 @@ class Input:
 
 
         """
-
-        self.cells = self._to_dict(cells)
-        self.surfs = self._to_dict(surfs)
-
-        (
-            self.materials,
-            self.transformations,
-            self.other_data,
-        ) = self._parse_data_section(data)
-
-        self.header = header
-
-        # get a list of the tally keys
-        tally_keys = []
-        fmesh_keys = []
-        for key, card in self.other_data.items():
-            if card.dtype == "Fn":
-                tally_keys.append(card.name)
-            elif PAT_FMESH_KEY.match(key):
-                fmesh_keys.append(card.name)
+        self.cells = cells
+        self.surfs = surfs
+        self.materials = materials
+        self.transformations = transformations
+        self.other_data = other_data
         self.tally_keys = tally_keys
         self.fmesh_keys = fmesh_keys
+        self.header = header
 
         # # store also all the original cards for compatibility
         # # with some numjuggler modes
@@ -241,19 +243,34 @@ class Input:
             Input object
         """
         cells, surfaces, data, header = _get_input_arguments(inputfile)
+        cells = cls._to_dict(cells)
+        surfs = cls._to_dict(surfaces)
 
-        return cls(cells, surfaces, data, header=header)
+        (
+            materials,
+            transformations,
+            other_data,
+        ) = cls._parse_data_section(cls, data)
 
-    @staticmethod
-    def _renumber_cells(cells: dict[str, parser.Card], id_map: dict[int, int]) -> None:
-        """this acts directly on cells, make copies before use.
-        Also, ID in F4Enix dict will not be changed, name will not be
-        changed"""
+        # get a list of the tally keys
+        tally_keys = []
+        fmesh_keys = []
+        for key, card in other_data.items():
+            if card.dtype == "Fn":
+                tally_keys.append(card.name)
+            elif PAT_FMESH_KEY.match(key):
+                fmesh_keys.append(card.name)
 
-        for cell in cells.values():
-            for l, (v, t) in enumerate(cell.values):
-                if t == "cel":
-                    cell.values[l] = (id_map[v], t)
+        return cls(
+            cells,
+            surfs,
+            materials,
+            transformations,
+            other_data,
+            tally_keys,
+            fmesh_keys,
+            header,
+        )
 
     def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
         """write the input to a file
@@ -621,7 +638,7 @@ class Input:
         self,
         cells: list[int],
         outfile: os.PathLike,
-        renumber_from: int = None,
+        renumber_offsets: dict = None,
         keep_universe: bool = True,
         extract_fillers: bool = True,
     ):
@@ -636,11 +653,10 @@ class Input:
             desired list of cells
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
-        renumber_from : int
-            apply a renumbering to the extracted cells starting from the
-            specified int. It is important to notice that this renumbering
-            DOES NOT SUPPORT # operator for the moment being.
-            Default is None, no renumbering is applied.
+        renumber_offsets : dict, optional
+            apply the self.renumber() function to the extracted input.
+            the dict will be passed as keyargs to the function.
+            Default is None.
         keep_universe: bool
             If True keeps the 'U=' key in the cell cards, otherwise that is
             removed. Default is True.
@@ -651,13 +667,30 @@ class Input:
         """
         logging.info("write MCNP reduced input")
 
-        header = self.header
+        if renumber_offsets is not None or not keep_universe:
+            make_copy = True
+        else:
+            make_copy = False
 
         cells_cards, surfs, materials = self._extraction_function(
-            cells, renumber_from, keep_universe, extract_fillers
+            cells, keep_universe, extract_fillers, make_copy=make_copy
         )
-        trans = self.transformations
-        Input.write_blocks(outfile, False, cells_cards, surfs, materials, header, trans)
+
+        newinput = Input(
+            cells_cards,
+            surfs,
+            materials,
+            deepcopy(self.transformations),
+            deepcopy(self.other_data),
+            self.tally_keys,
+            self.fmesh_keys,
+            self.header,
+        )
+
+        if renumber_offsets is not None:
+            newinput.renumber(**renumber_offsets)
+
+        newinput.write(outfile)
 
     @staticmethod
     def write_blocks(
@@ -722,9 +755,9 @@ class Input:
     def _extraction_function(
         self,
         cells: list[int],
-        renumber_from: int = None,
         keep_universe: bool = True,
         extract_fillers: bool = True,
+        make_copy: bool = False,
     ):
         logging.info("Collecting the cells, surfaces, materials and transf.")
         cset = set(cells)
@@ -740,13 +773,12 @@ class Input:
         cset.sort()
 
         # create a copy if modifications are needed on the cells
-        if renumber_from is not None or not keep_universe:
+        if make_copy:
             cells_cards = self.get_cells_by_id(cset, make_copy=True)
         else:
             cells_cards = self.get_cells_by_id(cset)
 
         # Get all surfaces and materials
-        renumber_map = {}  # used only if renumbering
         for i, (_, cell) in enumerate(cells_cards.items()):
             for v, t in cell.values:
                 if t == "sur":
@@ -754,13 +786,9 @@ class Input:
                 elif t == "mat":
                     if int(v) != 0:  # void material is not defined in a card
                         mset.add("M" + str(v))
-            if renumber_from is not None:
-                renumber_map[cell.values[0][0]] = i + renumber_from
+
             if not keep_universe and cell.values[0][0] in cells:
                 Input.remove_u(cells_cards[_])
-
-        if renumber_from is not None:
-            self._renumber_cells(cells_cards, renumber_map)
 
         # Do not bother for the moment in selecting also the transformations
 
@@ -824,7 +852,7 @@ class Input:
         self,
         universe: int,
         outfile: os.PathLike,
-        renumber_from: int = None,
+        renumber_offsets: dict = None,
         keep_universe: bool = False,
     ):
         """Dumps a minimum MCNP working file that
@@ -838,9 +866,10 @@ class Input:
             universe id to be extracted
         outfile : os.PathLike
             path to the file where the MCNP input needs to be dumped
-        renumber_from : int
-            number from which the cells of the universe are renumbered. Default
-            is None, which means that cells are not renumbered
+        renumber_offsets : dict, optional
+            apply the self.renumber() function to the extracted input.
+            the dict will be passed as keyargs to the function.
+            Default is None.
         keep_universe : bool
             determines if the u=... card should be kept or not in cells'
             definitions. Defult is False.
@@ -855,7 +884,7 @@ class Input:
         self.extract_cells(
             cells=cell_ids_to_extract,
             outfile=outfile,
-            renumber_from=renumber_from,
+            renumber_offsets=renumber_offsets,
             keep_universe=keep_universe,
         )
 
@@ -1213,10 +1242,7 @@ class Input:
 class D1S_Input(Input):
     def __init__(
         self,
-        cells: list[parser.Card],
-        surfs: list[parser.Card],
-        data: list[parser.Card],
-        header: list = None,
+        *args,
         irrad_file: IrradiationFile = None,
         reac_file: ReactionFile = None,
     ) -> None:
@@ -1227,14 +1253,8 @@ class D1S_Input(Input):
 
         Parameters
         ----------
-        cells : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP cells.
-        surfs : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP surfaces.
-        data : list[parser.Card]
-            list of numjuggler.parser.Card objects containing MCNP data cards.
-        header : list, optional
-            list of strings that compose the MCNP header, by default None
+        args : list
+            list of arguments to be passed to the super constructor.
         irrad_file : IrradiationFile, optional
             irradiation file object, by default None
         reac_file : ReactionFile, optional
@@ -1260,7 +1280,7 @@ class D1S_Input(Input):
         ... d1s_inp.smart_translate('99c', '00c', LibManager())
         """
 
-        super().__init__(cells, surfs, data, header=header)
+        super().__init__(*args)
         self.irrad_file = irrad_file
         self.reac_file = reac_file
 
@@ -1290,16 +1310,38 @@ class D1S_Input(Input):
             generated D1S_Input object
         """
         cells, surfaces, data, header = _get_input_arguments(inputfile)
+        cells = cls._to_dict(cells)
+        surfs = cls._to_dict(surfaces)
+
+        (
+            materials,
+            transformations,
+            other_data,
+        ) = cls._parse_data_section(cls, data)
+
+        # get a list of the tally keys
+        tally_keys = []
+        fmesh_keys = []
+        for key, card in other_data.items():
+            if card.dtype == "Fn":
+                tally_keys.append(card.name)
+            elif PAT_FMESH_KEY.match(key):
+                fmesh_keys.append(card.name)
+
         if irrad_file is not None:
             irrad_file = IrradiationFile.from_text(irrad_file)
         if reac_file is not None:
             reac_file = ReactionFile.from_text(reac_file)
 
-        return D1S_Input(
+        return cls(
             cells,
-            surfaces,
-            data,
-            header=header,
+            surfs,
+            materials,
+            transformations,
+            other_data,
+            tally_keys,
+            fmesh_keys,
+            header,
             irrad_file=irrad_file,
             reac_file=reac_file,
         )
@@ -1582,5 +1624,8 @@ def _get_card_key(card: parser.Card) -> str:
     # comment line is the one to be used
     lines = card.card().split("\n")
     for line in lines:
-        if not line.startswith("C") and not line.startswith("c"):
+        if PAT_COMMENT.match(line) is None:
             return line.split()[0].upper()
+
+    # if this point is reached the name has not been found
+    raise ValueError(f"No key was found for card {card.card()}")

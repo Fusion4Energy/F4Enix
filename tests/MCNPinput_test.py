@@ -116,6 +116,11 @@ class TestInput:
         newinput.update_zaidinfo(self.lm)
         assert True
 
+    def test_update_card_keys(self):
+        # test a bug
+        inp = deepcopy(self.bugInput)
+        inp._update_card_keys()
+
     def test_translate(self):
         # The test for a correct translation of material card is already done
         # in materials. here we only check that it goes trough without errors
@@ -168,27 +173,33 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir("sub").join("extract.i")
-        newinput.extract_cells(cells, outfile, renumber_from=1)
+        renumber_offsets = {"cells": 1}
+        newinput.extract_cells(cells, outfile, renumber_offsets=renumber_offsets)
         # re-read
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
-        assert list(inp2.cells.keys()) == ["1", "2", "3", "4", "5"]
-        assert inp2.cells["3"].values[-2][0] == 1
+        assert list(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
 
         with as_file(resources_inp.joinpath("test_1.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
         outfile = os.path.join(os.path.dirname(outfile), "extract_fillers.i")
 
-        mcnp_input.extract_cells([50], outfile, extract_fillers=True, renumber_from=500)
+        renumber_offsets = {"cells": 500}
+        mcnp_input.extract_cells(
+            [50], outfile, extract_fillers=True, renumber_offsets=renumber_offsets
+        )
 
         # re-read
         result = Input.from_input(outfile)
 
         assert len(result.cells) == 7
         assert mcnp_input.cells["10"].values[0][0] == 10
+
+        # test extract without renumbering
+        result.extract_cells([550], outfile)
 
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath("test_universe.i")) as FILE:
