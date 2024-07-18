@@ -2,6 +2,7 @@
 [![Testing linux](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml/badge.svg?branch=main)](https://github.com/Radiation-Transport/F4Enix/actions/workflows/AutomatedTests_linux.yml)
 [![PyPi version](https://badgen.net/pypi/v/f4enix/)](https://pypi.org/project/f4enix)
 [![Documentation Status](https://readthedocs.org/projects/f4enix/badge/?version=latest)](https://f4enix.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/Fusion4Energy/F4Enix/graph/badge.svg?token=P4A85K0ACG)](https://codecov.io/gh/Fusion4Energy/F4Enix)
 
 # F4Enix
 Parser for Monte Carlo simulations input and output files

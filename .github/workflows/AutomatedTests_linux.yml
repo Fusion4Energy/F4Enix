@@ -51,6 +51,8 @@ jobs:
           pytest -vs --cov=. -cov-config=".coveragerc" 
 
       - name: Upload coverage to Codecov
+        # do it only once for python 3.10
+        if: matrix.python-version == '3.10'
         uses: codecov/codecov-action@v4
         with:
           verbose: true
