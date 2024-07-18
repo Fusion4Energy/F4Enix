@@ -6,7 +6,7 @@ name: testing Windows
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main ]
+    branches: [ main, developing ]
   pull_request:
     branches: [ main, developing ]
 
