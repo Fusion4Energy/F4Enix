@@ -13,3 +13,4 @@ scipy
 tqdm
 python-docx
 openpyxl
+pytables
