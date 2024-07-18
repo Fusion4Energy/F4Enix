@@ -27,7 +27,7 @@ dependencies = [
     "tqdm",
     "python-docx",
     "openpyxl",
-    "pytables"
+    "tables"
 ]
 [project.optional-dependencies]
 tests = [
