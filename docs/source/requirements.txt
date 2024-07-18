@@ -12,3 +12,4 @@ numba
 scipy
 tqdm
 python-docx
+openpyxl

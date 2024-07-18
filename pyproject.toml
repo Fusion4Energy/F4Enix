@@ -25,7 +25,8 @@ dependencies = [
     "numba",
     "scipy",
     "tqdm",
-    "python-docx"
+    "python-docx",
+    "openpyxl",
 ]
 [project.optional-dependencies]
 tests = [
