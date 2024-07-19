@@ -48,4 +48,3 @@ jobs:
       - name: Testing
         run: |
           python -m pip install .[tests]
-          pytest --cov=. -cov-config=".coveragerc"
