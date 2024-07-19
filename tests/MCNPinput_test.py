@@ -232,6 +232,9 @@ class TestInput:
         # test extract without renumbering
         result.extract_cells([550], outfile)
 
+        # test extract with strings instead of ints
+        result.extract_cells(["550"], outfile)
+
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)

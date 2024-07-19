@@ -803,7 +803,16 @@ class Input:
 
         # sort the set
         cset = list(cset)
-        cset.sort()
+        try:
+            cset.sort()
+        except TypeError:
+            # if the list is not sortable, it means that it is a list of strings
+            # and we need to convert it to integers
+            logging.warning(
+                "The list of cell ids are not int (strings?). Trying to convert it."
+            )
+            cset = [int(c) for c in cset]
+            cset.sort()
 
         # create a copy if modifications are needed on the cells
         if make_copy:
