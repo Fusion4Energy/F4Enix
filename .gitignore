@@ -14,3 +14,4 @@ example_testing/**
 .pytest_cache/**
 build/
 src/_version.py
+coverage.xml
