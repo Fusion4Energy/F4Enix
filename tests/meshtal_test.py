@@ -206,6 +206,15 @@ class TestMeshtal:
         # Also always test the .vtk writing
         fmesh.write(outpath)
 
+    def test_write_outfile(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = Meshtal(inp)
+        meshtally.readMesh()
+        fmesh = meshtally.mesh[124]
+        outpath = tmpdir.mkdir("sub_csv")
+        fmesh.write(outpath, outfile="test")
+        assert os.path.exists(os.path.join(outpath, "test.vtr"))
+
     @pytest.mark.parametrize(
         "input_meshtal",
         [
