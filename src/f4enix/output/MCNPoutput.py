@@ -187,6 +187,18 @@ class Output:
 
         raise ValueError("No NPS could be read from file")
 
+    def get_LPR(self) -> float:
+        """Get the lost particle ratio
+
+        Returns
+        -------
+        float
+            lost particle ratio
+        """
+        nps = self.get_NPS()
+        lp = self.get_tot_lp()
+        return lp / nps
+
     def print_lp_debug(
         self,
         outpath: os.PathLike,
