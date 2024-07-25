@@ -1538,6 +1538,7 @@ class Meshtal:
         self.f = open(fn, "rt")
         self.__readHeadMCNP__()
         self.mesh = self.__scanMCNP__()
+        self._read_meshes = []
 
         self.params = dict()
         self.params["creationTime"] = time.asctime()
@@ -1626,9 +1627,18 @@ class Meshtal:
         if self.filetype == "MCNP":
             # cycle on all meshes to be read
             if mesh is None:
-                mesh = self.mesh.keys()
+                mesh = list(self.mesh.keys())
             elif type(mesh) is int:
                 mesh = [mesh]
+            # Check that the meshes have not been read before
+            for m in mesh:
+                if m in self._read_meshes:
+                    logging.warning(
+                        "Mesh %s has already been read and cannot be re-read." % m
+                    )
+                    mesh.remove(m)
+
+            self._read_meshes.extend(mesh)
 
             for meshid in mesh:
                 m = self.mesh[meshid]

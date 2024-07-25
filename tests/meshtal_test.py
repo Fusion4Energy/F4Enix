@@ -42,6 +42,14 @@ class TestMeshtal:
 
         assert True
 
+    def test_re_read_mesh(self):
+        with as_file(RESOURCES.joinpath("meshtal_cuv")) as inp:
+            meshtally = Meshtal(inp)
+        meshtally.readMesh(norm="celf")
+        meshtally.readMesh(norm="vtot")
+        # Check that meshes are not re-read
+        assert meshtally.mesh[44].normalization == "celf"
+
     def test_same_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
             meshtally = Meshtal(inp)
@@ -197,6 +205,15 @@ class TestMeshtal:
 
         # Also always test the .vtk writing
         fmesh.write(outpath)
+
+    def test_write_outfile(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = Meshtal(inp)
+        meshtally.readMesh()
+        fmesh = meshtally.mesh[124]
+        outpath = tmpdir.mkdir("sub_csv")
+        fmesh.write(outpath, outfile="test")
+        assert os.path.exists(os.path.join(outpath, "test.vtr"))
 
     @pytest.mark.parametrize(
         "input_meshtal",

@@ -47,6 +47,16 @@ class TestInput:
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
 
+    def test_hash_cell(self):
+        cell = self.testInput.cells["2"]
+        hashed_cell = Input.hash_cell(cell, 12, inplace=False)
+        assert hashed_cell.card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+
+    def test_hash_multiple_cells(self):
+        inp = deepcopy(self.testInput)
+        inp.hash_multiple_cells({12: [2, 3, 4]})
+        assert inp.cells["2"].card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+
     # def test_jt60_bug(self, tmpdir):
     #     with as_file(resources_inp.joinpath('jt60.i')) as file:
     #         # MT AND MX CARDS
@@ -68,6 +78,21 @@ class TestInput:
     #         for line1, line2 in zip(infile1, infile2):
     #             assert line1 == line2
 
+    def test_renumber(self, tmpdir):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            testInput = Input.from_input(FILE1)
+        testInput.renumber(renum_all=100, update_keys=True)
+        testInput.write(tmpdir.join("renum.i"))
+        # check that the update keys have worked
+        assert testInput.transformations["TR101"]
+        assert testInput.cells["101"]
+        # check some
+        newinp = Input.from_input(tmpdir.join("renum.i"))
+        assert newinp.cells["101"].get_f() == 225
+        assert "122 0      -122 imp:n=1" in newinp.cells["122"].card()
+        assert newinp.cells["122"].get_u() == 225
+        assert newinp.transformations["TR101"]
+
     def test_write(self, tmpdir):
         # read
         inp = deepcopy(self.testInput)
@@ -87,6 +112,27 @@ class TestInput:
 
         assert True
 
+    def test_merge(self):
+        with as_file(resources_inp.joinpath("test_1.i")) as FILE1:
+            inp1 = Input.from_input(FILE1)
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE2:
+            inp2 = Input.from_input(FILE2)
+
+        # this should not be allowed due to duplicate surf
+        dest = deepcopy(inp1)
+        try:
+            dest.merge(inp2)
+            assert False
+        except KeyError:
+            assert True
+
+        # renumber and try again
+        dest = deepcopy(inp1)
+        inp2.renumber(renum_all=1000, update_keys=True)
+        dest.merge(inp2)
+        assert len(dest.cells) == 14
+        assert len(dest.surfs) == 9
+
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
         assert inp.header[0].strip("\n") == "This is the header"
@@ -100,6 +146,11 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         newinput.update_zaidinfo(self.lm)
         assert True
+
+    def test_update_card_keys(self):
+        # test a bug
+        inp = deepcopy(self.bugInput)
+        inp._update_card_keys()
 
     def test_translate(self):
         # The test for a correct translation of material card is already done
@@ -153,27 +204,36 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir("sub").join("extract.i")
-        newinput.extract_cells(cells, outfile, renumber_from=1)
+        renumber_offsets = {"cells": 1}
+        newinput.extract_cells(cells, outfile, renumber_offsets=renumber_offsets)
         # re-read
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
         assert len(inp2.materials) == 3
-        assert list(inp2.cells.keys()) == ["1", "2", "3", "4", "5"]
-        assert inp2.cells["3"].values[-2][0] == 1
+        assert list(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
 
         with as_file(resources_inp.joinpath("test_1.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
         outfile = os.path.join(os.path.dirname(outfile), "extract_fillers.i")
 
-        mcnp_input.extract_cells([50], outfile, extract_fillers=True, renumber_from=500)
+        renumber_offsets = {"cells": 500}
+        mcnp_input.extract_cells(
+            [50], outfile, extract_fillers=True, renumber_offsets=renumber_offsets
+        )
 
         # re-read
         result = Input.from_input(outfile)
 
         assert len(result.cells) == 7
         assert mcnp_input.cells["10"].values[0][0] == 10
+
+        # test extract without renumbering
+        result.extract_cells([550], outfile)
+
+        # test extract with strings instead of ints
+        result.extract_cells(["550"], outfile)
 
     def test_extract_universe(self, tmpdir):
         with as_file(resources_inp.joinpath("test_universe.i")) as FILE:
@@ -257,6 +317,30 @@ class TestInput:
             "-1",
             ["0", "-5", "-6"],
         ]
+
+    def test_add_F_tally(self):
+        newinput = deepcopy(self.testInput)
+        cells = range(100, 150)
+        energies = np.linspace(1e4, 1e5, 100)
+        newinput.add_F_tally(
+            4,
+            ["N", "P"],
+            cells,
+            energies=energies,
+            description="Test F4 tally",
+            add_SD=True,
+            add_total=True,
+            multiplier="1 -52 1",
+        )
+        assert newinput.other_data["F4"].lines[0] == "F4:N,P\n"
+        assert newinput.other_data["FC4"].lines[0] == "FC4 Test F4 tally\n"
+        assert len(newinput.other_data["F4"].lines) == 3
+        for card in ["F4", "E4"]:
+            for line in newinput.other_data[card].lines:
+                assert len(line) < 128
+        # total adds 1 SD
+        assert newinput.other_data["SD4"].lines[-1] == f"SD4 1 {len(cells)}R\n"
+        assert newinput.other_data["FM4"].lines[0] == f"FM4 1 -52 1\n"
 
     def test_set_cell_void(self):
         newinput = deepcopy(self.testInput)
