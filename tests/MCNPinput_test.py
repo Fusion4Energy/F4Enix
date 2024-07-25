@@ -318,6 +318,30 @@ class TestInput:
             ["0", "-5", "-6"],
         ]
 
+    def test_add_F_tally(self):
+        newinput = deepcopy(self.testInput)
+        cells = range(100, 150)
+        energies = np.linspace(1e4, 1e5, 100)
+        newinput.add_F_tally(
+            4,
+            ["N", "P"],
+            cells,
+            energies=energies,
+            description="Test F4 tally",
+            add_SD=True,
+            add_total=True,
+            multiplier="1 -52 1",
+        )
+        assert newinput.other_data["F4"].lines[0] == "F4:N,P\n"
+        assert newinput.other_data["FC4"].lines[0] == "FC4 Test F4 tally\n"
+        assert len(newinput.other_data["F4"].lines) == 3
+        for card in ["F4", "E4"]:
+            for line in newinput.other_data[card].lines:
+                assert len(line) < 128
+        # total adds 1 SD
+        assert newinput.other_data["SD4"].lines[-1] == f"SD4 1 {len(cells)}R\n"
+        assert newinput.other_data["FM4"].lines[0] == f"FM4 1 -52 1\n"
+
     def test_set_cell_void(self):
         newinput = deepcopy(self.testInput)
         Input.set_cell_void(newinput.cells["49"])

@@ -27,6 +27,7 @@ import re
 from numjuggler import parser
 from numjuggler import likefunc as lf
 import pandas as pd
+import numpy as np
 
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.input.libmanager import LibManager
@@ -1323,6 +1324,75 @@ class Input:
         # reset universe private value (i know this is not a good practice, tbd)
         cell._Card__u = None
 
+    def add_F_tally(
+        self,
+        tally_ID: int,
+        particles: list[str],
+        cells: list[int],
+        add_total: bool = False,
+        energies: list[float] = None,
+        description: str = None,
+        multiplier: str = None,
+        add_SD: bool = True,
+    ) -> str:
+        """Add a F-tally to the input
+
+        Parameters
+        ----------
+        tally_ID : int
+            tally ID
+        particles : list[str]
+            particle to tally
+        cells : list[int]
+            list of cells to tally
+        add_total : bool, optional
+            if True adds the total tally, by default False
+        energies : list[float], optional
+            list of energies for the tally, by default None
+        description : str, optional
+            description of the tally, by default None
+        multiplier : str, optional
+            multiplier of the tally, by default None
+        add_SD : bool, optional
+            if True adds the SD 1 card, by default True
+        """
+        # Add the tally card
+        tally_ID = int(tally_ID)
+        particles_str = particles[0]
+        if len(particles) > 1:
+            for particle in particles[1]:
+                particles_str += "," + particle
+        # add description if available
+        if description is not None:
+            line = [f"FC{tally_ID} {description}\n"]
+            self.other_data[f"FC{tally_ID}"] = parser.Card(line, 5, -1)
+        # tally main body
+        lines = [f"F{tally_ID}:{particles_str}\n"]
+        # --- add cells ---
+        if add_total:
+            # ensure it is a list
+            cells = list(cells)
+            cells.append("T")
+        cell_lines = _fix_width_write(cells)
+        lines.extend(cell_lines)
+        self.other_data[f"F{tally_ID}"] = parser.Card(lines, 5, -1)
+        # add energies if requested
+        if energies is not None:
+            lines = [f"E{tally_ID}\n"]
+            lines.extend(_fix_width_write(energies))
+            self.other_data[f"E{tally_ID}"] = parser.Card(lines, 5, -1)
+        # add SD if requested
+        if add_SD:
+            repetitions = len(cells) - 1
+            lines = [f"SD{tally_ID} 1 {repetitions}R\n"]
+            self.other_data[f"SD{tally_ID}"] = parser.Card(lines, 5, -1)
+        # add multiplier if available
+        if multiplier is not None:
+            line = [f"FM{tally_ID} {multiplier}\n"]
+            self.other_data[f"FM{tally_ID}"] = parser.Card(line, 5, -1)
+
+        return
+
     def add_stopCard(self, nps: int = 1e7):
         """
         Add STOP card
@@ -1722,6 +1792,41 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key + " is not a valid tally ID")
 
     return int(num)
+
+
+def _fix_width_write(cells: list) -> list[str]:
+    lines = []
+    types = type(cells[0])
+    max_digits = 4
+    # check what is the max cell length
+    max_len = 0
+    for cell in cells:
+        if len(str(cell)) > max_len:
+            max_len = len(str(cell))
+    # based on that get how many cells can be fit in one line
+    if types is int:
+        cells_per_line = (128 - 5) // (max_len + 1)
+    elif types is float or types is np.float64:
+        cells_per_line = (128 - 5) // (max_digits + 6 + 1)  # <x>.<xx>E+00
+    else:
+        raise NotImplementedError(f"{types} are supported")
+    # format cells in a fixed width format with max size 128 char
+    cell_str = "     "
+    for i, cell in enumerate(cells):
+        # add last entry and go to new line
+        if i % cells_per_line == 0 and i != 0:
+            lines.append(cell_str + "\n")
+            cell_str = "     "
+        # build line
+        if types is int:
+            cell_str += f"{cell:<{max_len}} "
+        elif types is float or types is np.float64:
+            cell_str += f"{cell:.{max_digits}e} "
+        else:
+            raise NotImplementedError("Only int and float are supported")
+    # whatever happens add the last line
+    lines.append(cell_str + "\n")
+    return lines
 
 
 def _get_card_key(card: parser.Card) -> str:
