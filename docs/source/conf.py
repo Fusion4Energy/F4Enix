@@ -45,7 +45,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.todo",
-    'sphinx.ext.mathjax',
     # 'nbsphinx'
 ]
 exclude_patterns = ["_autosummary", "_build"]
