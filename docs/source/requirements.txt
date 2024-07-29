@@ -4,6 +4,7 @@ esbonio
 myst_nb
 sphinx-rtd-theme
 # F4Enix reqs
+setuptools < 72.0.0
 numpy <= 1.26.4
 numjuggler
 pyvista >= 0.39.1
