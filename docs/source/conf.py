@@ -45,7 +45,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.todo",
-    'sphinx.ext.mathjax',
+    "sphinx.ext.mathjax",
     # 'nbsphinx'
 ]
 exclude_patterns = ["_autosummary", "_build"]
@@ -203,3 +203,9 @@ epub_exclude_files = ["search.html"]
 
 # -- Extension configuration -------------------------------------------------
 autosummary_ignore = ["f4enix.input.ww_gvr.ww_parser"]
+
+# -- Options for myst_nb -----------------------------------------------------
+myst_enable_extensions = [
+    "dollarmath",  # Enable support for $...$ and $$...$$ math syntax
+    "amsmath",  # Enable support for LaTeX math environments
+]
