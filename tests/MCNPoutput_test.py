@@ -57,6 +57,14 @@ class TestOutput:
             outp = Output(file)
         assert outp.get_tot_lp() == 677
 
+    def test_get_warnings(self):
+        with as_file(RESOURCES.joinpath("Sphere_5010_B-10_o")) as file:
+            outp = Output(file)
+        warnings = outp.get_warnings()
+        assert len(warnings) == 10
+        assert warnings["unused surfaces"] == 1
+        assert warnings["replaced surfaces"] == 3
+
     def test_get_NPS(self):
         with as_file(RESOURCES.joinpath("test_o")) as file:
             outp = Output(file)
