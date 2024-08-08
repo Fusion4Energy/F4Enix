@@ -701,10 +701,11 @@ class Output:
                 for ni in not_interesting:
                     if ni in line:
                         continue
-                # other cases are general warnings and shout be put togheter
-                for ge, value in general.items():
-                    if ge in line:
-                        line = value
+                # other cases are general warnings and should be put together
+                if collapse:
+                    for ge, value in general.items():
+                        if ge in line:
+                            line = value
 
                 warnings.append(line.replace("warning.", "").strip())
 
