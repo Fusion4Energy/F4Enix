@@ -1139,6 +1139,48 @@ class Input:
                     cell.set_d(new_density)
 
     @staticmethod
+    def add_material_to_void_cell(
+        cell: parser.Card,
+        new_mat_id: int,
+        new_density: float,
+    ) -> None:
+        """Replace a material and density in the input with other values.
+
+        Parameters
+        ----------
+        new_mat_id : int
+            id of the new material (0 for void)
+        new_density : str
+            new value for the density (including sign)
+        old_mat_id : int
+            id of the material to be repèlaced
+        u_list : list[int]
+            change the material only if cells belong to one of the universes
+            in the list. By default is None, all cells are affected.
+
+        Raises
+        ------
+        NotImplementedError
+            The capability to switch from a void cell to a filled cell is not
+            implemented yet. Viceversa is possible.
+        """
+
+        if new_density == 0 or new_mat_id <= 0:
+            raise ValueError("Wrong values for the new material and density")
+
+        if cell.ctype == 3 and cell.get_m() == 0:
+            cell.hidden["~"].insert(0, str(new_density))
+            cell._set_value_by_type("mat", new_mat_id)
+            cell._Card__m = new_mat_id  # necessary for the get val
+            cell._Card__d = new_density
+            # Introduce parentheses before the third word in the first row
+            first_row = cell.input[0].split()
+            first_row.insert(2, r"~")
+            cell.input[0] = " ".join(first_row)
+        else:
+            logging.warning(f"cell {cell.name} is not a void cell")
+
+    @staticmethod
     def add_surface(
         cell: parser.Card,
         add_surface: int,
