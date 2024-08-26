@@ -1181,6 +1181,66 @@ class Input:
             logging.warning(f"cell {cell.name} is not a void cell")
 
     @staticmethod
+    def add_cell_fill_u(
+        cell: parser.Card,
+        param: str,
+        param_value: int,
+        inplace: bool = True,
+    ) -> parser.Card:
+        """Adds a surface to cell's definition as union or intersection.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            numjuggler cell card to which the surface will be added
+        add_surface : int
+            the surface number to be added to cell's definition. It should
+            include the sign.
+        new_cell_num : int, optional
+            new number of the cell after the addition of the surface to cell's
+            definition, by default None. If a new number is specified, the
+            modifications are done on a copy of the original cell, otherwise
+            these are done inplace.
+        mode : str, optional
+            can be 'union' or 'intersect', it tells the operation with which the
+            surface is added to cell's definition, by default 'intersect'
+        inplace: bool
+            if False a deepcopy is created. By default is True.
+
+        Returns
+        -------
+        parser.Card
+            numjuggler card of the modified cell
+        """
+
+        valid_params = ["u", "fill"]
+        if param.lower() not in [p.lower() for p in valid_params]:
+            raise ValueError(f"Invalid parameter {param}")
+        if cell.get_u() and param.lower() == "u":
+            raise ValueError("Cell already has a universe defined")
+        if cell.get_f() and param.lower() == "fill":
+            raise ValueError("Cell already has a filler defined")
+
+        cell._Card__f = -1
+        cell._Card__u = -1
+        len_param = len(str(param_value))
+
+        new_cell = Input._add_symbol_to_cell_input(
+            cell,
+            f"{param.lower()}={{:<{len_param}}}",
+            inplace=inplace,
+            parentheses=False,
+        )
+
+        for k in range(len(new_cell.values) - 1, -1, -1):
+            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
+                break
+
+        new_cell.values.insert(k + 1, (param_value, param.lower()))
+
+        return new_cell
+
+    @staticmethod
     def add_surface(
         cell: parser.Card,
         add_surface: int,
@@ -1302,6 +1362,7 @@ class Input:
         cell: parser.Card,
         add_symbol: str,
         inplace: bool = True,
+        parentheses: bool = True,
     ) -> parser.Card:
 
         if inplace:
@@ -1312,10 +1373,11 @@ class Input:
         # Introduce parentheses before the third word in the first row
         first_row = new_cell.input[0].split()
 
-        if new_cell.get_m() == 0:
-            first_row[2] = "(" + first_row[2]
-        else:
-            first_row[3] = "(" + first_row[3]
+        if parentheses:
+            if new_cell.get_m() == 0:
+                first_row[2] = "(" + first_row[2]
+            else:
+                first_row[3] = "(" + first_row[3]
 
         new_cell.input[0] = " ".join(first_row)
 
@@ -1331,7 +1393,10 @@ class Input:
             if not keywords:
                 param_cards_idx = len(row)
             if keywords or (not keywords and i == len(new_cell.input) - 1):
-                row.insert(param_cards_idx, ") " + add_symbol)
+                if parentheses:
+                    row.insert(param_cards_idx, ") " + add_symbol)
+                else:
+                    row.insert(param_cards_idx, add_symbol)
                 new_cell.input[i] = " ".join(row)
 
                 if new_cell.input[i][:5] != "     " and i != 0:
