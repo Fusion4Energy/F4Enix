@@ -1144,25 +1144,16 @@ class Input:
         new_mat_id: int,
         new_density: float,
     ) -> None:
-        """Replace a material and density in the input with other values.
+        """Sets a material (and density) to a void cell.
 
         Parameters
         ----------
+        cell : parser.Card
+            cell to be modified.
         new_mat_id : int
-            id of the new material (0 for void)
+            id of the new material.
         new_density : str
-            new value for the density (including sign)
-        old_mat_id : int
-            id of the material to be repèlaced
-        u_list : list[int]
-            change the material only if cells belong to one of the universes
-            in the list. By default is None, all cells are affected.
-
-        Raises
-        ------
-        NotImplementedError
-            The capability to switch from a void cell to a filled cell is not
-            implemented yet. Viceversa is possible.
+            new value for the density (including sign).
         """
 
         if new_density == 0 or new_mat_id <= 0:
@@ -1187,23 +1178,16 @@ class Input:
         param_value: int,
         inplace: bool = True,
     ) -> parser.Card:
-        """Adds a surface to cell's definition as union or intersection.
+        """Adds a u=/fill= keyword parameter to a cell that doesn't have it.
 
         Parameters
         ----------
         cell : parser.Card
             numjuggler cell card to which the surface will be added
-        add_surface : int
-            the surface number to be added to cell's definition. It should
-            include the sign.
-        new_cell_num : int, optional
-            new number of the cell after the addition of the surface to cell's
-            definition, by default None. If a new number is specified, the
-            modifications are done on a copy of the original cell, otherwise
-            these are done inplace.
-        mode : str, optional
-            can be 'union' or 'intersect', it tells the operation with which the
-            surface is added to cell's definition, by default 'intersect'
+        param : str
+            can be 'u' or 'fill', it tells the parameter to be added to the cell.
+        param_value : int
+            the value of the parameter 'u' or 'fill' to be added to the cell.
         inplace: bool
             if False a deepcopy is created. By default is True.
 
