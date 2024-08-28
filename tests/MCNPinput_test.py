@@ -93,6 +93,61 @@ class TestInput:
         assert newinp.cells["122"].get_u() == 225
         assert newinp.transformations["TR101"]
 
+    def test_add_material(self, tmpdir):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            testInput = Input.from_input(FILE1)
+        testInput.add_material_to_void_cell(testInput.cells["22"], 10, -1.1)
+        testInput.add_material_to_void_cell(testInput.cells["99"], 94, 1.1)
+        testInput.add_material_to_void_cell(testInput.cells["21"], 90, 1.1)
+        assert testInput.cells["22"].get_m() == 10
+        assert testInput.cells["22"].get_d() == -1.1
+        assert testInput.cells["99"].get_m() == 94
+        assert testInput.cells["99"].get_d() == 1.1
+        assert testInput.cells["21"].get_m() == 4
+        assert testInput.cells["21"].get_d() == -1.0
+
+        testInput.write(tmpdir.join("new_mat.i"))
+        testInput = Input.from_input(tmpdir.join("new_mat.i"))
+        assert testInput.cells["22"].get_m() == 10
+        assert testInput.cells["22"].get_d() == -1.1
+        assert testInput.cells["99"].get_m() == 94
+        assert testInput.cells["99"].get_d() == 1.1
+        assert testInput.cells["21"].get_m() == 4
+        assert testInput.cells["21"].get_d() == -1.0
+
+    def test_add_cell_fill_u(self, tmpdir):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            testInput = Input.from_input(FILE1)
+
+        new = testInput.add_cell_fill_u(testInput.cells["99"], "U", 50, inplace=False)
+        assert testInput.cells["99"].get_u() == None
+        assert new.get_u() == 50
+        new = testInput.add_cell_fill_u(testInput.cells["99"], "u", 50, inplace=False)
+        assert testInput.cells["99"].get_u() == None
+        assert new.get_u() == 50
+
+        testInput.add_cell_fill_u(testInput.cells["99"], "U", 50, inplace=True)
+        assert testInput.cells["99"].get_u() == 50
+
+        new = testInput.add_cell_fill_u(
+            testInput.cells["22"], "FILL", 250, inplace=False
+        )
+        assert testInput.cells["22"].get_f() == None
+        assert new.get_f() == 250
+        new = testInput.add_cell_fill_u(
+            testInput.cells["22"], "fill", 250, inplace=False
+        )
+        assert testInput.cells["22"].get_f() == None
+        assert new.get_f() == 250
+
+        testInput.add_cell_fill_u(testInput.cells["22"], "FILL", 250, inplace=True)
+        assert testInput.cells["22"].get_f() == 250
+
+        testInput.write(tmpdir.join("new_fill.i"))
+        testInput = Input.from_input(tmpdir.join("new_fill.i"))
+        assert testInput.cells["22"].get_f() == 250
+        assert testInput.cells["99"].get_u() == 50
+
     def test_write(self, tmpdir):
         # read
         inp = deepcopy(self.testInput)
@@ -359,6 +414,13 @@ class TestInput:
 
         newinp.replace_material(0, "10", 10, u_list=[125])
         assert newinp.cells["21"].get_m() == 0
+
+        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+            newinp = Input.from_input(inp_file)
+        newinp.replace_material(10, "10", 0, u_list=[125])
+        assert newinp.cells["22"].get_m() == 10
+        assert newinp.cells["299"].get_m() == 10
+        assert newinp.cells["1"].get_m() == 0
 
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
