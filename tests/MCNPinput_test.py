@@ -415,6 +415,13 @@ class TestInput:
         newinp.replace_material(0, "10", 10, u_list=[125])
         assert newinp.cells["21"].get_m() == 0
 
+        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+            newinp = Input.from_input(inp_file)
+        newinp.replace_material(10, "10", 0, u_list=[125])
+        assert newinp.cells["22"].get_m() == 10
+        assert newinp.cells["299"].get_m() == 10
+        assert newinp.cells["1"].get_m() == 0
+
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
         sur = 180

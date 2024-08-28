@@ -1104,20 +1104,14 @@ class Input:
         new_density : str
             new value for the density (including sign)
         old_mat_id : int
-            id of the material to be repèlaced
+            id of the material to be replaced
         u_list : list[int]
             change the material only if cells belong to one of the universes
             in the list. By default is None, all cells are affected.
-
-        Raises
-        ------
-        NotImplementedError
-            The capability to switch from a void cell to a filled cell is not
-            implemented yet. Viceversa is possible.
         """
-        if old_mat_id == 0:
-            raise NotImplementedError("Cannot change a void cell")
 
+        if new_mat_id < 0 or new_mat_id < 0:
+            raise ValueError("Wrong values for the material ids")
         for _, cell in self.cells.items():
             in_universe = False
             # check if universe is a parameter
@@ -1131,7 +1125,11 @@ class Input:
             # If the material needs change and in universe
             if cell.get_m() == old_mat_id and in_universe:
                 # Void needs to be handle in a specific way
-                if new_mat_id == 0:
+                if old_mat_id == 0 and new_mat_id == 0:
+                    logging.warning("Replacing void with void")
+                if old_mat_id == 0:
+                    Input.add_material_to_void_cell(cell, new_mat_id, new_density)
+                elif new_mat_id == 0:
                     Input.set_cell_void(cell)
                 else:
                     cell._set_value_by_type("mat", new_mat_id)
