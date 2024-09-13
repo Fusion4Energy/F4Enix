@@ -1501,6 +1501,42 @@ class Input:
 
         card = parser.Card([line], 5, -1)
         self.other_data["NPS"] = card
+    
+    def check_range(self, range: list[int], who: str = 'cell') -> bool:
+        """Check if the provided range is not within the used index, i.e., if the range
+        is free. Both cells and surfaces can be checked.
+
+        Parameters
+        ----------
+        range : list[int]
+            list of indices to be checked
+        who : str, optional
+            either 'surf' or 'cell', by default 'cell'
+
+        Returns
+        -------
+        bool
+            True if the provided range is free, False otherwise
+
+        Raises
+        ------
+        ValueError
+            only surf or cell are accepted as who
+        """
+        if who == 'cell':
+            used_index = self.cells.keys()
+        elif who == 'surf':
+            used_index = self.surfs.keys()
+        else:   
+            raise ValueError("who can be only 'cell' or 'surf'")
+        # check that the provided range is not within the used index
+        # need to do the check for strings since there may be asterisks
+        for i in range:
+            for j in used_index:
+                if str(i) in j:  # that's for the asterisk problem
+                    return False
+        return True
+        
 
 
 class D1S_Input(Input):
