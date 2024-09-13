@@ -43,6 +43,12 @@ class TestInput:
             XSDIR_FILE, activationfile=ACTIVATION_FILE, isotopes_file=ISOTOPES_FILE
         )
 
+    def test_check_range(self):
+        inp = self.testInput
+        assert not inp.check_range([1, 2])
+        assert inp.check_range(range(1000, 10010))
+        assert not inp.check_range([1, 1e4])
+
     def test_from_input(self):
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
