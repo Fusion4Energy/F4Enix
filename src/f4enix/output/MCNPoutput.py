@@ -35,13 +35,7 @@ POINT_ID = "x,y,z coordinates:"
 TOTAL_LP = "particles got lost"
 # -- Patterns --
 PAT_NPS_LINE = re.compile(r" source")
-# patComments = re.compile(r'(?i)C\s+')
-# patUniverse = re.compile(r'(?i)u=\d+')
-# patNPS = re.compile(r'(?i)nps')
-# patNPS_value = re.compile(r'\s+[eE.0-9]+\s*')
-# patXYZ = re.compile(r'\s+[eE.0-9]+\s[eE.0-9]+\s[eE.0-9]+\s*')
-# patSDEF = re.compile(r'(?i)sdef')
-# patSDEFsur = re.compile(r'(?i)sur=\d+')
+PAT_WARNING = re.compile(r"warning\.")
 
 STAT_CHECKS_COLUMNS = [
     "TFC bin behaviour",
@@ -681,3 +675,39 @@ class Output:
                             i += 1
 
         raise ValueError("No version was found in the output file or aux files")
+
+    def get_warnings(self, collapse: bool = True) -> pd.DataFrame:
+        """Get the warnings from the output file. Repeated warnings are counted.
+
+        Parameters
+        ----------
+        collapse: bool, optional
+            if True, some warnings will be grouped by type, by default True.
+
+        Returns
+        -------
+        pd.DataFrame
+            list of warnings
+        """
+        warnings = []
+        not_interesting = ["so far", "the tally in the tally fluctuation"]
+        general = {
+            "not used for anything": "unused surfaces",
+            "this surface has been replaced": "replaced surfaces",
+        }
+        for line in self.lines:
+            if PAT_WARNING.search(line) is not None:
+                # there are some cases where we are not interested
+                for ni in not_interesting:
+                    if ni in line:
+                        continue
+                # other cases are general warnings and should be put together
+                if collapse:
+                    for ge, value in general.items():
+                        if ge in line:
+                            line = value
+
+                warnings.append(line.replace("warning.", "").strip())
+
+        df = pd.DataFrame(warnings, columns=["Warning"])
+        return df.groupby("Warning").size()

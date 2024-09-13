@@ -1104,20 +1104,14 @@ class Input:
         new_density : str
             new value for the density (including sign)
         old_mat_id : int
-            id of the material to be repèlaced
+            id of the material to be replaced
         u_list : list[int]
             change the material only if cells belong to one of the universes
             in the list. By default is None, all cells are affected.
-
-        Raises
-        ------
-        NotImplementedError
-            The capability to switch from a void cell to a filled cell is not
-            implemented yet. Viceversa is possible.
         """
-        if old_mat_id == 0:
-            raise NotImplementedError("Cannot change a void cell")
 
+        if new_mat_id < 0 or new_mat_id < 0:
+            raise ValueError("Wrong values for the material ids")
         for _, cell in self.cells.items():
             in_universe = False
             # check if universe is a parameter
@@ -1131,12 +1125,102 @@ class Input:
             # If the material needs change and in universe
             if cell.get_m() == old_mat_id and in_universe:
                 # Void needs to be handle in a specific way
-                if new_mat_id == 0:
+                if old_mat_id == 0 and new_mat_id == 0:
+                    logging.warning("Replacing void with void")
+                if old_mat_id == 0:
+                    Input.add_material_to_void_cell(cell, new_mat_id, new_density)
+                elif new_mat_id == 0:
                     Input.set_cell_void(cell)
                 else:
                     cell._set_value_by_type("mat", new_mat_id)
                     cell._Card__m = new_mat_id  # necessary for the get val
                     cell.set_d(new_density)
+
+    @staticmethod
+    def add_material_to_void_cell(
+        cell: parser.Card,
+        new_mat_id: int,
+        new_density: float,
+    ) -> None:
+        """Sets a material (and density) to a void cell.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            cell to be modified.
+        new_mat_id : int
+            id of the new material.
+        new_density : str
+            new value for the density (including sign).
+        """
+
+        if new_density == 0 or new_mat_id <= 0:
+            raise ValueError("Wrong values for the new material and density")
+
+        if cell.ctype == 3 and cell.get_m() == 0:
+            cell.hidden["~"].insert(0, str(new_density))
+            cell._set_value_by_type("mat", new_mat_id)
+            cell._Card__m = new_mat_id  # necessary for the get val
+            cell._Card__d = new_density
+            # Introduce parentheses before the third word in the first row
+            first_row = cell.input[0].split()
+            first_row.insert(2, r"~")
+            cell.input[0] = " ".join(first_row)
+        else:
+            logging.warning(f"cell {cell.name} is not a void cell")
+
+    @staticmethod
+    def add_cell_fill_u(
+        cell: parser.Card,
+        param: str,
+        param_value: int,
+        inplace: bool = True,
+    ) -> parser.Card:
+        """Adds a u=/fill= keyword parameter to a cell that doesn't have it.
+
+        Parameters
+        ----------
+        cell : parser.Card
+            numjuggler cell card to which the surface will be added
+        param : str
+            can be 'u' or 'fill', it tells the parameter to be added to the cell.
+        param_value : int
+            the value of the parameter 'u' or 'fill' to be added to the cell.
+        inplace: bool
+            if False a deepcopy is created. By default is True.
+
+        Returns
+        -------
+        parser.Card
+            numjuggler card of the modified cell
+        """
+
+        valid_params = ["u", "fill"]
+        if param.lower() not in [p.lower() for p in valid_params]:
+            raise ValueError(f"Invalid parameter {param}")
+        if cell.get_u() and param.lower() == "u":
+            raise ValueError("Cell already has a universe defined")
+        if cell.get_f() and param.lower() == "fill":
+            raise ValueError("Cell already has a filler defined")
+
+        cell._Card__f = -1
+        cell._Card__u = -1
+        len_param = len(str(param_value))
+
+        new_cell = Input._add_symbol_to_cell_input(
+            cell,
+            f"{param.lower()}={{:<{len_param}}}",
+            inplace=inplace,
+            parentheses=False,
+        )
+
+        for k in range(len(new_cell.values) - 1, -1, -1):
+            if new_cell.values[k][1] == "sur" or new_cell.values[k][1] == "cel":
+                break
+
+        new_cell.values.insert(k + 1, (param_value, param.lower()))
+
+        return new_cell
 
     @staticmethod
     def add_surface(
@@ -1260,6 +1344,7 @@ class Input:
         cell: parser.Card,
         add_symbol: str,
         inplace: bool = True,
+        parentheses: bool = True,
     ) -> parser.Card:
 
         if inplace:
@@ -1270,10 +1355,11 @@ class Input:
         # Introduce parentheses before the third word in the first row
         first_row = new_cell.input[0].split()
 
-        if new_cell.get_m() == 0:
-            first_row[2] = "(" + first_row[2]
-        else:
-            first_row[3] = "(" + first_row[3]
+        if parentheses:
+            if new_cell.get_m() == 0:
+                first_row[2] = "(" + first_row[2]
+            else:
+                first_row[3] = "(" + first_row[3]
 
         new_cell.input[0] = " ".join(first_row)
 
@@ -1289,7 +1375,10 @@ class Input:
             if not keywords:
                 param_cards_idx = len(row)
             if keywords or (not keywords and i == len(new_cell.input) - 1):
-                row.insert(param_cards_idx, ") " + add_symbol)
+                if parentheses:
+                    row.insert(param_cards_idx, ") " + add_symbol)
+                else:
+                    row.insert(param_cards_idx, add_symbol)
                 new_cell.input[i] = " ".join(row)
 
                 if new_cell.input[i][:5] != "     " and i != 0:
@@ -1412,6 +1501,42 @@ class Input:
 
         card = parser.Card([line], 5, -1)
         self.other_data["NPS"] = card
+    
+    def check_range(self, range: list[int], who: str = 'cell') -> bool:
+        """Check if the provided range is not within the used index, i.e., if the range
+        is free. Both cells and surfaces can be checked.
+
+        Parameters
+        ----------
+        range : list[int]
+            list of indices to be checked
+        who : str, optional
+            either 'surf' or 'cell', by default 'cell'
+
+        Returns
+        -------
+        bool
+            True if the provided range is free, False otherwise
+
+        Raises
+        ------
+        ValueError
+            only surf or cell are accepted as who
+        """
+        if who == 'cell':
+            used_index = self.cells.keys()
+        elif who == 'surf':
+            used_index = self.surfs.keys()
+        else:   
+            raise ValueError("who can be only 'cell' or 'surf'")
+        # check that the provided range is not within the used index
+        # need to do the check for strings since there may be asterisks
+        for i in range:
+            for j in used_index:
+                if str(i) in j:  # that's for the asterisk problem
+                    return False
+        return True
+        
 
 
 class D1S_Input(Input):
