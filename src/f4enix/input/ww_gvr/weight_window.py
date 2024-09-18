@@ -98,8 +98,6 @@ class WW:
         """
         file_path = Path(file_path)
         parse_result = ww_parser.read_meshtally_file(file_path)
-        if len(parse_result.energies[0]) > 1:
-            raise ValueError("The meshtally file has more than one energy group.")
 
         geometry = cls._create_geometry(parse_result)
         values = cls._nested_to_values_by_particle(parse_result)

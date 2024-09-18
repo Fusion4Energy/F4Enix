@@ -210,6 +210,8 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     iv = 1  # It is always 1, time-dependent windows not supported
     ni = 1  # Number of particle types, always 1 when reading a meshtally
     nr = 10 if mesh.cart else 16
+    if len(mesh.ener) > 2:
+        raise ValueError("The meshtally file has more than one energy group.")
     ne = [1]  # Number of energy bins of each particle, always 1 for a meshtally
 
     # When reading a meshtally we consider that there are no regular intervals between
