@@ -14,6 +14,9 @@ from f4enix.input.ww_gvr.models import NestedList, Vectors
 from f4enix.input.ww_gvr.utils import compose_b2_vectors
 from f4enix.output.meshtal import Fmesh, Meshtal
 
+CARTESIAN_COORDINATES_ID = 10
+ALLOWED_NUMBER_OF_ENERGIES_IN_GVR = 1
+
 
 @dataclass()
 class WWHeader:
@@ -115,7 +118,7 @@ def _parse_header(infile: TextIO) -> WWHeader:
         "ncz": ncz,
     }
 
-    if nr == 10:  # Cartesian coordinates
+    if nr == CARTESIAN_COORDINATES_ID:
         header = WWHeader(**header_args)
     else:  # Cylindrical coordinates
         director_1 = [float(word) for word in words[3:]]
@@ -210,6 +213,8 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     iv = 1  # It is always 1, time-dependent windows not supported
     ni = 1  # Number of particle types, always 1 when reading a meshtally
     nr = 10 if mesh.cart else 16
+    if len(mesh.ener) - 1 > ALLOWED_NUMBER_OF_ENERGIES_IN_GVR:
+        raise ValueError("The meshtally file has more than one energy group.")
     ne = [1]  # Number of energy bins of each particle, always 1 for a meshtally
 
     # When reading a meshtally we consider that there are no regular intervals between
@@ -236,7 +241,9 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
         "ncz": ncz,
     }
 
-    if nr == 10:  # Cartesian coordinates
+    if nr == CARTESIAN_COORDINATES_ID:
+        # Origin should be zero for cartesian as the vectors start already at the origin
+        header_args["origin"] = [0, 0, 0]
         header = WWHeader(**header_args)
     else:  # Cylindrical coordinates
         director_1 = mesh.axis.tolist()
@@ -342,8 +349,8 @@ def _write_header(f: TextIO, header: WWHeader) -> None:
 
 
 def _write_block_2(f: TextIO, b2_vectors: Vectors) -> None:
-    for vector in b2_vectors:
-        vector = vector.tolist()
+    for b2_vector in b2_vectors:
+        vector = b2_vector.tolist()
         packs_of_six = [vector[i : i + 6] for i in range(0, len(vector), 6)]
 
         for pack in packs_of_six:

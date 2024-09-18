@@ -1,8 +1,6 @@
 import numpy as np
 import pytest
 import pyvista as pv
-from numpy.testing import assert_array_almost_equal, assert_array_equal
-
 from f4enix.input.ww_gvr.meshgrids import (
     _correct_theta_vector,
     _create_cylindrical_grid_with_z_axis,
@@ -10,6 +8,9 @@ from f4enix.input.ww_gvr.meshgrids import (
     create_cartesian_grid,
     create_cylindrical_grid,
 )
+from numpy.testing import assert_array_almost_equal, assert_array_equal
+
+# ruff: noqa: PLR2004
 
 
 def test_create_cartesian_grid():

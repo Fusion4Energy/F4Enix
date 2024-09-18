@@ -1,8 +1,6 @@
 """
 Some utilities for the ww_gvr package.
 """
-
-from pathlib import Path
 from typing import Tuple
 
 import numpy as np
@@ -41,13 +39,13 @@ def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
     fine = []
 
     for b2_vector in b2_vectors:
-        b2_vector = np.insert(b2_vector, 1, 1.0000)
-        coarse.append([b2_vector[i] for i in range(len(b2_vector)) if i % 3 == 0])
+        vector = np.insert(b2_vector, 1, 1.0000)
+        coarse.append([vector[i] for i in range(len(vector)) if i % 3 == 0])
         fine.append(
             [
-                int(b2_vector[j + 2])
-                for j in range(len(b2_vector))
-                if j % 3 == 0 and j + 2 < len(b2_vector)
+                int(vector[j + 2])
+                for j in range(len(vector))
+                if j % 3 == 0 and j + 2 < len(vector)
             ]
         )
 
