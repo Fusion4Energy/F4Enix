@@ -5,10 +5,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 import pyvista as pv
-from numpy.testing import assert_array_almost_equal
-
 from f4enix.input.ww_gvr.models import CoordinateType, ParticleType, Vectors
 from f4enix.input.ww_gvr.weight_window import WW
+from numpy.testing import assert_array_almost_equal
+
 from tests.test_ww_gvr.resources import expected_values_ww_complex_cart
 
 
@@ -147,6 +147,13 @@ def test_create_gvr_from_meshtally_file_cart():
         ww.values[ParticleType.NEUTRON][100.0] ** 0.5,
         softened_ww.values[ParticleType.NEUTRON][100.0],
     )
+
+
+def test_gvr_fails_if_multiple_energies():
+    with pytest.raises(ValueError):
+        WW.create_gvr_from_meshtally_file(
+            Path("tests") / "resources" / "meshtal" / "meshtal_rect_VV"
+        )
 
 
 def test_info():
