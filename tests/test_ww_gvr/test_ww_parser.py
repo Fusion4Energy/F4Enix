@@ -1,8 +1,7 @@
-import numpy as np
 from pathlib import Path
 
+import numpy as np
 from f4enix.input.ww_gvr.models import Vectors
-
 from f4enix.input.ww_gvr.ww_parser import (
     WWHeader,
     WWHeaderCyl,
@@ -10,6 +9,8 @@ from f4enix.input.ww_gvr.ww_parser import (
     read_meshtally_file,
     write,
 )
+
+# ruff: noqa: PLR2004
 
 
 def test_parse_simple_cart():
