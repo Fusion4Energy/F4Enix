@@ -242,6 +242,8 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     }
 
     if nr == CARTESIAN_COORDINATES_ID:
+        # Origin should be zero for cartesian as the vectors start already at the origin
+        header_args["origin"] = [0, 0, 0]
         header = WWHeader(**header_args)
     else:  # Cylindrical coordinates
         director_1 = mesh.axis.tolist()
