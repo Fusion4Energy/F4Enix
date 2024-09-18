@@ -121,7 +121,7 @@ def test_read_meshtally_file_cart():
         nfx=3,
         nfy=4,
         nfz=2,
-        origin=[-10.0, 20.0, 15.0],
+        origin=[0, 0, 0],
         ncx=3,
         ncy=4,
         ncz=2,
