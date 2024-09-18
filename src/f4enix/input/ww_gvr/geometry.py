@@ -1,13 +1,12 @@
-from __future__ import annotations
-
 """
 This module contains the Geometry class, which is used to create a pyvista grid
 from the coarse and fine vectors of a WW file. It also contains the methods to
 fill the grid with the values of the WW file and to plot it.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Dict, List, Union
 
 import numpy as np
 import pyvista as pv
@@ -153,7 +152,7 @@ class Geometry:
         return compose_b2_vectors(self._coarse_vectors, self._fine_vectors)
 
     @property
-    def director_1(self) -> Union[List[float], None]:
+    def director_1(self) -> list[float] | None:
         """
         Returns the director 1 vector (axis) of the cylinder if the grid is
         cylindrical.
@@ -161,7 +160,7 @@ class Geometry:
         return self._director_1
 
     @property
-    def director_2(self) -> Union[List[float], None]:
+    def director_2(self) -> list[float] | None:
         """
         Returns the director 2 vector (radius) of the cylinder if the grid is
         cylindrical.
@@ -169,7 +168,7 @@ class Geometry:
         return self._director_2
 
     @property
-    def origin(self) -> List[float]:
+    def origin(self) -> list[float]:
         return self._origin
 
     @property
@@ -211,7 +210,7 @@ class Geometry:
         plotter.show_axes()  # type: ignore
         plotter.show()
 
-    def _decide_plot_parameters(self) -> Dict:
+    def _decide_plot_parameters(self) -> dict:
         sclar_bar_args = {
             "interactive": True,
             "title_font_size": 20,

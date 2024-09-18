@@ -1,5 +1,4 @@
 import numpy as np
-
 from f4enix.input.ww_gvr.ratios_calculation import calculate_max_ratio_array
 
 

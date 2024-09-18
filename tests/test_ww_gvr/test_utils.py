@@ -1,5 +1,4 @@
 import numpy as np
-
 from f4enix.input.ww_gvr.utils import (
     Vectors,
     build_1d_vectors,
@@ -19,7 +18,6 @@ def test_vectors():
     for vector in vectors:
         iterated.append(vector)
     assert iterated[0].tolist() == vectors.vector_i.tolist()
-    assert vectors == vectors
 
     different = Vectors(
         vector_i=np.array([0.0, 2.0, 16.0, 1.0]),

@@ -86,7 +86,7 @@ def test_values_setter_recalculates_ratios():
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"
     )
 
-    # Create a grid with 8 cells for convenience, Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart" only has 6 cells
+    # Create a grid with 8 cells for convenience, "ww_simple_cart" only has 6 cells
     dummy_grid = pv.StructuredGrid()
     dummy_grid.dimensions = [3, 3, 3]
     ww.geometry._grid = dummy_grid
