@@ -1686,9 +1686,17 @@ class Meshtal:
             self.probid = vals[-2] + " " + vals[-1]
             self.title = self.f.readline().strip()
 
-        self.nps = int(
-            float((self.f.readline().split()[-1]))
-        )  # nps: int doesnt like decimals
+        try:
+            self.nps = int(
+                float((self.f.readline().split()[-1]))
+            )  # nps: int doesnt like decimals
+        except IndexError:
+            # then the first line of the header was not provided and it creates a mess
+            self.code = None
+            self.version = None
+            self.probid = None
+            self.title = None
+            self.nps = None
 
     def collapse_grids(self, name_dict: dict[int, list[str, str]]) -> pv.DataSet:
         """If the all the fmeshes indicated in the dictionary are defined on
