@@ -16270,7 +16270,8 @@ number     sec         sec            sec         n/cm^2/s  number
                      99.99%(a)      100.00%(b-)     100.00%(b-)     100.00%(a)      100.00%(a)      100.00%(a)      100.00%(a)      100.00%(b-)    
                       0.01%(n,na)                                     0.00%(n,na)     0.00%(n,na)                                                  
 
- path continued   Bi212 ---(S)---
+ path continued   Pb212 ---(d)--- Bi212 ---(S)---
+                    100.00%(b-)
 
                          G E N E R I C   P A T H W A Y S  F O R   I R R A D I A T I O N   P H A S E
                          ==========================================================================

@@ -44,7 +44,7 @@ class TestPathwayCollection:
         assert len(collection.pathways) == 56
         assert str(collection.pathways[0]) == "Mn55 -(n,g)-> Mn56"
         assert str(collection.pathways[1]) == "Fe56 -(n,p)-> Mn56"
-        assert len(collection.pathways[-1].intermediates) == 7
+        assert len(collection.pathways[-1].intermediates) == 8
 
     def test_to_dataframe(self):
         with as_file(lib_resources.joinpath("testSS.out")) as file:
