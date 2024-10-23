@@ -41,12 +41,13 @@ class TestPathwayCollection:
     def test_from_file(self):
         with as_file(lib_resources.joinpath("testSS.out")) as file:
             collection = PathwayCollection.from_file(file)
-        assert len(collection.pathways) == 55
+        assert len(collection.pathways) == 56
         assert str(collection.pathways[0]) == "Mn55 -(n,g)-> Mn56"
         assert str(collection.pathways[1]) == "Fe56 -(n,p)-> Mn56"
+        assert len(collection.pathways[-1].intermediates) == 7
 
     def test_to_dataframe(self):
         with as_file(lib_resources.joinpath("testSS.out")) as file:
             collection = PathwayCollection.from_file(file)
         df = collection.to_dataframe()
-        assert len(df) == 55
+        assert len(df) == 56
