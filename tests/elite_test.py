@@ -151,8 +151,8 @@ class TestElite_Input:
         new_outercell, new_gy = inp._modify_graveyard(sectors, outercell, graveyard)
         print_outercell = new_outercell.card(wrap=True, comment=False).splitlines()
         print_gy = new_gy.card(wrap=True, comment=False).splitlines()
-        assert print_outercell[0].split()[2][:2] == "(("
-        assert print_gy[0].split()[2][:2] == "(("
+        assert print_outercell[0].split()[2][:2] == "("
+        assert print_gy[0].split()[2][:2] == "("
         assert ") 427024 ) 427016" in print_outercell[0]
         assert ") :-427024 ) :-427016" in print_gy[0]
 
@@ -160,8 +160,8 @@ class TestElite_Input:
         new_outercell, new_gy = inp._modify_graveyard(sectors, outercell, graveyard)
         print_outercell = new_outercell.card(wrap=True, comment=False).splitlines()
         print_gy = new_gy.card(wrap=True, comment=False).splitlines()
-        assert print_outercell[0].split()[2][:2] == "(("
-        assert print_gy[0].split()[2][:2] == "(("
+        assert print_outercell[0].split()[2][:2] == "("
+        assert print_gy[0].split()[2][:2] == "("
         assert ") -437544 ) 437543" in print_outercell[0]
         assert ") :437544 ) :-437543" in print_gy[0]
 
@@ -169,8 +169,8 @@ class TestElite_Input:
         new_outercell, new_gy = inp._modify_graveyard(sectors, outercell, graveyard)
         print_outercell = new_outercell.card(wrap=True, comment=False).splitlines()
         print_gy = new_gy.card(wrap=True, comment=False).splitlines()
-        assert print_outercell[0].split()[2][:2] == "(("
-        assert print_gy[0].split()[2][:2] == "(("
+        assert print_outercell[0].split()[2][:2] == "("
+        assert print_gy[0].split()[2][:2] == "("
         assert ") 427024 ) 437543" in print_outercell[0]
         assert ") :-427024 ) :-437543" in print_gy[0]
 
