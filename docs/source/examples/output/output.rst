@@ -9,3 +9,4 @@
     jupyters/rssa
     jupyters/eeout
     jupyters/fispact_legacy
+    jupyters/pathwaylib
