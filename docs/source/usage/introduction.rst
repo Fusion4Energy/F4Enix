@@ -2,6 +2,60 @@
 Introduction
 ############
 
+What is F4Enix
+==============
+
+The general idea, is to develop a series of specific python modules
+responsible for the parsing and manipulation of all the main types of files
+that are commonly produced during a complex Monte Carlo particles and 
+radiation transport analysis. These are divided in two main subpackages which
+are ``f4enix.input`` and ``f4enix.output``.
+
+The following is a list of the kind of files that are currently at least partially
+supported by F4Enix grouped by codes.
+
+**MCNP:**
+
+* MCNP Input file by :py:class:`f4enix.input.MCNPinput.Input`, which essentially is
+  a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
+* MCNP Output file by :py:class:`f4enix.output.MCNPoutput.Output`
+* MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
+* MESHTAL file, including modified versions produced by D1SUNED
+  by :py:class:`f4enix.output.meshtal.Meshtal`
+* RSSA file by :py:class:`f4enix.output.rssa.RSSA`
+* EEOUT file by :py:class:`f4enix.output.eeout.EEOUT`
+* WWINP Weight-Windows file by :py:package:`f4enix.output.ww_gvr`
+* GVR capabilities
+
+* MCNP Input file, which essentially is a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
+  (`Examples <../input/jupyters/mcnp_inp.ipynb#mcnp_input>_`)
+* MCNP Output file by :py:class:`f4enix.output.MCNPoutput.Output`
+* MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
+* MESHTAL file, including modified versions produced by D1SUNED
+  by :py:class:`f4enix.output.meshtal.Meshtal`
+* RSSA file by :py:class:`f4enix.output.rssa.RSSA`
+* EEOUT file by :py:class:`f4enix.output.eeout.EEOUT`
+* WWINP Weight-Windows file by :py:package:`f4enix.output.ww_gvr`
+* GVR capabilities
+
+**D1SUNED:**
+
+* D1SUNED input file by :py:class:`f4enix.input.d1suned.IrradiationFile`, 
+  :py:class:`f4enix.input.d1suned.ReactionFile` and :py:class:`f4enix.input.MCNPinput.D1S_Input`
+* D1SUNED meshinfo file by :py:class:`f4enix.output.meshinfo.MeshInfo`
+
+**FISPACT:**
+
+* FISPACT legacy output (for pathways) by :py:class:`f4enix.output.fispact_legacy_out.PathwayCollection`
+* Important Pathways library for ITER applications
+
+All classes and methods of the F4Enix API are documented and usage examples
+are provided in all the most important classes documentations. Additionally more
+structured examples of pre and post-processing pipelines are provided in the form
+of compiled jupyter notebooks.
+Everything that involves mesh output is dealt with the very versatile python
+package `PyVista <https://docs.pyvista.org/version/stable/index.html>`_.
+
 Why F4Enix
 ==========
 
@@ -36,40 +90,6 @@ portable, and easy to be intagrated with other scientific libraries and tools.
 Continous Integration (CI) procedures are implemented for F4Enix, additional
 details may be found at :ref:`CI details`.
 Both Linux and Windows OS are supported and tested.
- 
-
-What is F4Enix
-==============
-
-The general idea, is to develop a series of specific python modules
-responsible for the parsing and manipulation of all the main types of files
-that are commonly produced during a complex Monte Carlo particles and 
-radiation transport analysis. These are divided in two main subpackages which
-are ``f4enix.input`` and ``f4enix.output``.
-
-The following is a list of the kind of files that are currently at least partially
-supported by F4Enix:
-
-* MCNP input file by :py:class:`f4enix.input.MCNPinput.Input`, which essentially is
-  a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
-* D1SUNED input file by :py:class:`f4enix.input.d1suned.IrradiationFile`, 
-  :py:class:`f4enix.input.d1suned.ReactionFile` and :py:class:`f4enix.input.MCNPinput.D1S_Input`
-* MCNP MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
-* MCNP MESHTAL file, including modified versions produced by D1SUNED
-  by :py:class:`f4enix.output.meshtal.Meshtal`
-* MCNP output file by :py:class:`f4enix.output.MCNPoutput.Output`
-* D1SUNED meshinfo file by :py:class:`f4enix.output.meshinfo.MeshInfo`
-* MCNP rssa file by :py:class:`f4enix.output.rssa.RSSA`
-* MCNP eeout file by :py:class:`f4enix.output.eeout.EEOUT`
-* MCNP Weight-Windows file by :py:package:`f4enix.output.ww_gvr`
-* FISPACT legacy output (for pathways) by :py:class:`f4enix.output.fispact_legacy_out.PathwayCollection`
-
-All classes and methods of the F4Enix API are documented and usage examples
-are provided in all the most important classes documentations. Additionally more
-structured examples of pre and post-processing pipelines are provided in the form
-of compiled jupyter notebooks.
-Everything that involves mesh output is dealt with the very versatile python
-package `PyVista <https://docs.pyvista.org/version/stable/index.html>`_.
 
 **Short/mid term goals for the project:**
 

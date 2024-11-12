@@ -22,8 +22,7 @@ Source code is hosted on GitHub `Here <https://github.com/Radiation-Transport/F4
 
    usage/installation
    
-   examples/input/input
-   examples/output/output
+   examples/examples_idx
 
    developers/contributing
    developers/ci
