@@ -7,12 +7,12 @@ What is F4Enix
 
 The general idea, is to develop a series of specific python modules
 responsible for the parsing and manipulation of all the main types of files
-that are commonly produced during a complex Monte Carlo particles and 
+that are commonly produced during a complex Monte Carlo particles and
 radiation transport analysis. These are divided in two main subpackages which
 are ``f4enix.input`` and ``f4enix.output``.
 
-The following is a list of the kind of files that are currently at least partially
-supported by F4Enix grouped by codes.
+The following is a list of the kind of files that are currently at least
+partially supported by F4Enix grouped by codes.
 
 **MCNP:**
 
@@ -28,7 +28,7 @@ supported by F4Enix grouped by codes.
 * GVR capabilities
 
 * MCNP Input file, which essentially is a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
-  (`Examples <../input/jupyters/mcnp_inp.ipynb#mcnp_input>_`)
+  (`Examples <examples/input/jupyters/mcnp_inp.ipynb#mcnp_input>_`)
 * MCNP Output file by :py:class:`f4enix.output.MCNPoutput.Output`
 * MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
 * MESHTAL file, including modified versions produced by D1SUNED
