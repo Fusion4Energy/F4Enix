@@ -1,34 +1,40 @@
+
+
+########
+Examples
+########
+
 .. _prepro_jupyters:
 
-##############
+--------------
 Pre-Processing
-##############
+--------------
 
-.. toctree:: 
+.. toctree::
     :maxdepth: 2
     :caption: F4Enix pre-processing pipeline example
 
-    jupyters/mcnp_inp
-    jupyters/d1suned
-    jupyters/e_lite
-    jupyters/ww
+    input/jupyters/mcnp_inp
+    input/jupyters/d1suned
+    input/jupyters/e_lite
+    input/jupyters/ww
 
 
 .. _post_jupyters:
 
-###############
+---------------
 Post-Processing
-###############
+---------------
 
-.. toctree:: 
+.. toctree::
     :maxdepth: 2
     :caption: F4Enix post-processing pipeline example
 
-    jupyters/mcnp_out
-    jupyters/mctal
-    jupyters/meshtal
-    jupyters/meshinfo
-    jupyters/rssa
-    jupyters/eeout
-    jupyters/fispact_legacy
-    jupyters/pathwaylib
+    output/jupyters/mcnp_out
+    output/jupyters/mctal
+    output/jupyters/meshtal
+    output/jupyters/meshinfo
+    output/jupyters/rssa
+    output/jupyters/eeout
+    output/jupyters/fispact_legacy
+    output/jupyters/pathwaylib

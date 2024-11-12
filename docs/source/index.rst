@@ -21,13 +21,10 @@ Source code is hosted on GitHub `Here <https://github.com/Radiation-Transport/F4
    :caption: F4Enix user guide:
 
    usage/installation
-   
+
    examples/examples_idx
 
-   developers/contributing
-   developers/ci
-
-   usage/license
+   developers/dev_idx
 
    api
 
