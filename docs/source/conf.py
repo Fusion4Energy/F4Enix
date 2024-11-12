@@ -18,7 +18,6 @@ import sys
 sys.path.insert(0, os.path.abspath("../.."))
 from f4enix import __version__
 
-
 # -- Project information -----------------------------------------------------
 
 project = "F4Enix"
@@ -96,7 +95,7 @@ autoclass_content = "init"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 html_logo = "./img/logo.png"
 
 # Theme options are theme-specific and customize the look and feel of a theme
