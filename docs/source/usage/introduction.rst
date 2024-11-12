@@ -28,7 +28,7 @@ partially supported by F4Enix grouped by codes.
 * GVR capabilities
 
 * MCNP Input file, which essentially is a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
-  (`Examples <examples/input/jupyters/mcnp_inp.ipynb#mcnp_input>_`)
+  (`Examples <usage/input/mcnp_inp.ipynb#mcnp_inp>`)
 * MCNP Output file by :py:class:`f4enix.output.MCNPoutput.Output`
 * MCTAL file by :py:class:`f4enix.output.mctal.Mctal`
 * MESHTAL file, including modified versions produced by D1SUNED
