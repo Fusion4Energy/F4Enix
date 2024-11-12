@@ -28,15 +28,8 @@ Source code is hosted on GitHub `Here <https://github.com/Radiation-Transport/F4
 
    usage/license
 
-F4Enix API
-----------
+   api
 
-.. autosummary::
-   :toctree: _autosummary
-   :template: custom-module-template.rst
-   :recursive:
-
-   f4enix
 
 
 Indices and tables
