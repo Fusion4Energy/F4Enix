@@ -11,7 +11,7 @@ A python package for Monte Carlo simulations input and output files parsing.
 
 Brought to you by Fusion For Energy (F4E) Analyses & Codes team.
 
-Source code is hosted on GitHub `Here <https://github.com/Radiation-Transport/F4Enix>`_.
+Source code is hosted on GitHub https://github.com/Fusion4Energy/F4Enix.
 
 .. include:: usage/introduction.rst
 
