@@ -1330,21 +1330,28 @@ class Input:
                 cell = self.cells[str(cell_num)]
                 self.hash_cell(cell, hash_id, inplace=True)
 
-    @staticmethod
-    def cell_union_function(
-        cell_list: list[parser.Card],
+    def cells_union(
+        self,
+        cell_num_list: list[str],
         new_cell_num: int = None,
-    ) -> parser.Card:
+    ) -> None:
         """Given a list of cells, it creates a new cell that is the union of
-        the cells in the list.
+        the cells in the list, starting from the first cell in the list.
+        The resulting cell will be put in the dict of cells
+        of the input (with the new number if provided), while the old cells will
+        be deleted. If a renumbering was done, the input must be re-read.
 
         Parameters
         ----------
         cell_list : list[parser.Card]
             list of cells to be united
         new_cell_num : int, optional
-            new number of the union cell, by default None
+            new number of the union cell, by default None (old number is kept).
         """
+
+        cell_list = []
+        for cell_num in cell_num_list:
+            cell_list.append(self.cells[cell_num])
 
         if new_cell_num is None:
             cel = cell_list[0]
@@ -1364,43 +1371,10 @@ class Input:
             new_cell = parser.Card(cell_lines, 3, new_cell.pos)
             new_cell.get_values()
 
-        return new_cell
+        for cell_num in cell_num_list:
+            self.cells.pop(cell_num)
 
-    def cells_union(
-        self,
-        cell_list: list[parser.Card],
-        remove_cells: bool = True,
-        add_union_cell: bool = True,
-        new_cell_num: int = None,
-    ) -> None:
-        """Given a list of cells, it creates a new cell that is the union of
-        the cells in the list. It also checks if the original cells must be removed or not
-        and if the new one has to be added to the input. If a renumbering was done,
-        the input must be re-read.
-
-        Parameters
-        ----------
-        cell_list : list[parser.Card]
-            list of cells to be united
-        remove_cells : bool, optional
-            Flag to check if the united cells have to be removed, by default True
-        add_union_cell : bool, optional
-            flag to check if the resultant cell has to be added to the input, by default True
-        new_cell_num : int, optional
-            new number of the union cell, by default None
-        """
-
-        if new_cell_num is None:
-            cel = cell_list[0]
-            new_cell_num = cel.values[0][0]
-
-        new_cell = Input.cell_union_function(cell_list, new_cell_num=new_cell_num)
-
-        if remove_cells:
-            for cell in cell_list:
-                self.cells.pop(str(cell.values[0][0]))
-        if add_union_cell:
-            self.cells[str(new_cell_num)] = new_cell
+        self.cells[str(new_cell_num)] = new_cell
 
     @staticmethod
     def _add_symbol_to_cell_input(

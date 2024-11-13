@@ -428,73 +428,29 @@ class TestInput:
         assert newinp.cells["299"].get_m() == 10
         assert newinp.cells["1"].get_m() == 0
 
-    def test_cell_union_function(self):
-        newinput = deepcopy(self.testInput)
-        assert (
-            Input.cell_union_function([newinput.cells["1"], newinput.cells["2"]]).card()
-            == "1 0 ( -128 129 -1 )  : (  -128 129 1   -2 )$imp:n,p=1\n"
-        )
-        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
-            newinp = Input.from_input(inp_file)
-        assert (
-            Input.cell_union_function([newinp.cells["1"], newinp.cells["22"]]).card()
-            == "1 0 ( -1 )  : (      -22 ) imp:n=1 fill=125\n"
-        )
-        # assert (
-        #     Input.cell_union_function([newinp.cells["299"], newinp.cells["99"]]).card()
-        #     == "299 0 (#21 #22 )  : ( 1 ) imp:n=1 u=125\n"
-        # )
-        assert (
-            Input.cell_union_function(
-                [newinp.cells["299"], newinp.cells["99"], newinp.cells["22"]]
-            ).card()
-            == "299 0 ( ( #21 #22 ) : ( 1 ) )  : (      -22 ) imp:n=1 u=125\n"
-        )
-        assert (
-            Input.cell_union_function(
-                [newinp.cells["299"], newinp.cells["99"], newinp.cells["22"]], 500
-            ).values[0][0]
-            == 500
-        )
-
     def test_cells_union(self):
         with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
             newinp = Input.from_input(inp_file)
-        new_cell = newinp.cells_union(
-            [newinp.cells["1"], newinp.cells["22"], newinp.cells["299"]], False, False
-        )
-        assert "1" in newinp.cells
-        assert "22" in newinp.cells
-        assert "299" in newinp.cells
-        new_cell = newinp.cells_union(
-            [newinp.cells["1"], newinp.cells["22"], newinp.cells["299"]]
-        )
-        assert "1" in newinp.cells
-        assert not "22" in newinp.cells
-        assert not "299" in newinp.cells
 
-        with as_file(resources_inp.joinpath("jt60.i")) as inp_file:
-            newinp = Input.from_input(inp_file)
-        new_cell = newinp.cells_union(
-            [newinp.cells["1"], newinp.cells["22"], newinp.cells["299"]],
-            False,
-            True,
-            300000,
-        )
+        newinp_2 = deepcopy(newinp)
+
+        newinp.cells_union(["1", "22", "299"], None)
         assert "1" in newinp.cells
-        assert "22" in newinp.cells
-        assert "299" in newinp.cells
-        assert "300000" in newinp.cells
-        new_cell = newinp.cells_union(
-            [newinp.cells["1"], newinp.cells["22"], newinp.cells["299"]],
-            True,
-            True,
-            300000,
-        )
-        assert not "1" in newinp.cells
         assert not "22" in newinp.cells
         assert not "299" in newinp.cells
-        assert "300000" in newinp.cells
+        assert (
+            newinp.cells["1"].card()
+            == "1 0 ( ( -1 ) : ( -22 ) )  : ( #21 #22    ) imp:n=1 fill=125\n"
+        )
+        newinp_2.cells_union(["22", "299", "1"], 635)
+        assert not "1" in newinp_2.cells
+        assert not "22" in newinp_2.cells
+        assert not "299" in newinp_2.cells
+        assert "635" in newinp_2.cells
+        assert (
+            newinp_2.cells["635"].card()
+            == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
+        )
 
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
