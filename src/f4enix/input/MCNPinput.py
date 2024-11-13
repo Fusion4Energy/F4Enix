@@ -1271,7 +1271,7 @@ class Input:
             )
 
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace
+            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
         )
 
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1279,10 +1279,6 @@ class Input:
                 break
 
         new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
-
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1308,7 +1304,7 @@ class Input:
         """
         template_addition = "#{:<" + str(len(str(hash_id)) - 1) + "} "
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace
+            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
         )
         # add the hash cell to the cell values
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1316,11 +1312,6 @@ class Input:
                 break
 
         new_cell.values.insert(k + 1, (hash_id, "cel"))
-
-        # renumber the cell if requested
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1339,12 +1330,59 @@ class Input:
                 cell = self.cells[str(cell_num)]
                 self.hash_cell(cell, hash_id, inplace=True)
 
+    def cells_union(
+        self,
+        cell_num_list: list[str],
+        new_cell_num: int = None,
+    ) -> None:
+        """Given a list of cells, it creates a new cell that is the union of
+        the cells in the list, starting from the first cell in the list.
+        The resulting cell will be put in the dict of cells
+        of the input (with the new number if provided), while the old cells will
+        be deleted. If a renumbering was done, the input must be re-read.
+
+        Parameters
+        ----------
+        cell_list : list[parser.Card]
+            list of cells to be united
+        new_cell_num : int, optional
+            new number of the union cell, by default None (old number is kept).
+        """
+
+        cell_list = []
+        for cell_num in cell_num_list:
+            cell_list.append(self.cells[cell_num])
+
+        if new_cell_num is None:
+            cel = cell_list[0]
+            new_cell_num = cel.values[0][0]
+
+        new_cell = cell_list[0]
+
+        for cell in cell_list[1:]:
+            new_cell = Input._add_symbol_to_cell_input(
+                new_cell,
+                " : (" + cell.get_geom().replace("\n", " ") + ")",
+                inplace=False,
+                parentheses=True,
+                new_cell_num=new_cell_num,
+            )
+            cell_lines = new_cell.card(wrap=True).splitlines(keepends=True)
+            new_cell = parser.Card(cell_lines, 3, new_cell.pos)
+            new_cell.get_values()
+
+        for cell_num in cell_num_list:
+            self.cells.pop(cell_num)
+
+        self.cells[str(new_cell_num)] = new_cell
+
     @staticmethod
     def _add_symbol_to_cell_input(
         cell: parser.Card,
         add_symbol: str,
         inplace: bool = True,
         parentheses: bool = True,
+        new_cell_num: int = None,
     ) -> parser.Card:
 
         if inplace:
@@ -1357,9 +1395,9 @@ class Input:
 
         if parentheses:
             if new_cell.get_m() == 0:
-                first_row[2] = "(" + first_row[2]
+                first_row[1] = first_row[1] + " ("
             else:
-                first_row[3] = "(" + first_row[3]
+                first_row[2] = first_row[2] + " ("
 
         new_cell.input[0] = " ".join(first_row)
 
@@ -1384,6 +1422,11 @@ class Input:
                 if new_cell.input[i][:5] != "     " and i != 0:
                     new_cell.input[i] = "     " + new_cell.input[i]
                 break
+
+        # renumber the cell if requested
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1501,8 +1544,8 @@ class Input:
 
         card = parser.Card([line], 5, -1)
         self.other_data["NPS"] = card
-    
-    def check_range(self, range: list[int], who: str = 'cell') -> bool:
+
+    def check_range(self, range: list[int], who: str = "cell") -> bool:
         """Check if the provided range is not within the used index, i.e., if the range
         is free. Both cells and surfaces can be checked.
 
@@ -1523,11 +1566,11 @@ class Input:
         ValueError
             only surf or cell are accepted as who
         """
-        if who == 'cell':
+        if who == "cell":
             used_index = self.cells.keys()
-        elif who == 'surf':
+        elif who == "surf":
             used_index = self.surfs.keys()
-        else:   
+        else:
             raise ValueError("who can be only 'cell' or 'surf'")
         # check that the provided range is not within the used index
         # need to do the check for strings since there may be asterisks
@@ -1536,7 +1579,6 @@ class Input:
                 if str(i) in j:  # that's for the asterisk problem
                     return False
         return True
-        
 
 
 class D1S_Input(Input):
