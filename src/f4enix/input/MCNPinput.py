@@ -49,6 +49,38 @@ PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
 ADD_LINE_FORMAT = "         {}\n"
 
 
+class CardsDict(dict):
+    def __init__(self, card_type: str, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.card_type = card_type
+
+    def __setitem__(self, key, value):
+        """Override the __setitem__ method to customize how entries are added."""
+
+        # Ensure the key is a string
+        if not isinstance(key, str):
+            raise ValueError("Keys must be strings")
+
+        # Ensure the value is an instance of parser.Card
+        if not isinstance(value, parser.Card):
+            raise ValueError("Values must be instances of parser.Card")
+
+        # Ensure that the key matches the card number
+        if "*" in key:
+            num = key[1:]
+        else:
+            num = key
+        if num != str(value.name):
+            logging.warning(
+                f"The card number {value.name} does not match the key {key}, it will be overridden"
+            )
+            value.name = int(num)
+            value._set_value_by_type(self.card_type, int(num))
+
+        # Call the superclass method to actually add the entry
+        super().__setitem__(key, value)
+
+
 class Input:
     def __init__(
         self,
@@ -228,6 +260,50 @@ class Input:
         # # with some numjuggler modes
         # cells.extend(surfs)
         # cells.extend(data)
+
+    @property
+    def cells(self) -> dict[str, parser.Card]:
+        """Get the cells attribute."""
+        return self._cells
+
+    @cells.setter
+    def cells(self, value: dict[str, parser.Card]) -> None:
+        """Set the cells attribute."""
+        # enforce that the keys are all corresponding to the cell number
+        # in case of difference, the dictionary key takes precedence
+        for key, card in value.items():
+            if key != str(card.name):
+                logging.warning(
+                    f"The cell number {card.name} is different from Key {key} and will be replaced"
+                )
+                card.name = int(key)
+                card._set_value_by_type("cel", int(key))
+
+        self._cells = CardsDict("cel", value)
+
+    @property
+    def surfs(self) -> dict[str, parser.Card]:
+        """Get the surfs attribute."""
+        return self._surfs
+
+    @surfs.setter
+    def surfs(self, value: dict[str, parser.Card]) -> None:
+        """Set the surfs attribute."""
+        # enforce that the keys are all corresponding to the surface number
+        # in case of difference, the dictionary key takes precedence
+        for key, card in value.items():
+            if "*" in key:
+                num = key[1:]
+            else:
+                num = key
+            if num != str(card.name):
+                logging.warning(
+                    f"The surface number {card.name} is different from Key {key} and will be replaced"
+                )
+                card.name = int(num)
+                card._set_value_by_type("sur", int(num))
+
+        self._surfs = CardsDict("sur", value)
 
     @classmethod
     def from_input(cls, inputfile: os.PathLike | str) -> Input:
@@ -729,14 +805,14 @@ class Input:
 
     @staticmethod
     def write_blocks(
-        outfile: os.PathLike,
+        file: os.PathLike,
         wrap: bool,
         cells_cards: dict[str, parser.Card],
         surfs: dict[str, parser.Card],
         materials: MatCardsList,
-        header: list[str] = None,
-        trans: dict[str, parser.Card] = None,
-        other_data: dict[str, parser.Card] = None,
+        header: list[str] | None = None,
+        trans: dict[str, parser.Card] | None = None,
+        other_data: dict[str, parser.Card] | None = None,
     ):
         """Writes F4Enix dicts of cells, surfaces and data cards.
         The method receives cells, surfaces, materials F4Enix dicts and
@@ -745,7 +821,7 @@ class Input:
 
         Parameters
         ----------
-        outfile : os.PathLike
+        file : os.PathLike
             path of the MCNP input that will be printed
         wrap : bool
             flag to check if the input should be wrapped to 80 characters per
@@ -764,7 +840,7 @@ class Input:
             fEnix dict of MCNP data cards, by default None
         """
 
-        with open(outfile, "w") as outfile:
+        with open(file, "w") as outfile:
             # Add the header lines
             if header is not None:
                 for line in header:
@@ -1227,7 +1303,7 @@ class Input:
     def add_surface(
         cell: parser.Card,
         add_surface: int,
-        new_cell_num: int = None,
+        new_cell_num: int | None = None,
         mode: str = "intersect",
         inplace: bool = True,
     ) -> parser.Card:
