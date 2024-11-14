@@ -87,7 +87,7 @@ class Input:
         cells: dict[str, parser.Card],
         surfs: dict[str, parser.Card],
         materials: MatCardsList,
-        transformations: list[parser.Card],
+        transformations: dict[str, parser.Card],
         other_data: dict[str, parser.Card],
         tally_keys: list[int],
         fmesh_keys: list[int],
@@ -109,7 +109,7 @@ class Input:
             the number of the surfaces.
         materials: MatCardsList
             material cards section of the input.
-        transformations: list[parser.Card]
+        transformations: dict[str, parser.Card]
             list of transformation datacards (i.e. TRn)
         other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
@@ -130,7 +130,7 @@ class Input:
             the number of the surfaces.
         materials: MatCardsList
             material cards section of the input.
-        transformations: list[parser.Card]
+        transformations: dict[str, parser.Card]
             list of transformation datacards (i.e. TRn)
         other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
@@ -432,11 +432,11 @@ class Input:
 
     def renumber(
         self,
-        cells: int = None,
-        surfs: int = None,
-        universes: int = None,
-        translations: int = None,
-        renum_all: int = None,
+        cells: int | None = None,
+        surfs: int | None = None,
+        universes: int | None = None,
+        translations: int | None = None,
+        renum_all: int | None = None,
         update_keys: bool = False,
     ) -> None:
         """Renumber cards of the input files. Either all cards can be renumbered
@@ -517,7 +517,7 @@ class Input:
         """
 
         try:
-            if newlib[0] == "{":
+            if isinstance(newlib, str) and newlib[0] == "{":
                 # covert the dic
                 newlib = json.loads(newlib)
         except KeyError:
@@ -621,7 +621,7 @@ class Input:
         return selected_cards
 
     def get_cells_by_id(
-        self, ids: list[int | str], make_copy: bool = False
+        self, ids: Sequence[int | str], make_copy: bool = False
     ) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
@@ -664,7 +664,7 @@ class Input:
             str_ids.append(str(id))
         return self._get_cards_by_id(str_ids, self.surfs)
 
-    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList:
+    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList | Material:
         """given a list of material ids generate a new MatCardsList with
         the requested subset
 
@@ -675,8 +675,9 @@ class Input:
 
         Returns
         -------
-        MatCardsList
-            new materials subset
+        MatCardsList | Material
+            new materials subset. A single material is returned if only one was
+            requested
         """
         if type(ids) is str:
             return self.materials[ids.upper()]
@@ -702,21 +703,23 @@ class Input:
         dict[str, parser.Card]
             retrieved cards
         """
-        if type(ids) is str:
-            ids = [ids]
+        if isinstance(ids, str):
+            ids2use = [ids]
+        else:
+            ids2use = ids
 
         try:
-            cards = self._get_cards_by_id(ids, self.other_data)
+            cards = self._get_cards_by_id(ids2use, self.other_data)
         except KeyError:
-            cards = self._get_cards_by_id(ids, self.transformations)
+            cards = self._get_cards_by_id(ids2use, self.transformations)
 
         return cards
 
     def _parse_data_section(
-        self, cards: list[parser.Card]
-    ) -> tuple[MatCardsList, list[parser.Card], list[parser.Card]]:
+        self, cardslist: list[parser.Card]
+    ) -> tuple[MatCardsList, dict[str, parser.Card], dict[str, parser.Card]]:
         # first of all correct numjuggler parser
-        cards = self._to_dict(cards)
+        cards = self._to_dict(cardslist)
 
         materials = []  # store here the materials
         transformations = {}  # store translations
@@ -861,7 +864,8 @@ class Input:
             # other data is not mandatory to be written
             if other_data is not None:
                 outfile.writelines(Input._print_cards(other_data, wrap=wrap))
-            outfile.writelines(Input._print_cards(trans))
+            if trans is not None:
+                outfile.writelines(Input._print_cards(trans))
 
     def _extraction_function(
         self,
@@ -869,7 +873,7 @@ class Input:
         keep_universe: bool = True,
         extract_fillers: bool = True,
         make_copy: bool = False,
-    ):
+    ) -> tuple[dict[str, parser.Card], dict[str, parser.Card], MatCardsList]:
         logging.info("Collecting the cells, surfaces, materials and transf.")
         cset = set(cells)
 
@@ -929,6 +933,9 @@ class Input:
         surfs = self.get_surfs_by_id(sset)
         # get materials dict
         materials = self.get_materials_subset(mset)
+        # this needs to be always a mat list, even if only one material is available
+        if isinstance(materials, Material):
+            materials = MatCardsList([materials])
 
         return cells_cards, surfs, materials
 
@@ -1170,7 +1177,7 @@ class Input:
         new_mat_id: int,
         new_density: str,
         old_mat_id: int,
-        u_list: list[int] = None,
+        u_list: list[int] | None = None,
     ) -> None:
         """Replace a material and density in the input with other values.
 
@@ -1205,7 +1212,7 @@ class Input:
                 if old_mat_id == 0 and new_mat_id == 0:
                     logging.warning("Replacing void with void")
                 if old_mat_id == 0:
-                    Input.add_material_to_void_cell(cell, new_mat_id, new_density)
+                    Input.add_material_to_void_cell(cell, new_mat_id, int(new_density))
                 elif new_mat_id == 0:
                     Input.set_cell_void(cell)
                 else:
@@ -1459,7 +1466,7 @@ class Input:
         add_symbol: str,
         inplace: bool = True,
         parentheses: bool = True,
-        new_cell_num: int = None,
+        new_cell_num: int | None = None,
     ) -> parser.Card:
         if inplace:
             new_cell = cell
@@ -1538,11 +1545,11 @@ class Input:
         particles: list[str],
         cells: Sequence[int],
         add_total: bool = False,
-        energies: list[float] | np.ndarray | None = None,
+        energies: Sequence[float] | np.ndarray | None = None,
         description: str | None = None,
         multiplier: str | None = None,
         add_SD: bool = True,
-    ) -> str:
+    ):
         """Add a F-tally to the input
 
         Parameters
@@ -1599,15 +1606,14 @@ class Input:
             line = [f"FM{tally_ID} {multiplier}\n"]
             self.other_data[f"FM{tally_ID}"] = parser.Card(line, 5, -1)
 
-        return
-
-    def add_stopCard(self, nps: int = 1e7):
+    def add_stopCard(self, nps: int | float = 1e7):
         """
-        Add STOP card
+        This does not append a stop card anymore but simply changes the NPS card. If
+        a float is provided, it is converted to an integer.
 
         Parameters
         ----------
-        nps : int
+        nps : int | float
             number of particles to simulate. Default 1e7
 
         Returns
@@ -1661,8 +1667,8 @@ class D1S_Input(Input):
     def __init__(
         self,
         *args,
-        irrad_file: IrradiationFile = None,
-        reac_file: ReactionFile = None,
+        irrad_file: IrradiationFile | None = None,
+        reac_file: ReactionFile | None = None,
     ) -> None:
         """Children of the :py:class:`Input`.
 
@@ -1706,8 +1712,8 @@ class D1S_Input(Input):
     def from_input(
         cls,
         inputfile: os.PathLike,
-        irrad_file: os.PathLike = None,
-        reac_file: os.PathLike = None,
+        irrad_file: os.PathLike | None = None,
+        reac_file: os.PathLike | None = None,
     ) -> D1S_Input:
         """Generate a D1S-UNED input file.
 
@@ -1747,9 +1753,14 @@ class D1S_Input(Input):
                 fmesh_keys.append(card.name)
 
         if irrad_file is not None:
-            irrad_file = IrradiationFile.from_text(irrad_file)
+            newirrad_file = IrradiationFile.from_text(irrad_file)
+        else:
+            newirrad_file = None
+
         if reac_file is not None:
-            reac_file = ReactionFile.from_text(reac_file)
+            newreac_file = ReactionFile.from_text(reac_file)
+        else:
+            newreac_file = None
 
         return cls(
             cells,
@@ -1760,8 +1771,8 @@ class D1S_Input(Input):
             tally_keys,
             fmesh_keys,
             header,
-            irrad_file=irrad_file,
-            reac_file=reac_file,
+            irrad_file=newirrad_file,
+            reac_file=newreac_file,
         )
 
     def get_potential_paths(self, libmanager: LibManager, lib: str) -> list[Reaction]:
@@ -1949,6 +1960,9 @@ class D1S_Input(Input):
         None.
 
         """
+        if self.reac_file is None:
+            logging.warning("No reaction file has been assigned to the input")
+            return
         key = "PIKMT"
         lines = [key + "\n"]
         for parent in self.reac_file.get_parents():
@@ -2001,7 +2015,7 @@ class D1S_Input(Input):
         card.get_input()
 
 
-def _get_input_arguments(inputfile: os.PathLike) -> tuple:
+def _get_input_arguments(inputfile: os.PathLike | str) -> tuple:
     name = os.path.basename(inputfile).split(".")[0]
 
     # Get the blocks using numjuggler parser
@@ -2037,7 +2051,7 @@ def _get_num_tally(key: str) -> int:
     return int(num)
 
 
-def _fix_width_write(cells: list) -> list[str]:
+def _fix_width_write(cells: Sequence) -> list[str]:
     lines = []
     types = type(cells[0])
     max_digits = 4

@@ -20,9 +20,9 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import re
-import os
 import logging
+import os
+import re
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
@@ -33,12 +33,11 @@ REACFORMAT = "{:>13s}{:>7s}{:>12s}{:>40s}"
 
 
 class IrradiationFile:
-
     def __init__(
         self,
         nsc: int,
         irr_schedules: list[Irradiation],
-        header: str = None,
+        header: str | None = None,
         formatting: list[int] = [11, 14, 13, 9],
         name: str = "irrad",
     ) -> None:
@@ -161,7 +160,7 @@ class IrradiationFile:
         return None
 
     @classmethod
-    def from_text(cls, filepath: os.PathLike) -> IrradiationFile:
+    def from_text(cls, filepath: os.PathLike | str) -> IrradiationFile:
         """
         Initialize an IrradiationFile object directly parsing and existing
         irradiation file
@@ -170,7 +169,7 @@ class IrradiationFile:
         ----------
         cls : TYPE
             DESCRIPTION.
-        filepath : os.PathLike
+        filepath : os.PathLike | str
             path to the existing irradiation file.
 
         Returns
@@ -202,7 +201,6 @@ class IrradiationFile:
                         PAT_BLANK.match(line) is None
                         and PAT_COMMENT.match(line) is None
                     ):
-
                         irr_schedules.append(Irradiation.from_text(line, nsc))
 
         logging.info("{} correctly parsed".format(filepath))
@@ -274,7 +272,7 @@ class IrradiationFile:
 
 class Irradiation:
     def __init__(
-        self, daughter: str, lambd: str, times: list[str], comment: str = None
+        self, daughter: str, lambd: str, times: list[str], comment: str | None = None
     ) -> None:
         """
         Irradiation object
@@ -397,9 +395,7 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(
-            self.daughter, self.lambd, self.times, self.comment
-        )
+""".format(self.daughter, self.lambd, self.times, self.comment)
 
         return text
 
@@ -444,7 +440,7 @@ class ReactionFile:
         self.name = name
 
     @classmethod
-    def from_text(cls, filepath: os.PathLike) -> ReactionFile:
+    def from_text(cls, filepath: os.PathLike | str) -> ReactionFile:
         """
         Generate a reaction file directly from text file
 
@@ -452,7 +448,7 @@ class ReactionFile:
         ----------
         cls : TYPE
             DESCRIPTION.
-        filepath : os.PathLike
+        filepath : os.PathLike | str
             file to read.
 
         Returns
@@ -660,9 +656,7 @@ parent: {}
 MT channel: {}
 daughter: {}
 comment: {}
-""".format(
-            self.parent, self.MT, self.daughter, self.comment
-        )
+""".format(self.parent, self.MT, self.daughter, self.comment)
         return text
 
     @classmethod
