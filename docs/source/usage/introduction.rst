@@ -1,7 +1,3 @@
-############
-Introduction
-############
-
 What is F4Enix
 ==============
 
@@ -56,7 +52,7 @@ models and the use of sophisticated, non-commercial scientific software
 
 To address the challenges associated with this process, the F4Enix python
 package has been developed by the neutronics team of Fusion For Energy (F4E).
-The primary objective of F4Enix is to automate and streamline the pre and 
+The primary objective of F4Enix is to automate and streamline the pre and
 post-processing operations involved in nuclear response computations for
 ITER or similar projects. By leveraging the power of Python, this package
 provides a comprehensive set of tools for efficient and high-quality parsing
