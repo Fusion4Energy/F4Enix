@@ -62,6 +62,12 @@ class TestInput:
         assert inp.cells["3"].name == 3
         assert inp.cells["3"].values[0] == (3, "cel")
 
+        # no random stuff can be added to the dictionary
+        with pytest.raises(ValueError):
+            inp.cells[1] = inp.cells["1"]
+        with pytest.raises(ValueError):
+            inp.cells["5"] = 1
+
     def test_surf_property(self):
         inp = deepcopy(self.testInput)
         # verify that the name and values have been changed
