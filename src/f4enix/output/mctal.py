@@ -13,6 +13,8 @@ using the licensed work through interfaces provided by the licensed work may be
 distributed under different terms and without source code for the larger work.
 """
 
+from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
