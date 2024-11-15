@@ -4,6 +4,8 @@ Parsing of MCNP output file (.o)
 Only a few features are implemented for the moment being.
 """
 
+from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
