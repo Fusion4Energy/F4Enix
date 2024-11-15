@@ -13,6 +13,8 @@ using the licensed work through interfaces provided by the licensed work may be
 distributed under different terms and without source code for the larger work.
 """
 
+from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -26,16 +28,16 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import sys
-import os
-import math
-import numpy as np
 import logging
+import math
+import os
+import sys
+
+import numpy as np
 import pandas as pd
 
 
 class Header:
-
     def __init__(self):
         """Header class. Contains a bunch of general information on the mctal
         file
@@ -131,9 +133,7 @@ class Tally:
         )  # Array of corc     bin boundaries for mesh tallies (or lattices)
 
         self.tfc_jtf = np.array(())  # List of numbers in the tfc line
-        self.tfc_dat = (
-            []
-        )  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
+        self.tfc_dat = []  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
 
         self.detectorTypeList = {
             -6: "smesh",
@@ -366,6 +366,8 @@ class Tally:
             else:
                 return False
 
+        raise ValueError("Invalid axis")
+
     def _insertUsr(self, uB: int) -> bool:
         """Insert usr bins."""
 
@@ -409,6 +411,8 @@ class Tally:
                 return True
         else:
             return False
+
+        raise ValueError("Invalid axis")
 
     def _insertErg(self, eB: int) -> bool:
         """Insert energy bin."""
@@ -562,12 +566,12 @@ class Tally:
 
 
 class Mctal:
-    def __init__(self, filepath: os.PathLike) -> None:
+    def __init__(self, filepath: os.PathLike | str) -> None:
         """Object responsible for the parsing of MCNP mctal files.
 
         Parameters
         ----------
-        filepath : os.PathLike
+        filepath : os.PathLike | str
             path to the mctal file to be parsed
 
         Attributes
@@ -628,7 +632,6 @@ class Mctal:
         """
         rows = []
         for tally, data in self.tallydata.items():
-
             min_error = data["Error"].min()
             min_idx = data["Error"].idxmin()
             max_error = data["Error"].max()
@@ -1026,9 +1029,7 @@ class Mctal:
                                                     ):  # f is for Field...again, forgive me
                                                         del Fld
                                                         del self.line
-                                                        self.line = (
-                                                            self.mctalFile.readline().strip()
-                                                        )
+                                                        self.line = self.mctalFile.readline().strip()
                                                         Fld = self.line.split()
                                                         nFld = len(Fld) - 1
                                                         f = 0
@@ -1099,7 +1100,6 @@ class Mctal:
             # TFC DAT
             self.line = self.mctalFile.readline().strip()
             while "tally" not in self.line and len(self.line) != 0:
-
                 self.line = self.line.split()
 
                 tfcDat = []

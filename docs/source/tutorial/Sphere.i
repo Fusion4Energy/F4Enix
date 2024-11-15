@@ -18,6 +18,8 @@ PHYS:P J 1
 c
 PRDMP  2J  -1 $ Flag to print the mctal
 C
-FC2 Neutron Flux at the external surface in course energy groups
-F2:N 2
-E2 1e-6 0.1 1 10 20
+FC124 Neutron Flux mesh
+FMESH124:N  ORIGIN=-50 -50 -50
+            IMESH=50 IINTS=10
+            JMESH=50 JINTS=10
+            KMESH=50 KINTS=10

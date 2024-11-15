@@ -22,6 +22,8 @@ Source code is hosted on GitHub https://github.com/Fusion4Energy/F4Enix.
 
    usage/installation
 
+   tutorial/tutorial
+
    examples/examples_idx
 
    developers/dev_idx
