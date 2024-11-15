@@ -54,6 +54,11 @@ class CardsDict(dict):
         super().__init__(*args, **kwargs)
         self.card_type = card_type
 
+    def update(self, *args, **kwargs):
+        """Override the update method to customize how entries are added."""
+        for key, value in dict(*args, **kwargs).items():
+            self[key] = value
+
     def __setitem__(self, key, value):
         """Override the __setitem__ method to customize how entries are added."""
 

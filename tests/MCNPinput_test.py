@@ -68,6 +68,13 @@ class TestInput:
         with pytest.raises(ValueError):
             inp.cells["5"] = 1
 
+        # verify that also the dictionary update works as expected
+        inp.cells.update({"4": deepcopy(inp.cells["1"]), "2": deepcopy(inp.cells["1"])})
+        assert inp.cells["4"].name == 4
+        assert inp.cells["4"].values[0] == (4, "cel")
+        assert inp.cells["2"].name == 2
+        assert inp.cells["2"].values[0] == (2, "cel")
+
     def test_surf_property(self):
         inp = deepcopy(self.testInput)
         # verify that the name and values have been changed
