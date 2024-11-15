@@ -20,28 +20,29 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import os
-import logging
 import json
+import logging
+import os
 import re
-from numjuggler import parser
-from numjuggler import likefunc as lf
-import pandas as pd
-import numpy as np
+from copy import deepcopy
+from typing import Sequence
 
-from f4enix.input.materials import MatCardsList, Material
-from f4enix.input.libmanager import LibManager
-from f4enix.input.auxiliary import debug_file_unicode
+import numpy as np
+import pandas as pd
+from numjuggler import likefunc as lf
+from numjuggler import parser
+
 from f4enix.constants import (
-    PAT_COMMENT,
     PAT_CARD_KEY,
+    PAT_COMMENT,
     PAT_FMESH_KEY,
     PAT_NP,
     UNION_INTERSECT_SYMBOLS,
 )
-from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
-from copy import deepcopy
-
+from f4enix.input.auxiliary import debug_file_unicode
+from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
+from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import MatCardsList, Material
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -55,7 +56,7 @@ class Input:
         surfs: dict[str, parser.Card],
         materials: MatCardsList,
         transformations: list[parser.Card],
-        other_data: list[parser.Card],
+        other_data: dict[str, parser.Card],
         tally_keys: list[int],
         fmesh_keys: list[int],
         header: str,
@@ -78,7 +79,7 @@ class Input:
             material cards section of the input.
         transformations: list[parser.Card]
             list of transformation datacards (i.e. TRn)
-        other_data: list[parser.Card]
+        other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
         tally_keys: list[int]
             ids of the tallies available in the input
@@ -99,7 +100,7 @@ class Input:
             material cards section of the input.
         transformations: list[parser.Card]
             list of transformation datacards (i.e. TRn)
-        other_data: list[parser.Card]
+        other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
         tally_keys: list[int]
             ids of the tallies available in the input
@@ -229,13 +230,13 @@ class Input:
         # cells.extend(data)
 
     @classmethod
-    def from_input(cls, inputfile: os.PathLike) -> Input:
+    def from_input(cls, inputfile: os.PathLike | str) -> Input:
         """Generate an Input object from an MCNP input text file using
         numjuggler as a parser
 
         Parameters
         ----------
-        inputfile : os.PathLike
+        inputfile : os.PathLike | str
             input file
 
         Returns
@@ -273,12 +274,12 @@ class Input:
             header,
         )
 
-    def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
+    def write(self, outfilepath: os.PathLike | str, wrap: bool = False) -> None:
         """write the input to a file
 
         Parameters
         ----------
-        outfilepath : os.PathLike
+        outfilepath : os.PathLike | str
             path to the output file
         wrap : bool
             if true the text is wrapped at 80 char. May cause slowdowns
@@ -411,7 +412,7 @@ class Input:
         if update_keys:
             self._update_card_keys()
 
-    def translate(self, newlib: str, libmanager: LibManager) -> None:
+    def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
         """
         Translate the input to another library
 
@@ -544,13 +545,13 @@ class Input:
         return selected_cards
 
     def get_cells_by_id(
-        self, ids: list[int], make_copy: bool = False
+        self, ids: list[int | str], make_copy: bool = False
     ) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
         ----------
-        ids : list[int]
+        ids : list[int | str]
             cells id to be extracted
         make_copy : bool
             if True, makes a deepcopy of the cells instead of working on the
@@ -671,8 +672,8 @@ class Input:
     def extract_cells(
         self,
         cells: list[int],
-        outfile: os.PathLike,
-        renumber_offsets: dict = None,
+        outfile: os.PathLike | str,
+        renumber_offsets: dict | None = None,
         keep_universe: bool = True,
         extract_fillers: bool = True,
     ):
@@ -685,7 +686,7 @@ class Input:
         ----------
         cells : list[int]
             desired list of cells
-        outfile : os.PathLike
+        outfile : os.PathLike | str
             path to the file where the MCNP input needs to be dumped
         renumber_offsets : dict, optional
             apply the self.renumber() function to the extracted input.
@@ -894,8 +895,8 @@ class Input:
     def extract_universe(
         self,
         universe: int,
-        outfile: os.PathLike,
-        renumber_offsets: dict = None,
+        outfile: os.PathLike | str,
+        renumber_offsets: dict | None = None,
         keep_universe: bool = False,
     ):
         """Dumps a minimum MCNP working file that
@@ -907,7 +908,7 @@ class Input:
         ----------
         universe : int
             universe id to be extracted
-        outfile : os.PathLike
+        outfile : os.PathLike | str
             path to the file where the MCNP input needs to be dumped
         renumber_offsets : dict, optional
             apply the self.renumber() function to the extracted input.
@@ -945,7 +946,7 @@ class Input:
         return newkey
 
     def get_cells_by_matID(
-        self, matID: int, deepcopy_flag: bool = True
+        self, matID: int | str, deepcopy_flag: bool = True
     ) -> dict[str, parser.Card]:
         """Given a material ID return a dictionary {key, card} of all
         the cells to which that material is assigned to.
@@ -954,7 +955,7 @@ class Input:
 
         Parameters
         ----------
-        matID : int
+        matID : int | str
             material ID to filter the cells
         deepcopy_flag: bool
             if False, the cells are not copied. Default is True
@@ -1315,13 +1316,13 @@ class Input:
 
         return new_cell
 
-    def hash_multiple_cells(self, hash_dict: dict[int, int]) -> None:
+    def hash_multiple_cells(self, hash_dict: dict[int, list[int]]) -> None:
         """all keys in the hash dict correspond to hash cells to be added
         to the cells inlcuded in the hash dict value.
 
         Parameters
         ----------
-        hash_dict : dict[int, int]
+        hash_dict : dict[int, list[int]]
             info on the cells to hash and with what
 
         """
@@ -1384,7 +1385,6 @@ class Input:
         parentheses: bool = True,
         new_cell_num: int = None,
     ) -> parser.Card:
-
         if inplace:
             new_cell = cell
         else:
@@ -1460,11 +1460,11 @@ class Input:
         self,
         tally_ID: int,
         particles: list[str],
-        cells: list[int],
+        cells: Sequence[int],
         add_total: bool = False,
-        energies: list[float] = None,
-        description: str = None,
-        multiplier: str = None,
+        energies: list[float] | np.ndarray | None = None,
+        description: str | None = None,
+        multiplier: str | None = None,
         add_SD: bool = True,
     ) -> str:
         """Add a F-tally to the input
