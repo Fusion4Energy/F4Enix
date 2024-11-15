@@ -26,16 +26,18 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
+import copy
+import os
 import re
+import sys
+import xml.etree.ElementTree as ET
+from collections.abc import Sequence
+from contextlib import contextmanager
+from decimal import Decimal
+
 import pandas as pd
 from numjuggler import parser as par
-from collections.abc import Sequence
-from decimal import Decimal
-import copy
-import sys
-import os
-import xml.etree.ElementTree as ET
-from contextlib import contextmanager
+
 from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
 
@@ -72,7 +74,6 @@ def indent(elem, level: int = 0) -> None:
 # == CLASSES FOR MATERIAL READING ==
 # -------------------------------------
 class Zaid:
-
     def __init__(
         self,
         fraction: str | float,
@@ -237,7 +238,6 @@ class Zaid:
 
 
 class Element:
-
     def __init__(self, zaidList: list[Zaid]) -> None:
         """
         Generate an Element object starting from a list of zaids.
@@ -318,7 +318,6 @@ class Element:
 
 
 class SubMaterial:
-
     # init method for zaid
     def __init__(
         self,
@@ -592,9 +591,7 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(
-                                zaid.name
-                            )
+ Zaid {} was not assigned to any library""".format(zaid.name)
                         )
 
                 else:
@@ -610,9 +607,7 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(
-                                zaid.name
-                            )
+ Zaid {} was not assigned to any library""".format(zaid.name)
                         )
             else:
                 newtag = newlib
@@ -790,7 +785,6 @@ def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:
 
 
 class Material:
-
     def __init__(
         self,
         zaids: list[Zaid],
@@ -858,10 +852,11 @@ class Material:
     @classmethod
     def from_zaids(
         cls,
-        zaids: list[tuple[str | int, float]],
+        zaids: Sequence[tuple[str | int, float]],
         libman: LibManager,
         lib: str,
         name: str = "",
+        mat_id: int = 1,
     ) -> Material:
         """Generate a material giving a list of zaids or elements.
 
@@ -881,6 +876,8 @@ class Material:
         name : str, optional
             this will be put in the header of the material card as a comment,
             by default ''.
+        mat_id : int, optional
+            material id, by default 1.
 
         Returns
         -------
@@ -900,7 +897,7 @@ class Material:
         submat = SubMaterial("", zaid_list)
         submat.translate(lib, libman)
         submat._update_info(libman)
-        return cls(None, None, "M1", submaterials=[submat], header=f"C {name}")
+        return cls(None, None, f"M{mat_id}", submaterials=[submat], header=f"C {name}")
 
     @classmethod
     def from_text(cls, text: list[str]) -> Material:
@@ -1176,7 +1173,6 @@ class Material:
 
 
 class MatCardsList(Sequence):
-
     def __init__(self, materials: list[Material]) -> None:
         """
         Object representing the list of materials included in an MCNP input.

@@ -20,32 +20,70 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import os
-import logging
 import json
+import logging
+import os
 import re
-from numjuggler import parser
-from numjuggler import likefunc as lf
-import pandas as pd
-import numpy as np
+from copy import deepcopy
+from typing import Sequence
 
-from f4enix.input.materials import MatCardsList, Material
-from f4enix.input.libmanager import LibManager
-from f4enix.input.auxiliary import debug_file_unicode
+import numpy as np
+import pandas as pd
+from numjuggler import likefunc as lf
+from numjuggler import parser
+
 from f4enix.constants import (
-    PAT_COMMENT,
     PAT_CARD_KEY,
+    PAT_COMMENT,
     PAT_FMESH_KEY,
     PAT_NP,
     UNION_INTERSECT_SYMBOLS,
 )
-from f4enix.input.d1suned import ReactionFile, IrradiationFile, Reaction
-from copy import deepcopy
-
+from f4enix.input.auxiliary import debug_file_unicode
+from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
+from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import MatCardsList, Material
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
 ADD_LINE_FORMAT = "         {}\n"
+
+
+class CardsDict(dict):
+    def __init__(self, card_type: str, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.card_type = card_type
+
+    def update(self, *args, **kwargs):
+        """Override the update method to customize how entries are added."""
+        for key, value in dict(*args, **kwargs).items():
+            self[key] = value
+
+    def __setitem__(self, key, value):
+        """Override the __setitem__ method to customize how entries are added."""
+
+        # Ensure the key is a string
+        if not isinstance(key, str):
+            raise ValueError("Keys must be strings")
+
+        # Ensure the value is an instance of parser.Card
+        if not isinstance(value, parser.Card):
+            raise ValueError("Values must be instances of parser.Card")
+
+        # Ensure that the key matches the card number
+        if "*" in key:
+            num = key[1:]
+        else:
+            num = key
+        if num != str(value.name):
+            logging.debug(
+                f"The card number {value.name} does not match the key {key}, it will be overridden"
+            )
+            value.name = int(num)
+            value._set_value_by_type(self.card_type, int(num))
+
+        # Call the superclass method to actually add the entry
+        super().__setitem__(key, value)
 
 
 class Input:
@@ -54,8 +92,8 @@ class Input:
         cells: dict[str, parser.Card],
         surfs: dict[str, parser.Card],
         materials: MatCardsList,
-        transformations: list[parser.Card],
-        other_data: list[parser.Card],
+        transformations: dict[str, parser.Card],
+        other_data: dict[str, parser.Card],
         tally_keys: list[int],
         fmesh_keys: list[int],
         header: str,
@@ -76,9 +114,9 @@ class Input:
             the number of the surfaces.
         materials: MatCardsList
             material cards section of the input.
-        transformations: list[parser.Card]
+        transformations: dict[str, parser.Card]
             list of transformation datacards (i.e. TRn)
-        other_data: list[parser.Card]
+        other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
         tally_keys: list[int]
             ids of the tallies available in the input
@@ -97,9 +135,9 @@ class Input:
             the number of the surfaces.
         materials: MatCardsList
             material cards section of the input.
-        transformations: list[parser.Card]
+        transformations: dict[str, parser.Card]
             list of transformation datacards (i.e. TRn)
-        other_data: list[parser.Card]
+        other_data: dict[str, parser.Card]
             list of all remaining datacards that are treated in a generic way
         tally_keys: list[int]
             ids of the tallies available in the input
@@ -228,14 +266,58 @@ class Input:
         # cells.extend(surfs)
         # cells.extend(data)
 
+    @property
+    def cells(self) -> dict[str, parser.Card]:
+        """Get the cells attribute."""
+        return self._cells
+
+    @cells.setter
+    def cells(self, value: dict[str, parser.Card]) -> None:
+        """Set the cells attribute."""
+        # enforce that the keys are all corresponding to the cell number
+        # in case of difference, the dictionary key takes precedence
+        for key, card in value.items():
+            if key != str(card.name):
+                logging.debug(
+                    f"The cell number {card.name} is different from Key {key} and will be replaced"
+                )
+                card.name = int(key)
+                card._set_value_by_type("cel", int(key))
+
+        self._cells = CardsDict("cel", value)
+
+    @property
+    def surfs(self) -> dict[str, parser.Card]:
+        """Get the surfs attribute."""
+        return self._surfs
+
+    @surfs.setter
+    def surfs(self, value: dict[str, parser.Card]) -> None:
+        """Set the surfs attribute."""
+        # enforce that the keys are all corresponding to the surface number
+        # in case of difference, the dictionary key takes precedence
+        for key, card in value.items():
+            if "*" in key:
+                num = key[1:]
+            else:
+                num = key
+            if num != str(card.name):
+                logging.debug(
+                    f"The surface number {card.name} is different from Key {key} and will be replaced"
+                )
+                card.name = int(num)
+                card._set_value_by_type("sur", int(num))
+
+        self._surfs = CardsDict("sur", value)
+
     @classmethod
-    def from_input(cls, inputfile: os.PathLike) -> Input:
+    def from_input(cls, inputfile: os.PathLike | str) -> Input:
         """Generate an Input object from an MCNP input text file using
         numjuggler as a parser
 
         Parameters
         ----------
-        inputfile : os.PathLike
+        inputfile : os.PathLike | str
             input file
 
         Returns
@@ -273,12 +355,12 @@ class Input:
             header,
         )
 
-    def write(self, outfilepath: os.PathLike, wrap: bool = False) -> None:
+    def write(self, outfilepath: os.PathLike | str, wrap: bool = False) -> None:
         """write the input to a file
 
         Parameters
         ----------
-        outfilepath : os.PathLike
+        outfilepath : os.PathLike | str
             path to the output file
         wrap : bool
             if true the text is wrapped at 80 char. May cause slowdowns
@@ -355,11 +437,11 @@ class Input:
 
     def renumber(
         self,
-        cells: int = None,
-        surfs: int = None,
-        universes: int = None,
-        translations: int = None,
-        renum_all: int = None,
+        cells: int | None = None,
+        surfs: int | None = None,
+        universes: int | None = None,
+        translations: int | None = None,
+        renum_all: int | None = None,
         update_keys: bool = False,
     ) -> None:
         """Renumber cards of the input files. Either all cards can be renumbered
@@ -411,7 +493,7 @@ class Input:
         if update_keys:
             self._update_card_keys()
 
-    def translate(self, newlib: str, libmanager: LibManager) -> None:
+    def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
         """
         Translate the input to another library
 
@@ -440,7 +522,7 @@ class Input:
         """
 
         try:
-            if newlib[0] == "{":
+            if isinstance(newlib, str) and newlib[0] == "{":
                 # covert the dic
                 newlib = json.loads(newlib)
         except KeyError:
@@ -544,13 +626,13 @@ class Input:
         return selected_cards
 
     def get_cells_by_id(
-        self, ids: list[int], make_copy: bool = False
+        self, ids: Sequence[int | str], make_copy: bool = False
     ) -> dict[str, parser.Card]:
         """given a list of cells id return a dictionary of such cells
 
         Parameters
         ----------
-        ids : list[int]
+        ids : list[int | str]
             cells id to be extracted
         make_copy : bool
             if True, makes a deepcopy of the cells instead of working on the
@@ -587,7 +669,7 @@ class Input:
             str_ids.append(str(id))
         return self._get_cards_by_id(str_ids, self.surfs)
 
-    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList:
+    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList | Material:
         """given a list of material ids generate a new MatCardsList with
         the requested subset
 
@@ -598,8 +680,9 @@ class Input:
 
         Returns
         -------
-        MatCardsList
-            new materials subset
+        MatCardsList | Material
+            new materials subset. A single material is returned if only one was
+            requested
         """
         if type(ids) is str:
             return self.materials[ids.upper()]
@@ -625,21 +708,23 @@ class Input:
         dict[str, parser.Card]
             retrieved cards
         """
-        if type(ids) is str:
-            ids = [ids]
+        if isinstance(ids, str):
+            ids2use = [ids]
+        else:
+            ids2use = ids
 
         try:
-            cards = self._get_cards_by_id(ids, self.other_data)
+            cards = self._get_cards_by_id(ids2use, self.other_data)
         except KeyError:
-            cards = self._get_cards_by_id(ids, self.transformations)
+            cards = self._get_cards_by_id(ids2use, self.transformations)
 
         return cards
 
     def _parse_data_section(
-        self, cards: list[parser.Card]
-    ) -> tuple[MatCardsList, list[parser.Card], list[parser.Card]]:
+        self, cardslist: list[parser.Card]
+    ) -> tuple[MatCardsList, dict[str, parser.Card], dict[str, parser.Card]]:
         # first of all correct numjuggler parser
-        cards = self._to_dict(cards)
+        cards = self._to_dict(cardslist)
 
         materials = []  # store here the materials
         transformations = {}  # store translations
@@ -671,8 +756,8 @@ class Input:
     def extract_cells(
         self,
         cells: list[int],
-        outfile: os.PathLike,
-        renumber_offsets: dict = None,
+        outfile: os.PathLike | str,
+        renumber_offsets: dict | None = None,
         keep_universe: bool = True,
         extract_fillers: bool = True,
     ):
@@ -685,7 +770,7 @@ class Input:
         ----------
         cells : list[int]
             desired list of cells
-        outfile : os.PathLike
+        outfile : os.PathLike | str
             path to the file where the MCNP input needs to be dumped
         renumber_offsets : dict, optional
             apply the self.renumber() function to the extracted input.
@@ -728,14 +813,14 @@ class Input:
 
     @staticmethod
     def write_blocks(
-        outfile: os.PathLike,
+        file: os.PathLike,
         wrap: bool,
         cells_cards: dict[str, parser.Card],
         surfs: dict[str, parser.Card],
         materials: MatCardsList,
-        header: list[str] = None,
-        trans: dict[str, parser.Card] = None,
-        other_data: dict[str, parser.Card] = None,
+        header: list[str] | None = None,
+        trans: dict[str, parser.Card] | None = None,
+        other_data: dict[str, parser.Card] | None = None,
     ):
         """Writes F4Enix dicts of cells, surfaces and data cards.
         The method receives cells, surfaces, materials F4Enix dicts and
@@ -744,7 +829,7 @@ class Input:
 
         Parameters
         ----------
-        outfile : os.PathLike
+        file : os.PathLike
             path of the MCNP input that will be printed
         wrap : bool
             flag to check if the input should be wrapped to 80 characters per
@@ -763,7 +848,7 @@ class Input:
             fEnix dict of MCNP data cards, by default None
         """
 
-        with open(outfile, "w") as outfile:
+        with open(file, "w") as outfile:
             # Add the header lines
             if header is not None:
                 for line in header:
@@ -784,7 +869,8 @@ class Input:
             # other data is not mandatory to be written
             if other_data is not None:
                 outfile.writelines(Input._print_cards(other_data, wrap=wrap))
-            outfile.writelines(Input._print_cards(trans))
+            if trans is not None:
+                outfile.writelines(Input._print_cards(trans))
 
     def _extraction_function(
         self,
@@ -792,7 +878,7 @@ class Input:
         keep_universe: bool = True,
         extract_fillers: bool = True,
         make_copy: bool = False,
-    ):
+    ) -> tuple[dict[str, parser.Card], dict[str, parser.Card], MatCardsList]:
         logging.info("Collecting the cells, surfaces, materials and transf.")
         cset = set(cells)
 
@@ -852,6 +938,9 @@ class Input:
         surfs = self.get_surfs_by_id(sset)
         # get materials dict
         materials = self.get_materials_subset(mset)
+        # this needs to be always a mat list, even if only one material is available
+        if isinstance(materials, Material):
+            materials = MatCardsList([materials])
 
         return cells_cards, surfs, materials
 
@@ -894,8 +983,8 @@ class Input:
     def extract_universe(
         self,
         universe: int,
-        outfile: os.PathLike,
-        renumber_offsets: dict = None,
+        outfile: os.PathLike | str,
+        renumber_offsets: dict | None = None,
         keep_universe: bool = False,
     ):
         """Dumps a minimum MCNP working file that
@@ -907,7 +996,7 @@ class Input:
         ----------
         universe : int
             universe id to be extracted
-        outfile : os.PathLike
+        outfile : os.PathLike | str
             path to the file where the MCNP input needs to be dumped
         renumber_offsets : dict, optional
             apply the self.renumber() function to the extracted input.
@@ -945,7 +1034,7 @@ class Input:
         return newkey
 
     def get_cells_by_matID(
-        self, matID: int, deepcopy_flag: bool = True
+        self, matID: int | str, deepcopy_flag: bool = True
     ) -> dict[str, parser.Card]:
         """Given a material ID return a dictionary {key, card} of all
         the cells to which that material is assigned to.
@@ -954,7 +1043,7 @@ class Input:
 
         Parameters
         ----------
-        matID : int
+        matID : int | str
             material ID to filter the cells
         deepcopy_flag: bool
             if False, the cells are not copied. Default is True
@@ -1093,7 +1182,7 @@ class Input:
         new_mat_id: int,
         new_density: str,
         old_mat_id: int,
-        u_list: list[int] = None,
+        u_list: list[int] | None = None,
     ) -> None:
         """Replace a material and density in the input with other values.
 
@@ -1124,23 +1213,28 @@ class Input:
 
             # If the material needs change and in universe
             if cell.get_m() == old_mat_id and in_universe:
-                # Void needs to be handle in a specific way
-                if old_mat_id == 0 and new_mat_id == 0:
-                    logging.warning("Replacing void with void")
-                if old_mat_id == 0:
-                    Input.add_material_to_void_cell(cell, new_mat_id, new_density)
-                elif new_mat_id == 0:
-                    Input.set_cell_void(cell)
-                else:
-                    cell._set_value_by_type("mat", new_mat_id)
-                    cell._Card__m = new_mat_id  # necessary for the get val
-                    cell.set_d(new_density)
+                self.replace_cell_material(cell, new_mat_id, new_density)
+
+    @staticmethod
+    def replace_cell_material(cell: parser.Card, new_mat_id: int, new_density: str):
+        old_mat_id = cell.get_m()
+        # Void needs to be handle in a specific way
+        if old_mat_id == 0 and new_mat_id == 0:
+            logging.warning("Replacing void with void")
+        if old_mat_id == 0:
+            Input.add_material_to_void_cell(cell, new_mat_id, new_density)
+        elif new_mat_id == 0:
+            Input.set_cell_void(cell)
+        else:
+            cell._set_value_by_type("mat", new_mat_id)
+            cell._Card__m = new_mat_id  # necessary for the get val
+            cell.set_d(new_density)
 
     @staticmethod
     def add_material_to_void_cell(
         cell: parser.Card,
         new_mat_id: int,
-        new_density: float,
+        new_density: str,
     ) -> None:
         """Sets a material (and density) to a void cell.
 
@@ -1154,14 +1248,14 @@ class Input:
             new value for the density (including sign).
         """
 
-        if new_density == 0 or new_mat_id <= 0:
+        if int(float(new_density)) == 0 or new_mat_id <= 0:
             raise ValueError("Wrong values for the new material and density")
 
         if cell.ctype == 3 and cell.get_m() == 0:
             cell.hidden["~"].insert(0, str(new_density))
             cell._set_value_by_type("mat", new_mat_id)
             cell._Card__m = new_mat_id  # necessary for the get val
-            cell._Card__d = new_density
+            cell._Card__d = float(new_density)
             # Introduce parentheses before the third word in the first row
             first_row = cell.input[0].split()
             first_row.insert(2, r"~")
@@ -1226,7 +1320,7 @@ class Input:
     def add_surface(
         cell: parser.Card,
         add_surface: int,
-        new_cell_num: int = None,
+        new_cell_num: int | None = None,
         mode: str = "intersect",
         inplace: bool = True,
     ) -> parser.Card:
@@ -1271,7 +1365,7 @@ class Input:
             )
 
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace
+            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
         )
 
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1279,10 +1373,6 @@ class Input:
                 break
 
         new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
-
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1308,7 +1398,7 @@ class Input:
         """
         template_addition = "#{:<" + str(len(str(hash_id)) - 1) + "} "
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace
+            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
         )
         # add the hash cell to the cell values
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1317,20 +1407,15 @@ class Input:
 
         new_cell.values.insert(k + 1, (hash_id, "cel"))
 
-        # renumber the cell if requested
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
-
         return new_cell
 
-    def hash_multiple_cells(self, hash_dict: dict[int, int]) -> None:
+    def hash_multiple_cells(self, hash_dict: dict[int, list[int]]) -> None:
         """all keys in the hash dict correspond to hash cells to be added
         to the cells inlcuded in the hash dict value.
 
         Parameters
         ----------
-        hash_dict : dict[int, int]
+        hash_dict : dict[int, list[int]]
             info on the cells to hash and with what
 
         """
@@ -1339,14 +1424,60 @@ class Input:
                 cell = self.cells[str(cell_num)]
                 self.hash_cell(cell, hash_id, inplace=True)
 
+    def cells_union(
+        self,
+        cell_num_list: list[str],
+        new_cell_num: int = None,
+    ) -> None:
+        """Given a list of cells, it creates a new cell that is the union of
+        the cells in the list, starting from the first cell in the list.
+        The resulting cell will be put in the dict of cells
+        of the input (with the new number if provided), while the old cells will
+        be deleted. If a renumbering was done, the input must be re-read.
+
+        Parameters
+        ----------
+        cell_list : list[parser.Card]
+            list of cells to be united
+        new_cell_num : int, optional
+            new number of the union cell, by default None (old number is kept).
+        """
+
+        cell_list = []
+        for cell_num in cell_num_list:
+            cell_list.append(self.cells[cell_num])
+
+        if new_cell_num is None:
+            cel = cell_list[0]
+            new_cell_num = cel.values[0][0]
+
+        new_cell = cell_list[0]
+
+        for cell in cell_list[1:]:
+            new_cell = Input._add_symbol_to_cell_input(
+                new_cell,
+                " : (" + cell.get_geom().replace("\n", " ") + ")",
+                inplace=False,
+                parentheses=True,
+                new_cell_num=new_cell_num,
+            )
+            cell_lines = new_cell.card(wrap=True).splitlines(keepends=True)
+            new_cell = parser.Card(cell_lines, 3, new_cell.pos)
+            new_cell.get_values()
+
+        for cell_num in cell_num_list:
+            self.cells.pop(cell_num)
+
+        self.cells[str(new_cell_num)] = new_cell
+
     @staticmethod
     def _add_symbol_to_cell_input(
         cell: parser.Card,
         add_symbol: str,
         inplace: bool = True,
         parentheses: bool = True,
+        new_cell_num: int | None = None,
     ) -> parser.Card:
-
         if inplace:
             new_cell = cell
         else:
@@ -1357,9 +1488,9 @@ class Input:
 
         if parentheses:
             if new_cell.get_m() == 0:
-                first_row[2] = "(" + first_row[2]
+                first_row[1] = first_row[1] + " ("
             else:
-                first_row[3] = "(" + first_row[3]
+                first_row[2] = first_row[2] + " ("
 
         new_cell.input[0] = " ".join(first_row)
 
@@ -1384,6 +1515,11 @@ class Input:
                 if new_cell.input[i][:5] != "     " and i != 0:
                     new_cell.input[i] = "     " + new_cell.input[i]
                 break
+
+        # renumber the cell if requested
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1417,13 +1553,13 @@ class Input:
         self,
         tally_ID: int,
         particles: list[str],
-        cells: list[int],
+        cells: Sequence[int],
         add_total: bool = False,
-        energies: list[float] = None,
-        description: str = None,
-        multiplier: str = None,
+        energies: Sequence[float] | np.ndarray | None = None,
+        description: str | None = None,
+        multiplier: str | None = None,
         add_SD: bool = True,
-    ) -> str:
+    ):
         """Add a F-tally to the input
 
         Parameters
@@ -1447,6 +1583,9 @@ class Input:
         """
         # Add the tally card
         tally_ID = int(tally_ID)
+        # add the IDs to the tally ids
+        self.tally_keys.append(tally_ID)
+
         particles_str = particles[0]
         if len(particles) > 1:
             for particle in particles[1]:
@@ -1480,15 +1619,14 @@ class Input:
             line = [f"FM{tally_ID} {multiplier}\n"]
             self.other_data[f"FM{tally_ID}"] = parser.Card(line, 5, -1)
 
-        return
-
-    def add_stopCard(self, nps: int = 1e7):
+    def add_stopCard(self, nps: int | float = 1e7):
         """
-        Add STOP card
+        This does not append a stop card anymore but simply changes the NPS card. If
+        a float is provided, it is converted to an integer.
 
         Parameters
         ----------
-        nps : int
+        nps : int | float
             number of particles to simulate. Default 1e7
 
         Returns
@@ -1501,8 +1639,8 @@ class Input:
 
         card = parser.Card([line], 5, -1)
         self.other_data["NPS"] = card
-    
-    def check_range(self, range: list[int], who: str = 'cell') -> bool:
+
+    def check_range(self, range: list[int], who: str = "cell") -> bool:
         """Check if the provided range is not within the used index, i.e., if the range
         is free. Both cells and surfaces can be checked.
 
@@ -1523,11 +1661,11 @@ class Input:
         ValueError
             only surf or cell are accepted as who
         """
-        if who == 'cell':
+        if who == "cell":
             used_index = self.cells.keys()
-        elif who == 'surf':
+        elif who == "surf":
             used_index = self.surfs.keys()
-        else:   
+        else:
             raise ValueError("who can be only 'cell' or 'surf'")
         # check that the provided range is not within the used index
         # need to do the check for strings since there may be asterisks
@@ -1536,15 +1674,14 @@ class Input:
                 if str(i) in j:  # that's for the asterisk problem
                     return False
         return True
-        
 
 
 class D1S_Input(Input):
     def __init__(
         self,
         *args,
-        irrad_file: IrradiationFile = None,
-        reac_file: ReactionFile = None,
+        irrad_file: IrradiationFile | None = None,
+        reac_file: ReactionFile | None = None,
     ) -> None:
         """Children of the :py:class:`Input`.
 
@@ -1588,8 +1725,8 @@ class D1S_Input(Input):
     def from_input(
         cls,
         inputfile: os.PathLike,
-        irrad_file: os.PathLike = None,
-        reac_file: os.PathLike = None,
+        irrad_file: os.PathLike | None = None,
+        reac_file: os.PathLike | None = None,
     ) -> D1S_Input:
         """Generate a D1S-UNED input file.
 
@@ -1629,9 +1766,14 @@ class D1S_Input(Input):
                 fmesh_keys.append(card.name)
 
         if irrad_file is not None:
-            irrad_file = IrradiationFile.from_text(irrad_file)
+            newirrad_file = IrradiationFile.from_text(irrad_file)
+        else:
+            newirrad_file = None
+
         if reac_file is not None:
-            reac_file = ReactionFile.from_text(reac_file)
+            newreac_file = ReactionFile.from_text(reac_file)
+        else:
+            newreac_file = None
 
         return cls(
             cells,
@@ -1642,8 +1784,8 @@ class D1S_Input(Input):
             tally_keys,
             fmesh_keys,
             header,
-            irrad_file=irrad_file,
-            reac_file=reac_file,
+            irrad_file=newirrad_file,
+            reac_file=newreac_file,
         )
 
     def get_potential_paths(self, libmanager: LibManager, lib: str) -> list[Reaction]:
@@ -1831,6 +1973,9 @@ class D1S_Input(Input):
         None.
 
         """
+        if self.reac_file is None:
+            logging.warning("No reaction file has been assigned to the input")
+            return
         key = "PIKMT"
         lines = [key + "\n"]
         for parent in self.reac_file.get_parents():
@@ -1883,7 +2028,7 @@ class D1S_Input(Input):
         card.get_input()
 
 
-def _get_input_arguments(inputfile: os.PathLike) -> tuple:
+def _get_input_arguments(inputfile: os.PathLike | str) -> tuple:
     name = os.path.basename(inputfile).split(".")[0]
 
     # Get the blocks using numjuggler parser
@@ -1919,7 +2064,7 @@ def _get_num_tally(key: str) -> int:
     return int(num)
 
 
-def _fix_width_write(cells: list) -> list[str]:
+def _fix_width_write(cells: Sequence) -> list[str]:
     lines = []
     types = type(cells[0])
     max_digits = 4

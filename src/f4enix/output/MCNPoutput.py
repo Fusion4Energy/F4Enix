@@ -4,6 +4,8 @@ Parsing of MCNP output file (.o)
 Only a few features are implemented for the moment being.
 """
 
+from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -17,14 +19,15 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
+import logging
 import os
 import re
-import logging
+
+import numpy as np
 import pandas as pd
 import pyvista as pv
-import numpy as np
 
-from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
+from f4enix.constants import PAT_DIGIT, SCIENTIFIC_PAT
 from f4enix.input.MCNPinput import Input
 from f4enix.output.mctal import Tally
 
@@ -53,12 +56,12 @@ STAT_CHECKS_COLUMNS = [
 
 
 class Output:
-    def __init__(self, filepath: os.PathLike) -> None:
+    def __init__(self, filepath: os.PathLike | str) -> None:
         """Object representing and MCNP output file
 
         Parameters
         ----------
-        filepath : os.PathLike
+        filepath : os.PathLike | str
             path to the output file to be parsed
 
         Attributes
@@ -234,7 +237,6 @@ class Output:
         logging.info("Recovering lost particles surfaces and cells in " + self.name)
 
         for i, line in enumerate(self.lines):
-
             if line.find(SURFACE_ID) != -1:  # LP in surface
                 surfaces.append(PAT_DIGIT.search(line).group())
 
@@ -397,12 +399,12 @@ class Output:
 
         return stat_checks
 
-    def get_tally_stat_checks(self, cell: int) -> pd.DataFrame:
+    def get_tally_stat_checks(self, tally: int) -> pd.DataFrame:
         """Get the table of statistical checks for a specific tally
 
         Parameters
         ----------
-        cell : int
+        tally : int
             index of the cell to be parsed
 
         Returns
@@ -416,7 +418,7 @@ class Output:
             if the cell is not found in the file.
         """
         trigger = re.compile(
-            "           results of 10 statistical .+\s{}\n".format(cell)
+            "           results of 10 statistical .+\s{}\n".format(tally)
         )
         found = False
 
@@ -453,7 +455,7 @@ class Output:
                         df.loc[row, "FoM behaviour"] = "yes"
 
         else:
-            raise ValueError("Cell {} was not found".format(cell))
+            raise ValueError("Tally {} was not found".format(tally))
 
         return df
 
@@ -488,10 +490,10 @@ class Output:
             rows.append(new_row)
 
         df = pd.DataFrame(rows)
-        columns = ["Cell"]
+        columns = ["Tally"]
         columns.extend(STAT_CHECKS_COLUMNS[1:])
         df.columns = columns
-        df.set_index("Cell", inplace=True)
+        df.set_index("Tally", inplace=True)
         df["Other TFC bins"] = pd.Series(summary)
 
         return df.sort_index()
@@ -620,7 +622,6 @@ class Output:
         counter = 0
 
         for i, char in enumerate(line):
-
             if char == " " and new_datum is False:
                 new_datum = True
                 widths.append(counter)

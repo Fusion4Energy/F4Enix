@@ -2,7 +2,7 @@
 sphinx
 esbonio
 myst_nb
-sphinx-rtd-theme
+pydata-sphinx-theme
 # F4Enix reqs
 numpy <= 1.26.4
 numjuggler

@@ -50,4 +50,4 @@ write_to = "src/_version.py"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-"f4enix" = ["**/*.xlsx", "**/*.txt"]
+"f4enix" = ["**/*.xlsx", "**/*.txt", "**/*.csv"]

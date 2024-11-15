@@ -1,18 +1,18 @@
 import os
-import numpy as np
-import pytest
 from copy import deepcopy
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
+
+import numpy as np
+import pandas as pd
+import pytest
 from numjuggler import parser
+
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
-import pandas as pd
-
-from f4enix.input.MCNPinput import Input, D1S_Input
+from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
-from f4enix.input.d1suned import ReactionFile, IrradiationFile
-
+from f4enix.input.MCNPinput import D1S_Input, Input
 
 resources_inp = files(input_res)
 resources_lib = files(lib_res)
@@ -49,6 +49,45 @@ class TestInput:
         assert inp.check_range(range(1000, 10010))
         assert not inp.check_range([1, 1e4])
 
+    def test_cell_property(self):
+        inp = deepcopy(self.testInput)
+        # verify that the name and values have been changed
+        inp.cells = {"1": inp.cells["1"], "2": inp.cells["1"]}
+        assert inp.cells["2"].name == 2
+        assert inp.cells["2"].values[0] == (2, "cel")
+
+        # adding a new value should still force the keys and names to be
+        # the same
+        inp.cells["3"] = deepcopy(inp.cells["1"])
+        assert inp.cells["3"].name == 3
+        assert inp.cells["3"].values[0] == (3, "cel")
+
+        # no random stuff can be added to the dictionary
+        with pytest.raises(ValueError):
+            inp.cells[1] = inp.cells["1"]
+        with pytest.raises(ValueError):
+            inp.cells["5"] = 1
+
+        # verify that also the dictionary update works as expected
+        inp.cells.update({"4": deepcopy(inp.cells["1"]), "2": deepcopy(inp.cells["1"])})
+        assert inp.cells["4"].name == 4
+        assert inp.cells["4"].values[0] == (4, "cel")
+        assert inp.cells["2"].name == 2
+        assert inp.cells["2"].values[0] == (2, "cel")
+
+    def test_surf_property(self):
+        inp = deepcopy(self.testInput)
+        # verify that the name and values have been changed
+        inp.surfs = {"1": inp.surfs["1"], "2": inp.surfs["1"]}
+        assert inp.surfs["2"].name == 2
+        assert inp.surfs["2"].values[0] == (2, "sur")
+
+        # adding a new value should still force the keys and names to be
+        # the same
+        inp.surfs["3"] = deepcopy(inp.surfs["1"])
+        assert inp.surfs["3"].name == 3
+        assert inp.surfs["3"].values[0] == (3, "sur")
+
     def test_from_input(self):
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
@@ -56,12 +95,12 @@ class TestInput:
     def test_hash_cell(self):
         cell = self.testInput.cells["2"]
         hashed_cell = Input.hash_cell(cell, 12, inplace=False)
-        assert hashed_cell.card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+        assert hashed_cell.card() == "2 13 7.2058E-02 ( -128 129 1 -2 ) #12 \n"
 
     def test_hash_multiple_cells(self):
         inp = deepcopy(self.testInput)
         inp.hash_multiple_cells({12: [2, 3, 4]})
-        assert inp.cells["2"].card() == "2 13 7.2058E-02 (-128 129 1 -2 ) #12 \n"
+        assert inp.cells["2"].card() == "2 13 7.2058E-02 ( -128 129 1 -2 ) #12 \n"
 
     # def test_jt60_bug(self, tmpdir):
     #     with as_file(resources_inp.joinpath('jt60.i')) as file:
@@ -428,6 +467,30 @@ class TestInput:
         assert newinp.cells["299"].get_m() == 10
         assert newinp.cells["1"].get_m() == 0
 
+    def test_cells_union(self):
+        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+            newinp = Input.from_input(inp_file)
+
+        newinp_2 = deepcopy(newinp)
+
+        newinp.cells_union(["1", "22", "299"], None)
+        assert "1" in newinp.cells
+        assert not "22" in newinp.cells
+        assert not "299" in newinp.cells
+        assert (
+            newinp.cells["1"].card()
+            == "1 0 ( ( -1 ) : ( -22 ) )  : ( #21 #22    ) imp:n=1 fill=125\n"
+        )
+        newinp_2.cells_union(["22", "299", "1"], 635)
+        assert not "1" in newinp_2.cells
+        assert not "22" in newinp_2.cells
+        assert not "299" in newinp_2.cells
+        assert "635" in newinp_2.cells
+        assert (
+            newinp_2.cells["635"].card()
+            == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
+        )
+
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
         sur = 180
@@ -444,9 +507,10 @@ class TestInput:
             for tup in new_cell.values
         )
         assert new_cell.input[0].split()[-1] == r"-{:<3}"
-        assert new_cell.card(wrap=False, comment=False).split()[3] == "(-128"
+        assert new_cell.card(wrap=False, comment=False).split()[3] == "("
+        assert new_cell.card(wrap=False, comment=False).split()[4] == "-128"
         assert new_cell.card(wrap=False, comment=False).split()[-1] == str(-sur)
-        assert new_cell.card(wrap=False, comment=False).split()[-2][-1] == ")"
+        assert new_cell.card(wrap=False, comment=False).split()[-2] == ")"
 
         new_cell = Input.add_surface(
             newinput.cells["27"], -sur, None, "intersect", True
@@ -456,7 +520,8 @@ class TestInput:
             for tup in newinput.cells["27"].values
         )
         assert newinput.cells["27"].input[0].split()[-1] == r"-{:<3}"
-        assert new_cell.card(wrap=False, comment=False).split()[3] == "(-128"
+        assert new_cell.card(wrap=False, comment=False).split()[3] == "("
+        assert new_cell.card(wrap=False, comment=False).split()[4] == "-128"
         assert any(
             tup and isinstance(tup, tuple) and len(tup) > 0 and tup[0] == sur
             for tup in new_cell.values
@@ -488,7 +553,8 @@ class TestInput:
             mcnp_input.cells["1"].card(wrap=False, comment=False).split()[-2]
             == "imp:n=1"
         )
-        assert new_cell.card(wrap=False, comment=False).split()[2] == "(-1"
+        assert new_cell.card(wrap=False, comment=False).split()[2] == "("
+        assert new_cell.card(wrap=False, comment=False).split()[3] == "-1"
 
         new_cell = Input.add_surface(mcnp_input.cells["1"], -sur, 50, "union", False)
         assert new_cell.values[0][0] == 50
@@ -509,7 +575,8 @@ class TestInput:
             mcnp_input.cells["1"].card(wrap=False, comment=False).split()[-2]
             == "imp:n=1"
         )
-        assert new_cell.card(wrap=False, comment=False).split()[2] == "(-1"
+        assert new_cell.card(wrap=False, comment=False).split()[2] == "("
+        assert new_cell.card(wrap=False, comment=False).split()[3] == "-1"
         assert new_cell.card(wrap=False, comment=False).split()[0] == "50"
         assert mcnp_input.cells["1"].card(wrap=False, comment=False).split()[0] == "1"
 
@@ -521,19 +588,20 @@ class TestInput:
             tup and isinstance(tup, tuple) and len(tup) > 0 and tup[0] == sur
             for tup in mcnp_input.cells["22"].values
         )
-        assert mcnp_input.cells["22"].input[0].split()[4] == r":-{:<4}"
+        assert mcnp_input.cells["22"].input[0].split()[5] == r":-{:<4}"
         assert any(
             tup and isinstance(tup, tuple) and len(tup) > 0 and tup[0] == sur
             for tup in new_cell.values
         )
-        assert new_cell.input[0].split()[4] == r":-{:<4}"
-        assert new_cell.card(wrap=False, comment=False).split()[4] == ":" + str(-sur)
-        assert new_cell.card(wrap=False, comment=False).split()[3] == ")"
+        assert new_cell.input[0].split()[5] == r":-{:<4}"
+        assert new_cell.card(wrap=False, comment=False).split()[5] == ":" + str(-sur)
+        assert new_cell.card(wrap=False, comment=False).split()[4] == ")"
         assert (
             mcnp_input.cells["22"].card(wrap=False, comment=False).split()[-1]
             == "U=125"
         )
-        assert new_cell.card(wrap=False, comment=False).split()[2] == "(-22"
+        assert new_cell.card(wrap=False, comment=False).split()[2] == "("
+        assert new_cell.card(wrap=False, comment=False).split()[3] == "-22"
         assert new_cell.card(wrap=False, comment=False).split()[0] == "50"
         assert mcnp_input.cells["22"].card(wrap=False, comment=False).split()[0] == "50"
 

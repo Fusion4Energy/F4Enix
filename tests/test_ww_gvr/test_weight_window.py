@@ -279,6 +279,20 @@ def test_export_as_vtk_wrong_suffix(tmp_path):
     assert written_grid == ww.geometry._grid
 
 
+def test_vtk_export_from_gvr(tmp_path):
+    ww = WW.create_gvr_from_meshtally_file(
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtally_cart"
+    )
+    ww.export_as_vtk(tmp_path / "test.vts")
+
+    written_grid = pv.read(tmp_path / "test.vts")
+    
+    assert isinstance(written_grid, pv.StructuredGrid)
+    assert written_grid.bounds[0] == ww.geometry.vectors.vector_i[0]
+    assert written_grid.bounds[2] == ww.geometry.vectors.vector_j[0]
+    assert written_grid.bounds[4] == ww.geometry.vectors.vector_k[0]
+    
+
 def test_soften():
     ww = WW.load_from_ww_file(
         Path("tests") / "test_ww_gvr" / "resources" / "ww_simple_cart"

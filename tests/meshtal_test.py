@@ -29,6 +29,7 @@ class TestMeshtal:
             "meshtal_CUBE_ONES",
             "test_srcimp",
             "assembly_meshtal_test",
+            "1D_mesh_no_code",
         ],
     )
     def test_mesh_print_tally_info(self, input_meshtal):

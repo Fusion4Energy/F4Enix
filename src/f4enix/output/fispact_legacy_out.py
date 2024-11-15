@@ -16,7 +16,7 @@ target_pathway_zaids = re.compile(r"[A-Z][a-z]*\s*\d+m*")
 metastable_pat = re.compile(r"\d+m")
 isotope_pat = re.compile(r"\d+")
 element_pat = re.compile(r"[a-zA-Z]+")
-path_id_pat = re.compile(r"\s+path")
+path_id_pat = re.compile(r"\s+path\s+\d+")
 reaction_pat = re.compile(r"\([a-zA-Z\d,+-]+\)")
 
 
@@ -197,10 +197,31 @@ class PathwayCollection:
                         perc=perc,
                     )
                 except AssertionError as e:
-                    # Handle assertion error
-                    print(lines[i])
-                    print(line)
-                    raise e
+                    # it may be a very long path that continues
+                    if "path continued" in lines[i + 4]:
+                        other_zaids = target_pathway_zaids.findall(lines[i + 4])
+                        intermediates.append(daughter)
+                        for zaid in other_zaids[:-1]:
+                            intermediates.append(cls._get_zaid_from_str(zaid))
+                        daughter = cls._get_zaid_from_str(other_zaids[-1])
+                        reactions.extend(reaction_pat.findall(lines[i + 5]))
+
+                        try:
+                            pathway = Pathway(
+                                parent=parent,
+                                daughter=daughter,
+                                reactions=reactions,
+                                intermediates=intermediates,
+                                perc=perc,
+                            )
+                        except AssertionError:
+                            print(lines[i])
+                            print(line)
+                            raise e
+                    else:
+                        print(lines[i])
+                        print(line)
+                        raise e
 
                 paths.append(pathway)
 
