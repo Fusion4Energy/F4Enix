@@ -366,6 +366,8 @@ class Tally:
             else:
                 return False
 
+        raise ValueError("Invalid axis")
+
     def _insertUsr(self, uB: int) -> bool:
         """Insert usr bins."""
 
@@ -409,6 +411,8 @@ class Tally:
                 return True
         else:
             return False
+
+        raise ValueError("Invalid axis")
 
     def _insertErg(self, eB: int) -> bool:
         """Insert energy bin."""
