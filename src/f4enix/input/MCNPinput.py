@@ -71,7 +71,7 @@ class CardsDict(dict):
         else:
             num = key
         if num != str(value.name):
-            logging.warning(
+            logging.debug(
                 f"The card number {value.name} does not match the key {key}, it will be overridden"
             )
             value.name = int(num)
@@ -273,7 +273,7 @@ class Input:
         # in case of difference, the dictionary key takes precedence
         for key, card in value.items():
             if key != str(card.name):
-                logging.warning(
+                logging.debug(
                     f"The cell number {card.name} is different from Key {key} and will be replaced"
                 )
                 card.name = int(key)
@@ -297,7 +297,7 @@ class Input:
             else:
                 num = key
             if num != str(card.name):
-                logging.warning(
+                logging.debug(
                     f"The surface number {card.name} is different from Key {key} and will be replaced"
                 )
                 card.name = int(num)
@@ -1208,23 +1208,28 @@ class Input:
 
             # If the material needs change and in universe
             if cell.get_m() == old_mat_id and in_universe:
-                # Void needs to be handle in a specific way
-                if old_mat_id == 0 and new_mat_id == 0:
-                    logging.warning("Replacing void with void")
-                if old_mat_id == 0:
-                    Input.add_material_to_void_cell(cell, new_mat_id, int(new_density))
-                elif new_mat_id == 0:
-                    Input.set_cell_void(cell)
-                else:
-                    cell._set_value_by_type("mat", new_mat_id)
-                    cell._Card__m = new_mat_id  # necessary for the get val
-                    cell.set_d(new_density)
+                self.replace_cell_material(cell, new_mat_id, new_density)
+
+    @staticmethod
+    def replace_cell_material(cell: parser.Card, new_mat_id: int, new_density: str):
+        old_mat_id = cell.get_m()
+        # Void needs to be handle in a specific way
+        if old_mat_id == 0 and new_mat_id == 0:
+            logging.warning("Replacing void with void")
+        if old_mat_id == 0:
+            Input.add_material_to_void_cell(cell, new_mat_id, new_density)
+        elif new_mat_id == 0:
+            Input.set_cell_void(cell)
+        else:
+            cell._set_value_by_type("mat", new_mat_id)
+            cell._Card__m = new_mat_id  # necessary for the get val
+            cell.set_d(new_density)
 
     @staticmethod
     def add_material_to_void_cell(
         cell: parser.Card,
         new_mat_id: int,
-        new_density: float,
+        new_density: str,
     ) -> None:
         """Sets a material (and density) to a void cell.
 
@@ -1238,14 +1243,14 @@ class Input:
             new value for the density (including sign).
         """
 
-        if new_density == 0 or new_mat_id <= 0:
+        if int(float(new_density)) == 0 or new_mat_id <= 0:
             raise ValueError("Wrong values for the new material and density")
 
         if cell.ctype == 3 and cell.get_m() == 0:
             cell.hidden["~"].insert(0, str(new_density))
             cell._set_value_by_type("mat", new_mat_id)
             cell._Card__m = new_mat_id  # necessary for the get val
-            cell._Card__d = new_density
+            cell._Card__d = float(new_density)
             # Introduce parentheses before the third word in the first row
             first_row = cell.input[0].split()
             first_row.insert(2, r"~")
@@ -1573,6 +1578,9 @@ class Input:
         """
         # Add the tally card
         tally_ID = int(tally_ID)
+        # add the IDs to the tally ids
+        self.tally_keys.append(tally_ID)
+
         particles_str = particles[0]
         if len(particles) > 1:
             for particle in particles[1]:

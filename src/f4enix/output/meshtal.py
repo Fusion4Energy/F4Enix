@@ -20,21 +20,22 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import numpy as np
-import vtk
 import csv
-import pyvista as pv
-import pandas as pd
+import logging
 import os
 import time
-from scipy.spatial.transform import Rotation as R
-from typing import Tuple
-from io import open
-import logging
-from tqdm import tqdm
 from copy import deepcopy
-from f4enix.constants import CONV
+from io import open
+from typing import Tuple
 
+import numpy as np
+import pandas as pd
+import pyvista as pv
+import vtk
+from scipy.spatial.transform import Rotation as R
+from tqdm import tqdm
+
+from f4enix.constants import CONV
 
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
@@ -1216,17 +1217,17 @@ class Fmesh:
 
     def write(
         self,
-        outpath: os.PathLike,
-        list_array_names: list[str] = None,
+        outpath: os.PathLike | str,
+        list_array_names: list[str] | None = None,
         out_format: str = "vtk",
-        outfile: str = None,
+        outfile: str | None = None,
     ) -> None:
         """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
         (txt) formats can be selected.
 
         Parameters
         ----------
-        outpath : os.PathLike
+        outpath : os.PathLike | str
             path to the output folder.
         list_array_names : list[str], optional
             arrays to be exported. The default is None, meaning that all the
@@ -1430,12 +1431,12 @@ class Fmesh1D(Fmesh):
 
 
 class Meshtal:
-    def __init__(self, fn: os.PathLike, filetype: str = "MCNP") -> None:
+    def __init__(self, fn: os.PathLike | str, filetype: str = "MCNP") -> None:
         """Class representing a parsed Meshtal file
 
         Parameters
         ----------
-        fn : os.PathLike
+        fn : os.PathLike | str
             path to the meshtal file to be read
         filetype : str, optional
             type of file, by default "MCNP" which is the only file type

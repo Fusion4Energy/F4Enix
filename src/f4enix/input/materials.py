@@ -856,6 +856,7 @@ class Material:
         libman: LibManager,
         lib: str,
         name: str = "",
+        mat_id: int = 1,
     ) -> Material:
         """Generate a material giving a list of zaids or elements.
 
@@ -875,6 +876,8 @@ class Material:
         name : str, optional
             this will be put in the header of the material card as a comment,
             by default ''.
+        mat_id : int, optional
+            material id, by default 1.
 
         Returns
         -------
@@ -894,7 +897,7 @@ class Material:
         submat = SubMaterial("", zaid_list)
         submat.translate(lib, libman)
         submat._update_info(libman)
-        return cls(None, None, "M1", submaterials=[submat], header=f"C {name}")
+        return cls(None, None, f"M{mat_id}", submaterials=[submat], header=f"C {name}")
 
     @classmethod
     def from_text(cls, text: list[str]) -> Material:
