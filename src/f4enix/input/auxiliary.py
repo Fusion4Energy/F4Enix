@@ -3,6 +3,8 @@ Auxiliary functions used by different modules
 
 """
 
+from __future__ import annotations
+
 """
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of
 Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - 
@@ -16,10 +18,12 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-from numjuggler.parser import Card
-from f4enix.constants import PAT_DOLLAR_COMMENT, PAT_COMMENT_TEXT
-import re
 import os
+import re
+
+from numjuggler.parser import Card
+
+from f4enix.constants import PAT_COMMENT_TEXT, PAT_DOLLAR_COMMENT
 
 _surrogates = re.compile(r"[\uDC80-\uDCFF]")
 
@@ -63,13 +67,13 @@ def _detect_decoding_errors_line(l, _s=_surrogates.finditer):  # pragma: no cove
     return [(m.start(), bytes([ord(m.group()) - 0xDC00])) for m in _s(l)]
 
 
-def debug_file_unicode(file: os.PathLike) -> str:  # pragma: no cover
+def debug_file_unicode(file: os.PathLike | str) -> str:  # pragma: no cover
     """given a file prints the unicode error that were found and at what
     line
 
     Parameters
     ----------
-    file : os.PathLike
+    file : os.PathLike | str
         file to be debugged
 
     Returns

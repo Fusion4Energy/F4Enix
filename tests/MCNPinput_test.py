@@ -1,18 +1,18 @@
 import os
-import numpy as np
-import pytest
 from copy import deepcopy
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
+
+import numpy as np
+import pandas as pd
+import pytest
 from numjuggler import parser
+
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
-import pandas as pd
-
-from f4enix.input.MCNPinput import Input, D1S_Input
+from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
-from f4enix.input.d1suned import ReactionFile, IrradiationFile
-
+from f4enix.input.MCNPinput import D1S_Input, Input
 
 resources_inp = files(input_res)
 resources_lib = files(lib_res)
@@ -48,6 +48,45 @@ class TestInput:
         assert not inp.check_range([1, 2])
         assert inp.check_range(range(1000, 10010))
         assert not inp.check_range([1, 1e4])
+
+    def test_cell_property(self):
+        inp = deepcopy(self.testInput)
+        # verify that the name and values have been changed
+        inp.cells = {"1": inp.cells["1"], "2": inp.cells["1"]}
+        assert inp.cells["2"].name == 2
+        assert inp.cells["2"].values[0] == (2, "cel")
+
+        # adding a new value should still force the keys and names to be
+        # the same
+        inp.cells["3"] = deepcopy(inp.cells["1"])
+        assert inp.cells["3"].name == 3
+        assert inp.cells["3"].values[0] == (3, "cel")
+
+        # no random stuff can be added to the dictionary
+        with pytest.raises(ValueError):
+            inp.cells[1] = inp.cells["1"]
+        with pytest.raises(ValueError):
+            inp.cells["5"] = 1
+
+        # verify that also the dictionary update works as expected
+        inp.cells.update({"4": deepcopy(inp.cells["1"]), "2": deepcopy(inp.cells["1"])})
+        assert inp.cells["4"].name == 4
+        assert inp.cells["4"].values[0] == (4, "cel")
+        assert inp.cells["2"].name == 2
+        assert inp.cells["2"].values[0] == (2, "cel")
+
+    def test_surf_property(self):
+        inp = deepcopy(self.testInput)
+        # verify that the name and values have been changed
+        inp.surfs = {"1": inp.surfs["1"], "2": inp.surfs["1"]}
+        assert inp.surfs["2"].name == 2
+        assert inp.surfs["2"].values[0] == (2, "sur")
+
+        # adding a new value should still force the keys and names to be
+        # the same
+        inp.surfs["3"] = deepcopy(inp.surfs["1"])
+        assert inp.surfs["3"].name == 3
+        assert inp.surfs["3"].values[0] == (3, "sur")
 
     def test_from_input(self):
         inp = deepcopy(self.testInput)
