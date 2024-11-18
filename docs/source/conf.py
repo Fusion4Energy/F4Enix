@@ -97,7 +97,9 @@ autoclass_content = "init"
 #
 html_theme = "pydata_sphinx_theme"
 html_logo = "./img/logo.png"
-
+html_theme_options = {
+    "github_url": "https://github.com/Fusion4Energy/F4Enix",
+}
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
