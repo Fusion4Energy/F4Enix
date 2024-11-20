@@ -394,91 +394,91 @@ def get_xs(
     return energy_grid, data
 
 
-def get_exfor_data(isotope: str, mt: str | int) -> list:
-    """
-    Retrieve EXFOR data for a given isotope and reaction.
+# def get_exfor_data(isotope: str, mt: str | int) -> list:
+#     """
+#     Retrieve EXFOR data for a given isotope and reaction.
 
-    Args:
-        isotope (str): The isotope for which to retrieve the data.
-        mt (Union[str, int]): The reaction type or MT number.
+#     Args:
+#         isotope (str): The isotope for which to retrieve the data.
+#         mt (Union[str, int]): The reaction type or MT number.
 
-    Returns:
-        list: A list of dictionaries containing the retrieved data. Each dictionary
-        contains the following keys:
-            - 'energy': An array of energy values in MeV.
-            - 'cross-section': An array of cross-section values in barns.
-            - 'label': A string representing the author and year of the data.
+#     Returns:
+#         list: A list of dictionaries containing the retrieved data. Each dictionary
+#         contains the following keys:
+#             - 'energy': An array of energy values in MeV.
+#             - 'cross-section': An array of cross-section values in barns.
+#             - 'label': A string representing the author and year of the data.
 
-    Raises:
-        ValueError: If the specified MT value is not found in the MT reactions dictionary.
+#     Raises:
+#         ValueError: If the specified MT value is not found in the MT reactions dictionary.
 
-    """
-    from x4i3 import exfor_manager
+#     """
+#     from x4i3 import exfor_manager
 
-    # fmt: off
-    ENDF_X4_dict = {
-        1: "N,TOT", 2: "N,EL", 3: "N,NON", 4: "N,INL", 5: "N,X", 10: "N,TOT",
-        11: "N,2N+D", 16: "N,2N", 17: "N,3N", 18: "N,F", 19: "N,F'", 20: "N,N+F",
-        21: "N,2N+F", 22: "N,N+A", 23: "N,N+3A", 24: "N,2N+A", 25: "N,3N+A",
-        27: "N,ABS", 28: "N,N+P", 29: "N,N+2A", 32: "N,N+D", 33: "N,N+T",
-        34: "N,N+HE3", 37: "N,4N", 38: "N,3N+F", 41: "N,2N+P", 42: "N,3N+P",
-        44: "N,N+2P", 45: "N,N+P+A", 51: "N,N'", 89: "N,N'", 90: "N,N'",
-        91: "N,N'", 101: "N,DIS", 102: "N,G", 103: "N,P", 104: "N,D", 105: "N,T",
-        106: "N,HE3", 107: "N,A", 108: "N,2A", 111: "N,2P", 112: "N,P+A",
-        113: "N,T+2A", 115: "N,P+D", 116: "N,P+T", 117: "N,D+A", 151: "N,RES",
-        201: "N,XN", 202: "N,XG", 203: "N,XP", 204: "N,XD", 205: "N,XT",
-        206: "N,XHE3", 207: "N,XA", 208: "N,XPi_pos", 209: "N,XPi_0",
-        210: "N,XPi_neg", 301: "heating", 444: "damage-energy production",
-        452: "N,nu_tot", 454: "N,ind_FY", 455: "N,nu_d", 456: "N,nu_p",
-        458: "N,rel_fis", 459: "FY_cum", 460: "N,g_bdf", 600: "N,P", 601: "N,P'",
-        649: "N,P'", 650: "N,D", 651: "N,D'", 699: "N,D'", 700: "N,T",
-        701: "N,T'", 749: "N,T'", 750: "N,HE3'", 751: "N,HE3'", 799: "N,HE3'",
-        800: "N,A", 801: "N,A'", 849: "N,A'", 875: "N,2N", 876: "N,2N",
-        889: "N,2N", 890: "N,2N",
-    }
-    # fmt: on
+#     # fmt: off
+#     ENDF_X4_dict = {
+#         1: "N,TOT", 2: "N,EL", 3: "N,NON", 4: "N,INL", 5: "N,X", 10: "N,TOT",
+#         11: "N,2N+D", 16: "N,2N", 17: "N,3N", 18: "N,F", 19: "N,F'", 20: "N,N+F",
+#         21: "N,2N+F", 22: "N,N+A", 23: "N,N+3A", 24: "N,2N+A", 25: "N,3N+A",
+#         27: "N,ABS", 28: "N,N+P", 29: "N,N+2A", 32: "N,N+D", 33: "N,N+T",
+#         34: "N,N+HE3", 37: "N,4N", 38: "N,3N+F", 41: "N,2N+P", 42: "N,3N+P",
+#         44: "N,N+2P", 45: "N,N+P+A", 51: "N,N'", 89: "N,N'", 90: "N,N'",
+#         91: "N,N'", 101: "N,DIS", 102: "N,G", 103: "N,P", 104: "N,D", 105: "N,T",
+#         106: "N,HE3", 107: "N,A", 108: "N,2A", 111: "N,2P", 112: "N,P+A",
+#         113: "N,T+2A", 115: "N,P+D", 116: "N,P+T", 117: "N,D+A", 151: "N,RES",
+#         201: "N,XN", 202: "N,XG", 203: "N,XP", 204: "N,XD", 205: "N,XT",
+#         206: "N,XHE3", 207: "N,XA", 208: "N,XPi_pos", 209: "N,XPi_0",
+#         210: "N,XPi_neg", 301: "heating", 444: "damage-energy production",
+#         452: "N,nu_tot", 454: "N,ind_FY", 455: "N,nu_d", 456: "N,nu_p",
+#         458: "N,rel_fis", 459: "FY_cum", 460: "N,g_bdf", 600: "N,P", 601: "N,P'",
+#         649: "N,P'", 650: "N,D", 651: "N,D'", 699: "N,D'", 700: "N,T",
+#         701: "N,T'", 749: "N,T'", 750: "N,HE3'", 751: "N,HE3'", 799: "N,HE3'",
+#         800: "N,A", 801: "N,A'", 849: "N,A'", 875: "N,2N", 876: "N,2N",
+#         889: "N,2N", 890: "N,2N",
+#     }
+#     # fmt: on
 
-    data_list = []
-    if mt not in ENDF_X4_dict.keys() and mt not in ENDF_X4_dict.values():
-        raise ValueError(
-            f"mt {mt} not found, available mt values are {ENDF_X4_dict.keys()} and {ENDF_X4_dict.values()}"
-        )
+#     data_list = []
+#     if mt not in ENDF_X4_dict.keys() and mt not in ENDF_X4_dict.values():
+#         raise ValueError(
+#             f"mt {mt} not found, available mt values are {ENDF_X4_dict.keys()} and {ENDF_X4_dict.values()}"
+#         )
 
-    if isinstance(mt, int):
-        mt_int = mt
-        mt_equation = ENDF_X4_dict[mt]
-    elif isinstance(mt, str):
-        mt_int = [key for key, value in ENDF_X4_dict.items() if value == mt][0]
-        mt_equation = mt
+#     if isinstance(mt, int):
+#         mt_int = mt
+#         mt_equation = ENDF_X4_dict[mt]
+#     elif isinstance(mt, str):
+#         mt_int = [key for key, value in ENDF_X4_dict.items() if value == mt][0]
+#         mt_equation = mt
 
-    if mt_int == 444:
-        raise ValueError("mt 444 is not a valid mt for this function")
+#     if mt_int == 444:
+#         raise ValueError("mt 444 is not a valid mt for this function")
 
-    db = exfor_manager.X4DBManagerDefault()
-    db_entry = db.retrieve(target=isotope, reaction=mt_equation, quantity="SIG")
-    for _, entry in db_entry.items():
-        datasets = entry.getSimplifiedDataSets()
-        for subentry_key, subentry_value in datasets.items():
-            if (
-                subentry_value.simplified is True
-                and len(subentry_value.reaction[0].quantity) == 1
-                and subentry_value.reaction[0].quantity[0] == "SIG"
-                and isinstance(subentry_value.reaction[0].quantity, list)
-            ):
-                x_subentry, y_subentry = [], []
-                energy = datasets[subentry_key].labels.index("Energy")
-                xs_data = datasets[subentry_key].labels.index("Data")
-                for row in subentry_value.data:
-                    x_subentry.append(row[energy])
-                    y_subentry.append(row[xs_data])
-                data_list.append(
-                    {
-                        "energy": np.array(x_subentry) * 1e6,
-                        "cross-section": np.array(y_subentry),
-                        "label": f"{subentry_value.author[0]} {subentry_value.year}",
-                    }
-                )
-    return data_list
+#     db = exfor_manager.X4DBManagerDefault()
+#     db_entry = db.retrieve(target=isotope, reaction=mt_equation, quantity="SIG")
+#     for _, entry in db_entry.items():
+#         datasets = entry.getSimplifiedDataSets()
+#         for subentry_key, subentry_value in datasets.items():
+#             if (
+#                 subentry_value.simplified is True
+#                 and len(subentry_value.reaction[0].quantity) == 1
+#                 and subentry_value.reaction[0].quantity[0] == "SIG"
+#                 and isinstance(subentry_value.reaction[0].quantity, list)
+#             ):
+#                 x_subentry, y_subentry = [], []
+#                 energy = datasets[subentry_key].labels.index("Energy")
+#                 xs_data = datasets[subentry_key].labels.index("Data")
+#                 for row in subentry_value.data:
+#                     x_subentry.append(row[energy])
+#                     y_subentry.append(row[xs_data])
+#                 data_list.append(
+#                     {
+#                         "energy": np.array(x_subentry) * 1e6,
+#                         "cross-section": np.array(y_subentry),
+#                         "label": f"{subentry_value.author[0]} {subentry_value.year}",
+#                     }
+#                 )
+#     return data_list
 
 
 class Combination:
