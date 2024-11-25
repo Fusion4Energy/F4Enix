@@ -1,3 +1,7 @@
+"""Module related to the collection of decay pathways for ITER"""
+
+from __future__ import annotations
+
 from importlib.resources import as_file, files
 
 import pandas as pd
@@ -39,6 +43,18 @@ AVAILABLE_COOLING_TIMES = [
 
 class PathwayLibrary:
     def __init__(self, df: pd.DataFrame | None = None):
+        """Create a library of decay pathways for ITER
+
+        The object allows to filter the pathways by any combinations of spectrum,
+        dose and materials and to get an ordered dataframe that contains only the
+        pathways that contribute to the requested dose, for the requested materials,
+        spectra and cooling times.
+
+        Parameters
+        ----------
+        df : pd.DataFrame | None, optional
+            Global library of pathways, by default None
+        """
         if df is None:
             resources = files(pkg_res)
             with as_file(resources.joinpath("global_filterable.csv")) as infile:
