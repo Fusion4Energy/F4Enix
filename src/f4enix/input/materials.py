@@ -38,7 +38,7 @@ from decimal import Decimal
 import pandas as pd
 from numjuggler import parser as par
 
-from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX
+from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX, AVOGADRO_NUMBER
 from f4enix.input.libmanager import LibManager
 
 
@@ -591,7 +591,9 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(zaid.name)
+ Zaid {} was not assigned to any library""".format(
+                                zaid.name
+                            )
                         )
 
                 else:
@@ -607,7 +609,9 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(zaid.name)
+ Zaid {} was not assigned to any library""".format(
+                                zaid.name
+                            )
                         )
             else:
                 newtag = newlib
@@ -1170,6 +1174,65 @@ class Material:
         self._update_info(lib_manager)
 
         return new_submats
+
+    def get_tad(self, density: int | float, lib_manager: LibManager) -> float:
+        """Return the total atom density of the material given the mass density.
+
+        Parameters
+        ----------
+        density : int | float
+            mass density in g/cm^3.
+        lib_manager : LibManager
+            Library manager for the conversion.
+
+        Returns
+        -------
+        float
+            atom density of the material in barn^-1 cm^-1.
+        """
+        self.switch_fraction("atom", lib_manager, inplace=True)
+        mass_number = 0
+        tot_fraction = self.get_tot_fraction()
+        for submat in self.submaterials:
+            for zaid in submat.zaidList:
+                mass_number = (
+                    mass_number
+                    + zaid.fraction
+                    / tot_fraction
+                    * lib_manager.isotopes["Atomic Mass"].loc[zaid.name.split(".")[0]]
+                )
+
+        return density / mass_number * AVOGADRO_NUMBER * 1e-24
+
+    def get_density(self, tad: int | float, lib_manager: LibManager) -> float:
+        """Return the density of the material given the total atom density.
+
+        Parameters
+        ----------
+        tad : int | float
+            total atom density in barn^-1 cm^-1.
+        lib_manager : LibManager
+            Library manager for the conversion.
+
+        Returns
+        -------
+        float
+            mass density of the material in g/cm^3.
+        """
+        self.switch_fraction("mass", lib_manager, inplace=True)
+        mass_number_rec = 0
+        tot_fraction = self.get_tot_fraction()
+        for submat in self.submaterials:
+            for zaid in submat.zaidList:
+                mass_number_rec = (
+                    mass_number_rec
+                    + zaid.fraction
+                    / tot_fraction
+                    / lib_manager.isotopes["Atomic Mass"].loc[zaid.name.split(".")[0]]
+                )
+        mass_number = 1 / mass_number_rec
+
+        return tad * 1e24 / AVOGADRO_NUMBER * mass_number
 
 
 class MatCardsList(Sequence):

@@ -1,4 +1,5 @@
 import os
+import pytest
 from copy import deepcopy
 from importlib.resources import files, as_file
 
@@ -242,6 +243,54 @@ M1
        7014.31c       -3.983744E-1     $ N-14   AB(%) 99.594
        7015.31c       -1.625644E-3     $ N-15   AB(%) 0.40641"""
         )
+
+    def test_get_tad(self):
+        with as_file(resources.joinpath("tad_test.i")) as inp:
+            mcnp_inp = Input.from_input(inp)
+            materials = mcnp_inp.materials
+        dens_mats = {
+            "316L(N)-IG": 7.93,
+            "CuCrZr": 8.9,
+        }
+        mats = {
+            "316L(N)-IG": 100,
+            "CuCrZr": 302,
+        }
+        tads = {
+            "316L(N)-IG": 8.59386e-002,
+            "CuCrZr": 8.46480e-002,
+        }
+        libman = LibManager()
+        for mat, mat_num in mats.items():
+            mat_card = materials["M" + str(mat_num)]
+            assert (
+                pytest.approx(mat_card.get_tad(dens_mats[mat], libman), 1e-4)
+                == tads[mat]
+            )
+
+    def test_get_density(self):
+        with as_file(resources.joinpath("tad_test.i")) as inp:
+            mcnp_inp = Input.from_input(inp)
+            materials = mcnp_inp.materials
+        dens_mats = {
+            "316L(N)-IG": 7.93,
+            "CuCrZr": 8.9,
+        }
+        mats = {
+            "316L(N)-IG": 100,
+            "CuCrZr": 302,
+        }
+        tads = {
+            "316L(N)-IG": 8.59386e-002,
+            "CuCrZr": 8.46480e-002,
+        }
+        libman = LibManager()
+        for mat, mat_num in mats.items():
+            mat_card = materials["M" + str(mat_num)]
+            assert (
+                pytest.approx(mat_card.get_density(tads[mat], libman), 1e-4)
+                == dens_mats[mat]
+            )
 
 
 class TestMatCardList:
