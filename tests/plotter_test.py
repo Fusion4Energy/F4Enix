@@ -1,14 +1,15 @@
-from importlib.resources import files, as_file
-import pytest
-import pyvista as pv
 import os
+import sys
+from importlib.resources import as_file, files
+
 import docx
 import numpy as np
+import pytest
+import pyvista as pv
 
-
-from f4enix.output.plotter import MeshPlotter, Atlas, CDFplot
-from f4enix.constants import ITER_Z_LEVELS
 import tests.resources.plotter as pkg_res
+from f4enix.constants import ITER_Z_LEVELS
+from f4enix.output.plotter import Atlas, CDFplot, MeshPlotter
 
 RESOURCES = files(pkg_res)
 
@@ -40,7 +41,6 @@ def plotter_no_stl() -> MeshPlotter:
 
 
 class TestMeshPlotter:
-
     def test_slice_toroidal(self, plotter: MeshPlotter, plotter_no_stl: MeshPlotter):
         slices = plotter.slice_toroidal(20)
         assert len(slices) == 9
@@ -72,6 +72,7 @@ class TestMeshPlotter:
         for slice in slices:
             assert slice[1].bounds is not None
 
+    @pytest.mark.skipif(sys.platform == "windows", reason="Windows access error")
     def test_plot_slices(
         self, plotter: MeshPlotter, plotter_no_stl: MeshPlotter, tmpdir
     ):
@@ -92,7 +93,6 @@ class TestMeshPlotter:
         assert len(im) == 3
 
     def test_slice(self, plotter: MeshPlotter, plotter_no_stl: MeshPlotter):
-
         slices = plotter.slice(
             [["slice 1", 0, 0, 0, -0.1, 0.5, 1], ["slice 2", 0, 15, 0, 0.1, 0.5, 1]]
         )
@@ -111,7 +111,6 @@ class TestMeshPlotter:
 
 
 class TestAtlas:
-
     def test_build_from_root(self, tmpdir):
         # cannot run this test on linux architecture
         name = "test"
