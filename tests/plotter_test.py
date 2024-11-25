@@ -72,7 +72,7 @@ class TestMeshPlotter:
         for slice in slices:
             assert slice[1].bounds is not None
 
-    @pytest.mark.skipif(sys.platform == "windows", reason="Windows access error")
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows access error")
     def test_plot_slices(
         self, plotter: MeshPlotter, plotter_no_stl: MeshPlotter, tmpdir
     ):
