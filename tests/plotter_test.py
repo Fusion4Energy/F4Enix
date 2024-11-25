@@ -129,6 +129,7 @@ class TestAtlas:
             # cannot be tested if word is not installed
             assert True
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows access error")
     def test_add_section(self, tmpdir, plotter):
         name = "test2"
         atlas = Atlas(name=name)
