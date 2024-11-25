@@ -43,7 +43,7 @@ WINDOWS_ACCESS_ERROR = ["meshtal.ipynb", "tutorial.ipynb"]
     "filename", Path(os.path.join("docs", "source")).rglob("*.ipynb")
 )
 def test_task_1(filename):
-    if filename in WINDOWS_ACCESS_ERROR:
+    if os.path.basename(filename) in WINDOWS_ACCESS_ERROR:
         return
 
     print(f"Attempting to run {filename}")
@@ -53,8 +53,10 @@ def test_task_1(filename):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows access error")
 def test_plotting_jupyters():
-    _, errors = _notebook_run("docs/source/tutorial/tutorial.ipynb")
+    _, errors = _notebook_run(Path("docs/source/tutorial/tutorial.ipynb"))
     assert errors == []
 
-    _, errors = _notebook_run("docs/source/examples/output/jupyters/meshtal.ipynb")
+    _, errors = _notebook_run(
+        Path("docs/source/examples/output/jupyters/meshtal.ipynb")
+    )
     assert errors == []
