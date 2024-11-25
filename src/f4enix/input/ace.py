@@ -521,18 +521,18 @@ class Combination:
             ans = operation(ans, self.functions[i + 1](x))
         return ans
 
-    def __eq__(self, other):
-        if isinstance(other, type(self)):
-            for key, value in self.__dict__.items():
-                if isinstance(value, np.ndarray):
-                    if not np.array_equal(value, other.__dict__.get(key)):
-                        return False
-                else:
-                    return value == other.__dict__.get(key)
-        else:
-            return False
+    # def __eq__(self, other):
+    #     if isinstance(other, type(self)):
+    #         for key, value in self.__dict__.items():
+    #             if isinstance(value, np.ndarray):
+    #                 if not np.array_equal(value, other.__dict__.get(key)):
+    #                     return False
+    #             else:
+    #                 return value == other.__dict__.get(key)
+    #     else:
+    #         return False
 
-        return True
+    #     return True
 
     @property
     def functions(self):

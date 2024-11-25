@@ -40,9 +40,10 @@ class TestACEplots:
     def test_get_xs_with_xsdir(self):
         e_li, xs_li = get_xs(
             this=self.hydrogen,
-            types=[1, 102],
+            types=["total", "(n,total)"],
             library="31c",
             ace_filepaths=RESOURCES.joinpath("xsdir_test"),
+            temperature=300,
         )
         assert len(e_li) == len(xs_li[0]) == len(xs_li[1])
 
