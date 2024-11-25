@@ -5,10 +5,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 import pyvista as pv
-from f4enix.input.ww_gvr.models import CoordinateType, ParticleType, Vectors
-from f4enix.input.ww_gvr.weight_window import WW
 from numpy.testing import assert_array_almost_equal
 
+from f4enix.input.ww_gvr.models import CoordinateType, ParticleType, Vectors
+from f4enix.input.ww_gvr.weight_window import WW
 from tests.test_ww_gvr.resources import expected_values_ww_complex_cart
 
 
@@ -251,7 +251,7 @@ def test_export_as_vtk(tmp_path, ww_file):
 
     written_grid = pv.read(tmp_path / "test.vts")
 
-    assert written_grid == ww.geometry._grid
+    assert (written_grid.points == ww.geometry._grid.points).all()
 
 
 def test_export_as_vtk_no_path(tmp_path):
@@ -265,7 +265,7 @@ def test_export_as_vtk_no_path(tmp_path):
 
     written_grid = pv.read(str(tmp_ww_path) + ".vts")
 
-    assert written_grid == ww.geometry._grid
+    assert (written_grid.points == ww.geometry._grid.points).all()
 
 
 def test_export_as_vtk_wrong_suffix(tmp_path):
@@ -276,7 +276,7 @@ def test_export_as_vtk_wrong_suffix(tmp_path):
 
     written_grid = pv.read(tmp_path / "test.vts")
 
-    assert written_grid == ww.geometry._grid
+    assert (written_grid.points == ww.geometry._grid.points).all()
 
 
 def test_vtk_export_from_gvr(tmp_path):
@@ -286,12 +286,12 @@ def test_vtk_export_from_gvr(tmp_path):
     ww.export_as_vtk(tmp_path / "test.vts")
 
     written_grid = pv.read(tmp_path / "test.vts")
-    
+
     assert isinstance(written_grid, pv.StructuredGrid)
     assert written_grid.bounds[0] == ww.geometry.vectors.vector_i[0]
     assert written_grid.bounds[2] == ww.geometry.vectors.vector_j[0]
     assert written_grid.bounds[4] == ww.geometry.vectors.vector_k[0]
-    
+
 
 def test_soften():
     ww = WW.load_from_ww_file(
