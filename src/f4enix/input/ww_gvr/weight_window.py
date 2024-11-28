@@ -77,6 +77,7 @@ class WW:
     def create_gvr_from_meshtally_file(
         cls,
         file_path: Pathlike,
+        tally_num: int = 0,
         maximum_splitting_ratio: float = 5.0,
         softening_factor: float = 1.0,
     ):
@@ -97,7 +98,7 @@ class WW:
             A WW object.
         """
         file_path = Path(file_path)
-        parse_result = ww_parser.read_meshtally_file(file_path)
+        parse_result = ww_parser.read_meshtally_file(file_path, tally_num)
 
         geometry = cls._create_geometry(parse_result)
         values = cls._nested_to_values_by_particle(parse_result)
