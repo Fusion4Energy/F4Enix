@@ -5,7 +5,6 @@ from importlib.resources import as_file, files
 import numpy as np
 import pandas as pd
 import pytest
-from numjuggler import parser
 
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
@@ -91,6 +90,10 @@ class TestInput:
     def test_from_input(self):
         inp = deepcopy(self.testInput)
         self._check_macro_properties(inp)
+
+        inp = deepcopy(self.bugInput)
+        assert inp.other_data["WWE"]
+        assert inp.other_data["WWN1"]
 
     def test_hash_cell(self):
         cell = self.testInput.cells["2"]
@@ -209,6 +212,7 @@ class TestInput:
         inp.write(outfile)
         inp2 = Input.from_input(outfile)
         _ = inp2.transformations["TR1"]
+        assert inp2.other_data["WWN1"]
 
         assert True
 
@@ -366,12 +370,17 @@ class TestInput:
 
         assert True
 
-    def test_clean_card_name(self):
-        cardnames = ["*TR1", "f6:n,p"]
-        expected = ["TR1", "f6"]
-
-        for name, exp in zip(cardnames, expected):
-            assert Input._clean_card_name(name) == exp
+    @pytest.mark.parametrize(
+        ["cardname", "clean_name"],
+        [
+            ["*TR1", "TR1"],
+            ["f6:n,p", "f6"],
+            ["WWN1:n", "WWN1"],
+            ["WWE:n", "WWE"],
+        ],
+    )
+    def test_clean_card_name(self, cardname, clean_name):
+        assert Input._clean_card_name(cardname) == clean_name
 
     @pytest.mark.parametrize("flag", [True, False])
     def test_get_cells_by_matID(self, flag):
