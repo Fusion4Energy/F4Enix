@@ -92,8 +92,8 @@ class TestInput:
         self._check_macro_properties(inp)
 
         inp = deepcopy(self.bugInput)
-        assert inp.other_data["WWE"]
-        assert inp.other_data["WWN1"]
+        assert inp.other_data["WWE:N"]
+        assert inp.other_data["WWN1:N"]
 
     def test_hash_cell(self):
         cell = self.testInput.cells["2"]
@@ -212,7 +212,6 @@ class TestInput:
         inp.write(outfile)
         inp2 = Input.from_input(outfile)
         _ = inp2.transformations["TR1"]
-        assert inp2.other_data["WWN1"]
 
         assert True
 
@@ -367,6 +366,8 @@ class TestInput:
         _ = self.bugInput.other_data["SP2"]
         _ = self.bugInput.transformations["TR1"]
         _ = self.bugInput.other_data["CUT:N"]
+        _ = self.bugInput.other_data["WWN1:P"]
+        _ = self.bugInput.other_data["WWN1:N"]
 
         assert True
 
@@ -374,9 +375,9 @@ class TestInput:
         ["cardname", "clean_name"],
         [
             ["*TR1", "TR1"],
-            ["f6:n,p", "f6"],
-            ["WWN1:n", "WWN1"],
-            ["WWE:n", "WWE"],
+            ["f6:n,p", "F6"],
+            ["WWN1:n", "WWN1:N"],
+            ["WWE:n", "WWE:N"],
         ],
     )
     def test_clean_card_name(self, cardname, clean_name):
