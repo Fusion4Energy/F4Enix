@@ -35,6 +35,7 @@ from numjuggler import parser
 from f4enix.constants import (
     PAT_CARD_KEY,
     PAT_COMMENT,
+    PAT_F_TR_CARD_KEY,
     PAT_FMESH_KEY,
     PAT_NP,
     UNION_INTERSECT_SYMBOLS,
@@ -1025,8 +1026,9 @@ class Input:
         # this is to clean cases like:
         # *TR1 -> TR1
         # F6:N,P -> F6
+        key = key.upper()
         try:
-            newkey = PAT_CARD_KEY.search(key).group()
+            newkey = PAT_F_TR_CARD_KEY.search(key).group()
         except AttributeError:
             logging.debug("the following key was not cleaned: " + key)
             newkey = key

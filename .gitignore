@@ -17,3 +17,4 @@ src/_version.py
 coverage.xml
 docs/source/tutorial/Sphere_modified.i
 docs/source/tutorial/meshtal_124_vtk.vtr
+tester_root.ipynb
