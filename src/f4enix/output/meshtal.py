@@ -24,6 +24,8 @@ import csv
 import logging
 import os
 import time
+import re
+import math
 from copy import deepcopy
 from io import open
 from typing import Tuple
@@ -34,7 +36,9 @@ import pyvista as pv
 import vtk
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
+from numjuggler import parser
 
+from f4enix.input.MCNPinput import Input
 from f4enix.constants import CONV
 
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
@@ -947,6 +951,66 @@ class Fmesh:
         return
 
     # Checks whether it is the same mesh
+    def apply_transformation(self, tr: parser.Card) -> bool:
+        if tr.ctype != 5:
+            raise ValueError("Numjuggler card is not a transformation")
+        if len(tr.values) not in [4, 13]:
+            raise ValueError(
+                "Numjuggler transformation card has not 4 (translation) or 13 (rototranslation) values"
+            )
+        transf_values = []
+
+        if len(tr.values) == 13:
+            for k, val in enumerate(tr.values[1:]):
+                if k < 3:
+                    transf_values.append(val[0])
+                else:
+                    if tr.unit == "*":
+                        transf_values.append(math.cos(math.radians(val[0])))
+                    else:
+                        transf_values.append(val[0])
+            psi = math.atan2(transf_values[4], transf_values[3])
+            theta = -math.asin(transf_values[5])
+            phi = math.atan2(transf_values[8], transf_values[11])
+            transform_matrix = np.array(
+                [
+                    [
+                        math.cos(theta) * math.cos(psi),
+                        math.cos(theta) * math.sin(psi),
+                        -math.sin(theta),
+                        transf_values[0],
+                    ],
+                    [
+                        -math.cos(phi) * math.sin(psi)
+                        + math.sin(phi) * math.sin(theta) * math.cos(psi),
+                        math.cos(phi) * math.cos(psi)
+                        + math.sin(phi) * math.sin(theta) * math.sin(psi),
+                        math.sin(phi) * math.cos(theta),
+                        transf_values[1],
+                    ],
+                    [
+                        math.sin(phi) * math.sin(psi)
+                        + math.cos(phi) * math.sin(theta) * math.cos(psi),
+                        -math.sin(phi) * math.cos(psi)
+                        + math.cos(phi) * math.sin(theta) * math.sin(psi),
+                        math.cos(phi) * math.cos(theta),
+                        transf_values[2],
+                    ],
+                    [0, 0, 0, 1],
+                ]
+            )
+        else:
+            transform_matrix = np.array(
+                [
+                    [1, 0, 0, tr.values[1][0]],
+                    [0, 1, 0, tr.values[2][0]],
+                    [0, 0, 1, tr.values[3][0]],
+                    [0, 0, 0, 1],
+                ]
+            )
+        self.grid = self.grid.transform(transform_matrix, inplace=False)
+
+    # Checks whether it is the same mesh
     def sameMesh(self, xelf, checkErg: bool = False) -> bool:
         i1 = 1
         if checkErg:
@@ -1854,6 +1918,27 @@ class Meshtal:
     def print_info(self) -> None:
         """print information on the Meshtal"""
         print(self)
+
+    def transform_fmesh(self, inp: Input) -> None:
+        transf_dict = {}
+        pattern = r"tr\s*=\s*\d+"
+        for key, data_card in inp.other_data.items():
+            if "FMESH" in key:
+                fmesh_num = data_card.name
+                match = False
+                for line in data_card.lines:
+                    # Search for the pattern in the line
+                    match = re.search(pattern, line)
+                    if match:
+                        break
+                transf_dict[fmesh_num] = inp.transformations[
+                    "TR" + str(match.group().split("=")[-1])
+                ]
+        self.transform_multiple_fmesh(transf_dict)
+
+    def transform_multiple_fmesh(self, transf_dict: dict[int, parser.Card]) -> None:
+        for key, transf in transf_dict.items():
+            self.mesh[key].apply_transformation(transf)
 
 
 # ================= END OF CLASS DEFINITIONS ======================

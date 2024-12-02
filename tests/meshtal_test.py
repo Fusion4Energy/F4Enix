@@ -6,6 +6,8 @@ from importlib.resources import files, as_file
 
 from f4enix.output.meshtal import Meshtal
 from f4enix.output.meshtal import identical_mesh
+from f4enix.input.MCNPinput import Input
+from numjuggler import parser
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.tests as res
 import tests.resources.meshtal.expected as res_exp
@@ -276,3 +278,13 @@ class TestMeshtal:
         dict_names = {4: ["A", "B"], 14: ["C", "D"]}
         grid = meshtal.collapse_grids(dict_names)
         assert len(grid.array_names) == 4
+
+    def test_transform_grid(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_transform")) as inp:
+            meshtal = Meshtal(inp)
+        with as_file(RESOURCES.joinpath("transforms.i")) as mcnp_inp:
+            input_file = Input.from_input(mcnp_inp)
+
+        meshtal.readMesh()
+        meshtal.transform_fmesh(input_file)
+        meshtal.write_all(tmpdir)
