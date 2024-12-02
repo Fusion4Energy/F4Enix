@@ -951,7 +951,21 @@ class Fmesh:
         return
 
     # Checks whether it is the same mesh
-    def apply_transformation(self, tr: parser.Card) -> bool:
+    def apply_transformation(self, tr: parser.Card) -> None:
+        """Apply a rototranslation to the mesh object
+
+        Parameters
+        ----------
+        tr : parser.Card
+            transformation card to be applied to the fmesh
+
+        Raises
+        ------
+        ValueError
+            If a non-transformation card is passed
+        ValueError
+            If the transformation card has not 4 (translation) or 13 (rototranslation) values
+        """
         if tr.ctype != 5:
             raise ValueError("Numjuggler card is not a transformation")
         if len(tr.values) not in [4, 13]:
@@ -1920,6 +1934,16 @@ class Meshtal:
         print(self)
 
     def transform_fmesh(self, inp: Input) -> None:
+        """Applies the transformation to the fmeshes in the meshtal object.
+        Given an input object, rototranslate the fmeshes in the meshtal object
+        according to their tr=... flag in the FMESH card, by using the corresponding
+        transformation.
+
+        Parameters
+        ----------
+        inp : Input
+            MCNP input object including the fmesh cards and the transformations
+        """
         transf_dict = {}
         pattern = r"tr\s*=\s*\d+"
         for key, data_card in inp.other_data.items():
@@ -1937,6 +1961,17 @@ class Meshtal:
         self.transform_multiple_fmesh(transf_dict)
 
     def transform_multiple_fmesh(self, transf_dict: dict[int, parser.Card]) -> None:
+        """Transforms multiple fmeshes in the meshtal object.
+        Given a dictionary of fmeshes numbers and transformation cards,
+        rototranslate the fmeshes in the meshtal object according to the associated
+        transformation card in the dict
+
+
+        Parameters
+        ----------
+        transf_dict : dict[int, parser.Card]
+            dictionary of fmeshes numbers and transformation cards.
+        """
         for key, transf in transf_dict.items():
             self.mesh[key].apply_transformation(transf)
 

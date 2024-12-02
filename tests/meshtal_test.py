@@ -287,4 +287,34 @@ class TestMeshtal:
 
         meshtal.readMesh()
         meshtal.transform_fmesh(input_file)
+        assert meshtal.mesh[2024].grid.bounds == (
+            567.0,
+            573.0,
+            47.0,
+            53.0,
+            387.0,
+            393.0,
+        )
+        assert meshtal.mesh[2024].grid.center == [570.0, 50.0, 390.0]
+        assert meshtal.mesh[2024].grid.bounds == (
+            567.0,
+            573.0,
+            47.0,
+            53.0,
+            387.0,
+            393.0,
+        )
+        assert meshtal.mesh[2124].grid.center == [0.0, 0.0, 0.0]
+        assert pytest.approx(meshtal.mesh[2124].grid.bounds[0], 1e-5) == -3.845138
+        assert meshtal.mesh[2224].grid.center == [1.0, 1.0, 1.0]
+        assert meshtal.mesh[2224].grid.bounds == (
+            -2.0,
+            4.0,
+            -2.0,
+            4.0,
+            -2.0,
+            4.0,
+        )
+        assert meshtal.mesh[2324].grid.center == [10.0, 10.0, 10.0]
+        assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == 6.52463
         meshtal.write_all(tmpdir)
