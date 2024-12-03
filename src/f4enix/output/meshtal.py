@@ -983,16 +983,23 @@ class Fmesh:
                         transf_values.append(math.cos(math.radians(val[0])))
                     else:
                         transf_values.append(val[0])
+            transf_matrix_dcm = np.array(
+                [
+                    transf_values[3:6],
+                    transf_values[6:9],
+                    transf_values[9:],
+                ]
+            )
             psi = math.atan2(transf_values[4], transf_values[3])
             theta = -math.asin(transf_values[5])
             phi = math.atan2(transf_values[8], transf_values[11])
-            transform_matrix = np.array(
+
+            transf_matrix_euler = np.array(
                 [
                     [
                         math.cos(theta) * math.cos(psi),
                         math.cos(theta) * math.sin(psi),
                         -math.sin(theta),
-                        transf_values[0],
                     ],
                     [
                         -math.cos(phi) * math.sin(psi)
@@ -1000,7 +1007,6 @@ class Fmesh:
                         math.cos(phi) * math.cos(psi)
                         + math.sin(phi) * math.sin(theta) * math.sin(psi),
                         math.sin(phi) * math.cos(theta),
-                        transf_values[1],
                     ],
                     [
                         math.sin(phi) * math.sin(psi)
@@ -1008,11 +1014,93 @@ class Fmesh:
                         -math.sin(phi) * math.cos(psi)
                         + math.cos(phi) * math.sin(theta) * math.sin(psi),
                         math.cos(phi) * math.cos(theta),
-                        transf_values[2],
                     ],
-                    [0, 0, 0, 1],
                 ]
             )
+            # Compute the determinant
+            det = np.linalg.det(transf_matrix_dcm)
+
+            # Define a tolerance
+            tolerance = 1e-6
+
+            # Check if the determinant is -1 within the tolerance
+            if abs(det + 1) < tolerance:
+                # Compute the eigenvalues and eigenvectors
+                eigenvalues, eigenvectors = np.linalg.eig(transf_matrix_dcm)
+
+                # Find the index of the eigenvalue that is -1
+                index = np.where(np.isclose(eigenvalues, -1, atol=tolerance))[0][0]
+
+                # Get the corresponding eigenvector
+                eigenvector = eigenvectors[:, index]
+
+                # Normalize the eigenvector
+                normalized_eigenvector = eigenvector / np.linalg.norm(eigenvector)
+
+                # Compute I - n * nT
+                I = np.identity(3)
+                n = normalized_eigenvector.reshape(3, 1)  # Reshape to a column vector
+                nT = n.T  # Transpose of n
+                result = I - 2 * np.dot(n, nT)
+                transform_matrix = np.array(
+                    [
+                        [
+                            transf_matrix_euler[0][0],
+                            transf_matrix_euler[0][1],
+                            transf_matrix_euler[0][2],
+                            transf_values[0],
+                        ],
+                        [
+                            transf_matrix_euler[1][0],
+                            transf_matrix_euler[1][1],
+                            transf_matrix_euler[1][2],
+                            transf_values[1],
+                        ],
+                        [
+                            transf_matrix_euler[2][0],
+                            transf_matrix_euler[2][1],
+                            transf_matrix_euler[2][2],
+                            transf_values[2],
+                        ],
+                        [0, 0, 0, 1],
+                    ]
+                )
+                reflection_matrix = np.array(
+                    [
+                        [result[0][0], result[0][1], result[0][2], 0],
+                        [result[1][0], result[1][1], result[1][2], 0],
+                        [result[2][0], result[2][1], result[2][2], 0],
+                        [0, 0, 0, 1],
+                    ]
+                )
+                self.grid = self.grid.transform(reflection_matrix, inplace=False)
+                self.grid = self.grid.transform(transform_matrix, inplace=False)
+                i = 0
+            else:
+                transform_matrix = np.array(
+                    [
+                        [
+                            transf_matrix_euler[0][0],
+                            transf_matrix_euler[0][1],
+                            transf_matrix_euler[0][2],
+                            transf_values[0],
+                        ],
+                        [
+                            transf_matrix_euler[1][0],
+                            transf_matrix_euler[1][1],
+                            transf_matrix_euler[1][2],
+                            transf_values[1],
+                        ],
+                        [
+                            transf_matrix_euler[2][0],
+                            transf_matrix_euler[2][1],
+                            transf_matrix_euler[2][2],
+                            transf_values[2],
+                        ],
+                        [0, 0, 0, 1],
+                    ]
+                )
+                self.grid = self.grid.transform(transform_matrix, inplace=False)
         else:
             transform_matrix = np.array(
                 [
@@ -1022,7 +1110,7 @@ class Fmesh:
                     [0, 0, 0, 1],
                 ]
             )
-        self.grid = self.grid.transform(transform_matrix, inplace=False)
+            self.grid = self.grid.transform(transform_matrix, inplace=False)
 
     # Checks whether it is the same mesh
     def sameMesh(self, xelf, checkErg: bool = False) -> bool:

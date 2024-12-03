@@ -287,6 +287,7 @@ class TestMeshtal:
 
         meshtal.readMesh()
         meshtal.transform_fmesh(input_file)
+        meshtal.write_all(tmpdir)
         assert meshtal.mesh[2024].grid.bounds == (
             567.0,
             573.0,
