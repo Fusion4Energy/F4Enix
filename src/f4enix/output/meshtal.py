@@ -1957,15 +1957,18 @@ class Meshtal:
         for key, data_card in inp.other_data.items():
             if "FMESH" in key:
                 fmesh_num = data_card.name
+                if fmesh_num not in self.mesh.keys():
+                    continue
                 match = False
                 for line in data_card.lines:
                     # Search for the pattern in the line
                     match = re.search(pattern, line)
                     if match:
                         break
-                transf_dict[fmesh_num] = inp.transformations[
-                    "TR" + str(match.group().split("=")[-1])
-                ]
+                if match:
+                    transf_dict[fmesh_num] = inp.transformations[
+                        "TR" + str(match.group().split("=")[-1])
+                    ]
         self.transform_multiple_fmesh(transf_dict)
 
     def transform_multiple_fmesh(self, transf_dict: dict[int, parser.Card]) -> None:

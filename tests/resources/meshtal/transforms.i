@@ -41,3 +41,8 @@ FMESH2324:n  origin = -3 -3 -3
      jmesh 3 jints 3 
      kmesh 3 kints 3
      tr=4
+FMESH2424:n  origin = -3 -3 -3
+     imesh 3 iints 3 
+     jmesh 3 jints 3 
+     kmesh 3 kints 3
+     out=cuv
