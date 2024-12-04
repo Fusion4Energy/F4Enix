@@ -952,7 +952,7 @@ class Fmesh:
 
     # Checks whether it is the same mesh
     def apply_transformation(self, tr: parser.Card) -> None:
-        """Apply a rototranslation to the mesh object
+        """Apply a transformation to the mesh object
 
         Parameters
         ----------
