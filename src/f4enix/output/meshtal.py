@@ -964,7 +964,7 @@ class Fmesh:
         ValueError
             If a non-transformation card is passed
         ValueError
-            If the transformation card has not 4 (translation) or 13 (rototranslation) values
+            If the transformation card has not 4 (translation) or 13 (affine transformation) values
         """
         if tr.ctype != 5:
             raise ValueError("Numjuggler card is not a transformation")
