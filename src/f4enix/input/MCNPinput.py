@@ -1608,9 +1608,10 @@ class Input:
             lines[1] += str(cell) + " "
         lines[1] += "\n"
         self.other_data[f"F{tally_ID}"] = parser.Card(lines, 5, -1)
-        self.other_data[f"F{tally_ID}"] = parser.Card(
-            self.other_data[f"F{tally_ID}"].card(wrap=True), 5, -1
+        card_lines = (
+            self.other_data[f"F{tally_ID}"].card(wrap=True).splitlines(keepends=True)
         )
+        self.other_data[f"F{tally_ID}"] = parser.Card(card_lines, 5, -1)
         # add energies if requested
         if energies is not None:
             lines = [f"E{tally_ID}\n"]
@@ -1619,9 +1620,12 @@ class Input:
                 lines[1] += f"{energy:.4e} "
             lines[1] += "\n"
             self.other_data[f"E{tally_ID}"] = parser.Card(lines, 5, -1)
-            self.other_data[f"E{tally_ID}"] = parser.Card(
-                self.other_data[f"E{tally_ID}"].card(wrap=True), 5, -1
+            card_lines = (
+                self.other_data[f"E{tally_ID}"]
+                .card(wrap=True)
+                .splitlines(keepends=True)
             )
+            self.other_data[f"E{tally_ID}"] = parser.Card(card_lines, 5, -1)
         # add SD if requested
         if add_SD:
             repetitions = len(cells) - 1
