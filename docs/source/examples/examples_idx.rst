@@ -18,6 +18,7 @@ Pre-Processing
     input/jupyters/d1suned
     input/jupyters/e_lite
     input/jupyters/ww
+    input/jupyters/ace
 
 
 .. _post_jupyters:

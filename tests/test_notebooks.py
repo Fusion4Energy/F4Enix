@@ -1,10 +1,9 @@
-import pytest
+import os
 import sys
 from pathlib import Path
-import sys
-import os
 
 import nbformat
+import pytest
 from nbconvert.preprocessors import ExecutePreprocessor
 from nbconvert.preprocessors.execute import CellExecutionError
 
@@ -36,11 +35,28 @@ def _notebook_run(path):
 
     return nb, errors
 
+
+WINDOWS_ACCESS_ERROR = ["meshtal.ipynb", "tutorial.ipynb"]
+
+
 @pytest.mark.parametrize(
     "filename", Path(os.path.join("docs", "source")).rglob("*.ipynb")
 )
 def test_task_1(filename):
+    if os.path.basename(filename) in WINDOWS_ACCESS_ERROR:
+        return
 
     print(f"Attempting to run {filename}")
     _, errors = _notebook_run(filename)
+    assert errors == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows access error")
+def test_plotting_jupyters():
+    _, errors = _notebook_run(Path("docs/source/tutorial/tutorial.ipynb"))
+    assert errors == []
+
+    _, errors = _notebook_run(
+        Path("docs/source/examples/output/jupyters/meshtal.ipynb")
+    )
     assert errors == []

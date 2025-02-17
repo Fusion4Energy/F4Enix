@@ -26,16 +26,15 @@ import logging
 import os
 import re
 import warnings
+from importlib.resources import as_file, files
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from importlib.resources import files, as_file
-
-import f4enix.resources as pkg_res
 import f4enix.input.xsdirpyne as xs
-from f4enix.input.xsdirpyne import Xsdir, OpenMCXsdir, SerpentXsdir
-from pathlib import Path
+import f4enix.resources as pkg_res
+from f4enix.input.xsdirpyne import OpenMCXsdir, SerpentXsdir, Xsdir
 
 XSDIR_CLASS = {
     "mcnp": Xsdir,
@@ -79,7 +78,6 @@ class IsotopeDataParser:
 
 
 class LibManager:
-
     # def __init__(self, xsdir_file, defaultlib='81c', activationfile=None,
     #             isotopes_file=None):
     def __init__(
@@ -329,6 +327,22 @@ class LibManager:
     #         return True
     #     else:
     #         return False
+    def expand_element(self, element: str) -> pd.DataFrame:
+        """Given an element name (e.g. Li) returns all isotopes available
+        with their isotopic data
+
+        Parameters
+        ----------
+        element : str
+            element name (e.g. Li)
+
+        Returns
+        -------
+        pd.DataFrame
+            return the subset of the isotopes dataframe witth the isotpes
+            available for the element.
+        """
+        return self.isotopes[self.isotopes["E"] == element]
 
     def convertZaid(
         self, zaid: str, lib: str, code: str = "mcnp"
@@ -522,7 +536,8 @@ class LibManager:
         Parameters
         ----------
         zaidformula : str
-            name of the zaid, e.g., H1.
+            name of the zaid, e.g., H1. It also accepts only H, it will return the
+            natural zaid 1000.
 
         Returns
         -------
@@ -537,12 +552,19 @@ class LibManager:
         patnum = re.compile(r"\d+")
         patname = re.compile(r"[a-zA-Z]+")
         try:
-            num = patnum.search(zaidformula).group()
             name = patname.search(zaidformula).group()
         except AttributeError:
             raise ValueError("No correspondent zaid found for " + zaidformula)
 
         atomnumber = self._newiso_byE.loc[name, "Z"]
+
+        # at this point we are sure that the name is valid as it was found in the
+        # isotopes table, we can now search for the number. If it is not found
+        # it means that it is a natural zaid
+        try:
+            num = patnum.search(zaidformula).group()
+        except AttributeError:
+            num = "0"
 
         zaidnum = "{}{:03d}".format(atomnumber, int(num))
 

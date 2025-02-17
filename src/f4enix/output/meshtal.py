@@ -24,6 +24,8 @@ import csv
 import logging
 import os
 import time
+import re
+import math
 from copy import deepcopy
 from io import open
 from typing import Tuple
@@ -34,7 +36,9 @@ import pyvista as pv
 import vtk
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
+from numjuggler import parser
 
+from f4enix.input.MCNPinput import Input
 from f4enix.constants import CONV
 
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
@@ -947,6 +951,88 @@ class Fmesh:
         return
 
     # Checks whether it is the same mesh
+    def apply_transformation(self, tr: parser.Card) -> None:
+        """Apply a transformation to the mesh object
+
+        Parameters
+        ----------
+        tr : parser.Card
+            transformation card to be applied to the fmesh
+
+        Raises
+        ------
+        ValueError
+            If a non-transformation card is passed
+        ValueError
+            If the transformation card has not 4 (translation) or 13 (affine transformation) values
+        """
+        if tr.ctype != 5:
+            raise ValueError("Numjuggler card is not a transformation")
+        if len(tr.values) not in [4, 13]:
+            raise ValueError(
+                "Numjuggler transformation card has not 4 (translation) or 13 (rototranslation) values"
+            )
+        transf_values = []
+
+        if len(tr.values) == 13:
+            for k, val in enumerate(tr.values[1:]):
+                if k < 3:
+                    transf_values.append(val[0])
+                else:
+                    if tr.unit == "*":
+                        transf_values.append(math.cos(math.radians(val[0])))
+                    else:
+                        transf_values.append(val[0])
+            transf_matrix_dcm = np.array(
+                [
+                    transf_values[3:6],
+                    transf_values[6:9],
+                    transf_values[9:],
+                ]
+            )
+            # Compute the transpose of the matrix
+            transposed_matrix = np.transpose(transf_matrix_dcm)
+
+            # Compute the inverse of the transposed matrix
+            try:
+                inverted_transposed_matrix = np.linalg.inv(transposed_matrix)
+            except np.linalg.LinAlgError:
+                print("The transformation matrix is not invertible.")
+            transform_matrix = np.array(
+                [
+                    [
+                        inverted_transposed_matrix[0][0],
+                        inverted_transposed_matrix[0][1],
+                        inverted_transposed_matrix[0][2],
+                        transf_values[0],
+                    ],
+                    [
+                        inverted_transposed_matrix[1][0],
+                        inverted_transposed_matrix[1][1],
+                        inverted_transposed_matrix[1][2],
+                        transf_values[1],
+                    ],
+                    [
+                        inverted_transposed_matrix[2][0],
+                        inverted_transposed_matrix[2][1],
+                        inverted_transposed_matrix[2][2],
+                        transf_values[2],
+                    ],
+                    [0, 0, 0, 1],
+                ]
+            )
+        else:
+            transform_matrix = np.array(
+                [
+                    [1, 0, 0, tr.values[1][0]],
+                    [0, 1, 0, tr.values[2][0]],
+                    [0, 0, 1, tr.values[3][0]],
+                    [0, 0, 0, 1],
+                ]
+            )
+        self.grid = self.grid.transform(transform_matrix, inplace=False)
+
+    # Checks whether it is the same mesh
     def sameMesh(self, xelf, checkErg: bool = False) -> bool:
         i1 = 1
         if checkErg:
@@ -1854,6 +1940,51 @@ class Meshtal:
     def print_info(self) -> None:
         """print information on the Meshtal"""
         print(self)
+
+    def transform_fmesh(self, inp: Input) -> None:
+        """Applies the transformation to the fmeshes in the meshtal object.
+        Given an input object, rototranslate the fmeshes in the meshtal object
+        according to their tr=... flag in the FMESH card, by using the corresponding
+        transformation.
+
+        Parameters
+        ----------
+        inp : Input
+            MCNP input object including the fmesh cards and the transformations
+        """
+        transf_dict = {}
+        pattern = r"tr\s*=\s*\d+"
+        for key, data_card in inp.other_data.items():
+            if "FMESH" in key:
+                fmesh_num = data_card.name
+                if fmesh_num not in self.mesh.keys():
+                    continue
+                match = False
+                for line in data_card.lines:
+                    # Search for the pattern in the line
+                    match = re.search(pattern, line)
+                    if match:
+                        break
+                if match:
+                    transf_dict[fmesh_num] = inp.transformations[
+                        "TR" + str(match.group().split("=")[-1])
+                    ]
+        self.transform_multiple_fmesh(transf_dict)
+
+    def transform_multiple_fmesh(self, transf_dict: dict[int, parser.Card]) -> None:
+        """Transforms multiple fmeshes in the meshtal object.
+        Given a dictionary of fmeshes numbers and transformation cards,
+        rototranslate the fmeshes in the meshtal object according to the associated
+        transformation card in the dict
+
+
+        Parameters
+        ----------
+        transf_dict : dict[int, parser.Card]
+            dictionary of fmeshes numbers and transformation cards.
+        """
+        for key, transf in transf_dict.items():
+            self.mesh[key].apply_transformation(transf)
 
 
 # ================= END OF CLASS DEFINITIONS ======================
