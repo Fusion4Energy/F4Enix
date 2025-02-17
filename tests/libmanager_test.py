@@ -1,11 +1,12 @@
-import pytest
-import pandas as pd
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
 
-from f4enix.input.libmanager import LibManager
-from f4enix.input.materials import Zaid
+import pandas as pd
+import pytest
+
 import f4enix.resources as pkg_res
 import tests.resources.libmanager as lib_res
+from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import Zaid
 
 resources = files(pkg_res)
 lib_resources = files(lib_res)
@@ -15,7 +16,6 @@ ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
 
 
 class TestLibManger:
-
     with (
         XSDIR_FILE as xsdir_file,
         ACTIVATION_FILE as activation_file,
@@ -177,6 +177,12 @@ class TestLibManger:
         zaidnum = self.lm.get_zaidnum(zaid)
         assert zaidnum == "92235"
 
+        # check natural zaids
+        assert "1000" == self.lm.get_zaidnum("H")
+
+        with pytest.raises(KeyError):
+            self.lm.get_zaidnum("Cj")
+
     def test_get_zaid_mass(self):
         # Normal zaid
         zaid = "99235.31c  -1"
@@ -208,7 +214,6 @@ class TestLibManger:
 
 
 class TestMultiCodeLibManger:
-
     @pytest.fixture
     def lm(self):
         resources2 = files(pkg_res)
