@@ -536,7 +536,8 @@ class LibManager:
         Parameters
         ----------
         zaidformula : str
-            name of the zaid, e.g., H1.
+            name of the zaid, e.g., H1. It also accepts only H, it will return the
+            natural zaid 1000.
 
         Returns
         -------
@@ -551,12 +552,19 @@ class LibManager:
         patnum = re.compile(r"\d+")
         patname = re.compile(r"[a-zA-Z]+")
         try:
-            num = patnum.search(zaidformula).group()
             name = patname.search(zaidformula).group()
         except AttributeError:
             raise ValueError("No correspondent zaid found for " + zaidformula)
 
         atomnumber = self._newiso_byE.loc[name, "Z"]
+
+        # at this point we are sure that the name is valid as it was found in the
+        # isotopes table, we can now search for the number. If it is not found
+        # it means that it is a natural zaid
+        try:
+            num = patnum.search(zaidformula).group()
+        except AttributeError:
+            num = "0"
 
         zaidnum = "{}{:03d}".format(atomnumber, int(num))
 
