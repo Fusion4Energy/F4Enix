@@ -444,13 +444,30 @@ class TestInput:
         )
         assert newinput.other_data["F4"].lines[0] == "F4:N,P\n"
         assert newinput.other_data["FC4"].lines[0] == "FC4 Test F4 tally\n"
-        assert len(newinput.other_data["F4"].lines) == 3
+        assert len(newinput.other_data["F4"].lines) == 4
         for card in ["F4", "E4"]:
             for line in newinput.other_data[card].lines:
                 assert len(line) < 128
         # total adds 1 SD
         assert newinput.other_data["SD4"].lines[-1] == f"SD4 1 {len(cells)}R\n"
         assert newinput.other_data["FM4"].lines[0] == f"FM4 1 -52 1\n"
+        cells = ["((1 2 3 4 5 6) < 10)", 12, "(((1 2 3 4 5 6) 18) < 11)"]
+        newinput.add_F_tally(
+            14,
+            ["N"],
+            cells,
+            energies=energies,
+            description="Test F14 tally",
+            add_SD=True,
+            add_total=True,
+            multiplier="1 -52 1",
+        )
+        assert newinput.other_data["F14"].lines[0] == "F14:N\n"
+        assert (
+            newinput.other_data["F14"].lines[1]
+            == "     ((1 2 3 4 5 6) < 10) 12 (((1 2 3 4 5 6) 18) < 11) T \n"
+        )
+        assert newinput.other_data["SD14"].lines[-1] == f"SD14 1 {len(cells)}R\n"
 
     def test_set_cell_void(self):
         newinput = deepcopy(self.testInput)
