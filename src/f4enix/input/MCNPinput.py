@@ -1570,8 +1570,10 @@ class Input:
             tally ID
         particles : list[str]
             particle to tally
-        cells : list[int]
-            list of cells to tally
+        cells : list[int | str]
+            list of cells to tally. One can also add a string with a complex cell
+            definition, like unions of cells and cells in a universe,
+            e.g. "((1 2 3) < 10)"
         add_total : bool, optional
             if True adds the total tally, by default False
         energies : list[float], optional
