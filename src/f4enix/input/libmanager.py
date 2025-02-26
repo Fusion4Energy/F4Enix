@@ -82,10 +82,10 @@ class LibManager:
     #             isotopes_file=None):
     def __init__(
         self,
-        xsdir_path: os.PathLike | pd.DataFrame = None,
-        defaultlib: str = None,
-        activationfile: os.PathLike = None,
-        isotopes_file: os.PathLike = None,
+        xsdir_path: os.PathLike | pd.DataFrame | None = None,
+        defaultlib: str | None = None,
+        activationfile: os.PathLike | None = None,
+        isotopes_file: os.PathLike | None = None,
     ) -> None:
         """
         Object dealing with all complex operations that involves nuclear data.
