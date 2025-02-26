@@ -22,10 +22,10 @@ and limitations under the Licence.
 
 import csv
 import logging
-import os
-import time
-import re
 import math
+import os
+import re
+import time
 from copy import deepcopy
 from io import open
 from typing import Tuple
@@ -34,12 +34,12 @@ import numpy as np
 import pandas as pd
 import pyvista as pv
 import vtk
+from numjuggler import parser
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
-from numjuggler import parser
 
-from f4enix.input.MCNPinput import Input
 from f4enix.constants import CONV
+from f4enix.input.MCNPinput import Input
 
 ALLOWED_NORMALIZATIONS = ["vtot", "celf", None]
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
@@ -1687,9 +1687,9 @@ class Meshtal:
 
     def readMesh(
         self,
-        mesh: int | list[int] = None,
-        cell_filters: list[int] = None,
-        norm: str = None,
+        mesh: int | list[int] | None = None,
+        cell_filters: list[int] | None = None,
+        norm: str | None = None,
     ) -> None:
         """Parse a list of FMESHes
 

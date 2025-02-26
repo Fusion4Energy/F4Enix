@@ -1169,7 +1169,7 @@ class Mctal:
 
             # --- Reorganize values ---
             # You cannot recover the following from the mctal
-            nDir = t._getNbins("d", False)
+            # nDir = t._getNbins("d", False)
             nMul = t._getNbins("m", False)
             nSeg = t._getNbins("s", False)  # this can be used
 
@@ -1177,6 +1177,7 @@ class Mctal:
             binnings = {
                 "cells": t.cells,
                 "user": t.usr,
+                "dir": range(t.nDir),
                 "segments": t.seg,
                 "cosine": t.cos,
                 "energy": t.erg,
@@ -1205,7 +1206,7 @@ class Mctal:
                     binnings[name] = [np.nan]
             # Start iteration
             for f, fn in enumerate(binnings["cells"]):
-                for d in range(nDir):  # Unused
+                for d, dn in enumerate(binnings["dir"]):  # Unused
                     for u, un in enumerate(binnings["user"]):
                         for sn in range(1, nSeg + 1):
                             for m in range(nMul):  # (unused)
@@ -1250,7 +1251,7 @@ class Mctal:
                                                         rows.append(
                                                             [
                                                                 fn,
-                                                                d,
+                                                                dn,
                                                                 un,
                                                                 sn,
                                                                 m,
@@ -1270,31 +1271,31 @@ class Mctal:
                 err = t._getValue(f, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1)
                 if t.timTC is not None:
                     rows.append(
-                        [fn, d, un, sn, m, cn, en, "total", ina, jn, kn, val, err]
+                        [fn, dn, un, sn, m, cn, en, "total", ina, jn, kn, val, err]
                     )
                     total = "Time"
 
                 elif t.ergTC is not None:
                     rows.append(
-                        [fn, d, un, sn, m, cn, "total", ntn, ina, jn, kn, val, err]
+                        [fn, dn, un, sn, m, cn, "total", ntn, ina, jn, kn, val, err]
                     )
                     total = "Energy"
 
                 elif t.segTC is not None:
                     rows.append(
-                        [fn, d, un, "total", m, cn, en, ntn, ina, jn, kn, val, err]
+                        [fn, dn, un, "total", m, cn, en, ntn, ina, jn, kn, val, err]
                     )
                     total = "Segments"
 
                 elif t.cosTC is not None:
                     rows.append(
-                        [fn, d, un, sn, m, "total", en, ntn, ina, jn, kn, val, err]
+                        [fn, dn, un, sn, m, "total", en, ntn, ina, jn, kn, val, err]
                     )
                     total = "Cosine"
 
                 elif t.usrTC is not None:
                     rows.append(
-                        [fn, d, "total", sn, m, cn, en, ntn, ina, jn, kn, val, err]
+                        [fn, dn, "total", sn, m, cn, en, ntn, ina, jn, kn, val, err]
                     )
                     total = "User"
 
@@ -1317,7 +1318,7 @@ class Mctal:
             df = pd.DataFrame(rows, columns=columns)
 
             # Default drop of multiplier and Dir
-            del df["Dir"]
+            # del df["Dir"]
             del df["Multiplier"]
             # --- Keep only meaningful binning ---
             # Drop NA

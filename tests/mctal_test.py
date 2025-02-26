@@ -1,9 +1,10 @@
-import numpy as np
 from copy import deepcopy
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
 
-from f4enix.output.mctal import Mctal
+import numpy as np
+
 import tests.resources.mctal as mctal_res
+from f4enix.output.mctal import Mctal
 
 mctal_resources = files(mctal_res)
 
@@ -50,3 +51,11 @@ class TestMctal:
         with as_file(mctal_resources.joinpath("mctal_radio")) as inp:
             mctal = Mctal(inp)
         assert True
+
+    def test_detector(self):
+        with as_file(mctal_resources.joinpath("detectors.m")) as inp:
+            mctal = Mctal(inp)
+        assert "Dir" in mctal.tallydata[15].columns
+        assert "Dir" in mctal.tallydata[5].columns
+        assert len(mctal.tallydata[5]) == 462 * 2 - 1
+        assert len(mctal.tallydata[15]) == 703 * 2 - 1
