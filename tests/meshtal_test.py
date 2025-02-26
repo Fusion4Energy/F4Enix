@@ -117,7 +117,7 @@ class TestMeshtal:
 
         assert True
 
-    @pytest.mark.parametrize("input_meshtal", ["1D_mesh"])
+    @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
     def test_1d_features(self, input_meshtal, tmpdir):
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
             meshtal = Meshtal(inp)

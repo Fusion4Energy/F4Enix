@@ -1555,7 +1555,7 @@ class Input:
         self,
         tally_ID: int,
         particles: list[str],
-        cells: Sequence[int],
+        cells: Sequence[int | str],
         add_total: bool = False,
         energies: Sequence[float] | np.ndarray | None = None,
         description: str | None = None,
@@ -1570,8 +1570,10 @@ class Input:
             tally ID
         particles : list[str]
             particle to tally
-        cells : list[int]
-            list of cells to tally
+        cells : list[int | str]
+            list of cells to tally. One can also add a string with a complex cell
+            definition, like unions of cells and cells in a universe,
+            e.g. "((1 2 3) < 10)"
         add_total : bool, optional
             if True adds the total tally, by default False
         energies : list[float], optional
@@ -1598,23 +1600,41 @@ class Input:
             self.other_data[f"FC{tally_ID}"] = parser.Card(line, 5, -1)
         # tally main body
         lines = [f"F{tally_ID}:{particles_str}\n"]
+        lines.append("     ")
         # --- add cells ---
         if add_total:
             # ensure it is a list
             cells = list(cells)
             cells.append("T")
-        cell_lines = _fix_width_write(cells)
-        lines.extend(cell_lines)
+        for cell in cells:
+            lines[1] += str(cell) + " "
+        lines[1] += "\n"
         self.other_data[f"F{tally_ID}"] = parser.Card(lines, 5, -1)
+        card_lines = (
+            self.other_data[f"F{tally_ID}"].card(wrap=True).splitlines(keepends=True)
+        )
+        self.other_data[f"F{tally_ID}"] = parser.Card(card_lines, 5, -1)
         # add energies if requested
         if energies is not None:
             lines = [f"E{tally_ID}\n"]
-            lines.extend(_fix_width_write(energies))
+            lines.append("     ")
+            for energy in energies:
+                lines[1] += f"{energy:.4e} "
+            lines[1] += "\n"
             self.other_data[f"E{tally_ID}"] = parser.Card(lines, 5, -1)
+            card_lines = (
+                self.other_data[f"E{tally_ID}"]
+                .card(wrap=True)
+                .splitlines(keepends=True)
+            )
+            self.other_data[f"E{tally_ID}"] = parser.Card(card_lines, 5, -1)
         # add SD if requested
         if add_SD:
             repetitions = len(cells) - 1
-            lines = [f"SD{tally_ID} 1 {repetitions}R\n"]
+            if repetitions != 0:
+                lines = [f"SD{tally_ID} 1 {repetitions}R\n"]
+            else:
+                lines = [f"SD{tally_ID} 1\n"]
             self.other_data[f"SD{tally_ID}"] = parser.Card(lines, 5, -1)
         # add multiplier if available
         if multiplier is not None:
@@ -2064,41 +2084,6 @@ def _get_num_tally(key: str) -> int:
         raise ValueError(key + " is not a valid tally ID")
 
     return int(num)
-
-
-def _fix_width_write(cells: Sequence) -> list[str]:
-    lines = []
-    types = type(cells[0])
-    max_digits = 4
-    # check what is the max cell length
-    max_len = 0
-    for cell in cells:
-        if len(str(cell)) > max_len:
-            max_len = len(str(cell))
-    # based on that get how many cells can be fit in one line
-    if types is int:
-        cells_per_line = (128 - 5) // (max_len + 1)
-    elif types is float or types is np.float64:
-        cells_per_line = (128 - 5) // (max_digits + 6 + 1)  # <x>.<xx>E+00
-    else:
-        raise NotImplementedError(f"{types} are supported")
-    # format cells in a fixed width format with max size 128 char
-    cell_str = "     "
-    for i, cell in enumerate(cells):
-        # add last entry and go to new line
-        if i % cells_per_line == 0 and i != 0:
-            lines.append(cell_str + "\n")
-            cell_str = "     "
-        # build line
-        if types is int:
-            cell_str += f"{cell:<{max_len}} "
-        elif types is float or types is np.float64:
-            cell_str += f"{cell:.{max_digits}e} "
-        else:
-            raise NotImplementedError("Only int and float are supported")
-    # whatever happens add the last line
-    lines.append(cell_str + "\n")
-    return lines
 
 
 def _get_card_key(card: parser.Card) -> str:

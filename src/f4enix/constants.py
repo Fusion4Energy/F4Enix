@@ -170,7 +170,14 @@ SECTOR_NAMES = [1, "2 & 3", 4, 5, 6, 7, 8, 9]
 
 UNION_INTERSECT_SYMBOLS = {"union": ":", "intersect": ""}
 
-CONV = {"Result": "Value", "Rel": "Error", "R": "Cor A", "Z": "Cor B", "Theta": "Cor C"}
+CONV = {
+    "Result": "Value",
+    "Rel": "Error",
+    "R": "Cor A",
+    "Z": "Cor B",
+    "Theta": "Cor C",
+    "Energy": "Energy",
+}
 
 # isotopes with negative heating in FENDL 3.1x
 FAULTY_ISOTOPES = [

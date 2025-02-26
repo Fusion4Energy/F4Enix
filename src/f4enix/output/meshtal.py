@@ -1505,11 +1505,17 @@ class Fmesh1D(Fmesh):
         idx = dim_tup.index(self._x_var)
         indices = [0] * len(dim_tup)
         indices[idx] = slice(None)
+        if idx == 0:
+            val = self.dat[tuple(indices)][:-1]
+            err = self.err[tuple(indices)][:-1]
+        else:
+            val = self.dat[tuple(indices)][:]
+            err = self.err[tuple(indices)][:]
         df = pd.DataFrame(
             {
                 newcols[0]: self.dims[idx][1:],
-                newcols[1]: self.dat[tuple(indices)][:],
-                newcols[2]: self.err[tuple(indices)][:],
+                newcols[1]: val,
+                newcols[2]: err,
             }
         )
 
