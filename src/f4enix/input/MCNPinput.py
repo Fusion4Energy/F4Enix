@@ -565,6 +565,8 @@ class Input:
         text = []
         for _, card in cards.items():
             text_candidate = card.card(wrap=wrap).strip("\n") + "\n"
+            # delete all '\r' special characters
+            text_candidate = text_candidate.replace("\r", "")
             # avoid blank lines
             text_candidate = PAT_BLANK_LINE.sub("\n", text_candidate)
             text.append(text_candidate)
@@ -853,7 +855,9 @@ class Input:
             # Add the header lines
             if header is not None:
                 for line in header:
-                    outfile.write(line)
+                    # remove special '\r' characters
+                    newline = line.replace("\r", "")
+                    outfile.write(newline)
             else:
                 outfile.write("C\n")
             # Add the cells

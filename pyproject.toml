@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy <= 1.26.4",
-    "numjuggler",
+    "numjuggler >= 2.42.37",
     "pyvista >= 0.39.1",
     "pandas",
     "numba",

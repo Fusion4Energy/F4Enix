@@ -38,7 +38,7 @@ from decimal import Decimal
 import pandas as pd
 from numjuggler import parser as par
 
-from f4enix.constants import PAT_COMMENT, PAT_MAT, PAT_MX, AVOGADRO_NUMBER
+from f4enix.constants import AVOGADRO_NUMBER, PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
 
 
@@ -591,9 +591,7 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(
-                                zaid.name
-                            )
+ Zaid {} was not assigned to any library""".format(zaid.name)
                         )
 
                 else:
@@ -609,9 +607,7 @@ class SubMaterial:
                         # the zaid should have been assigned to a library
                         raise ValueError(
                             """
- Zaid {} was not assigned to any library""".format(
-                                zaid.name
-                            )
+ Zaid {} was not assigned to any library""".format(zaid.name)
                         )
             else:
                 newtag = newlib
@@ -925,6 +921,10 @@ class Material:
         inHeader = True
         subtext = []
         submaterials = []
+
+        # As a first thing, let's be sure that no nasty "\r" special characters are
+        # present in the text
+        text = [line.replace("\r", "") for line in text]
 
         for line in text:
             checkComment = patC.match(line)

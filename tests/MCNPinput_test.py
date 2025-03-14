@@ -238,7 +238,7 @@ class TestInput:
 
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
-        assert inp.header[0].strip("\n") == "This is the header"
+        assert inp.header[0].strip("\n").strip("\r") == "This is the header"
         assert len(inp.cells) == 128
         assert len(inp.surfs) == 129
         assert len(inp.materials) == 25
@@ -472,10 +472,9 @@ class TestInput:
     def test_set_cell_void(self):
         newinput = deepcopy(self.testInput)
         Input.set_cell_void(newinput.cells["49"])
-        assert (
-            newinput.cells["49"].card()
-            == "49   0     -128 129 48  -49               $imp:n,p=1\n"
-        )
+        text = newinput.cells["49"].card()
+        text = text.replace("\r", "")
+        assert text == "49   0     -128 129 48  -49               $imp:n,p=1\n"
 
     def test_replace_material(self):
         with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
@@ -504,18 +503,19 @@ class TestInput:
         assert "1" in newinp.cells
         assert not "22" in newinp.cells
         assert not "299" in newinp.cells
-        assert (
-            newinp.cells["1"].card()
-            == "1 0 ( ( -1 ) : ( -22 ) )  : ( #21 #22    ) imp:n=1 fill=125\n"
-        )
+        text = newinp.cells["1"].card()
+        text = text.replace("\r", "")
+        assert text == "1 0 ( ( -1 ) : ( -22 ) )  : ( #21 #22    ) imp:n=1 fill=125\n"
+
         newinp_2.cells_union(["22", "299", "1"], 635)
         assert not "1" in newinp_2.cells
         assert not "22" in newinp_2.cells
         assert not "299" in newinp_2.cells
         assert "635" in newinp_2.cells
+        text = newinp_2.cells["635"].card()
+        text = text.replace("\r", "")
         assert (
-            newinp_2.cells["635"].card()
-            == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
+            text == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
         )
 
     def test_add_surface(self):
