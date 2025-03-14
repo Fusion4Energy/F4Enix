@@ -235,7 +235,7 @@ class TestInput:
 
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
-        assert inp.header[0].strip("\n") == "This is the header"
+        assert inp.header[0].strip("\n").strip("\r") == "This is the header"
         assert len(inp.cells) == 128
         assert len(inp.surfs) == 129
         assert len(inp.materials) == 25
@@ -447,7 +447,7 @@ class TestInput:
         Input.set_cell_void(newinput.cells["49"])
         assert (
             newinput.cells["49"].card()
-            == "49   0     -128 129 48  -49               $imp:n,p=1\n"
+            == "49   0     -128 129 48  -49               $imp:n,p=1\r\n"
         )
 
     def test_replace_material(self):
@@ -488,7 +488,7 @@ class TestInput:
         assert "635" in newinp_2.cells
         assert (
             newinp_2.cells["635"].card()
-            == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
+            == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\r\n"
         )
 
     def test_add_surface(self):
