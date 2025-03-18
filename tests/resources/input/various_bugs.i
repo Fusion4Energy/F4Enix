@@ -269,6 +269,16 @@ F96:N,P  101
 SD96     1
 FM96     3.1611E+06
 TF96     1 7J
+C Flux
+C
+FC30004   TFC WP IB STR Y+ U=1053 FLUX, NEUTRON, 1 RAD.LAYER, 2+ SEG.1-8+TOTAL
+F30004:N  ((310004 159I 310164)<428053)
+FS30004    6057 -6058 -6002 5I -6008 T
+SD30004    1 10R
+FM30004    1.7757E+20
+FQ30004    S F
+TF30004    1 2J 6 4J
+C
 C ----------------------------------------------------------------------------C
 C    TRANSFORMATIONS                                                          C
 C    ROTATION WITH RESPECT TO Z-AXIS (-20,|5|,20)                             C

@@ -362,12 +362,21 @@ class TestInput:
         self.bugInput.get_materials_subset(["m101"])
         assert True
 
-    def test_missing_data_cards(self):
-        _ = self.bugInput.other_data["SP2"]
-        _ = self.bugInput.transformations["TR1"]
-        _ = self.bugInput.other_data["CUT:N"]
-        _ = self.bugInput.other_data["WWN1:P"]
-        _ = self.bugInput.other_data["WWN1:N"]
+    def test_missing_data_cards(self, tmpdir):
+        # Check that all these data do not go missing after a rewrite
+        with as_file(resources_inp.joinpath("various_bugs.i")) as file:
+            inp = Input.from_input(file)
+        inp.write(tmpdir.join("bug.i"))
+
+        reinp = Input.from_input(tmpdir.join("bug.i"))
+        _ = reinp.other_data["SP2"]
+        _ = reinp.transformations["TR1"]
+        _ = reinp.other_data["CUT:N"]
+        _ = reinp.other_data["WWN1:P"]
+        _ = reinp.other_data["WWN1:N"]
+        _ = reinp.other_data["F96"]
+        _ = reinp.other_data["F30004"]
+        _ = reinp.other_data["TF30004"]
 
         assert True
 
@@ -378,6 +387,7 @@ class TestInput:
             ["f6:n,p", "F6"],
             ["WWN1:n", "WWN1:N"],
             ["WWE:n", "WWE:N"],
+            ["TF300004", "TF300004"],
         ],
     )
     def test_clean_card_name(self, cardname, clean_name):
