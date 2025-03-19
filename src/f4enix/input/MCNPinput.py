@@ -1033,6 +1033,9 @@ class Input:
         key = key.upper()
         try:
             newkey = PAT_F_TR_CARD_KEY.search(key).group()
+            # handle the TF edge case
+            if "TF" in key.upper():
+                newkey = "T" + newkey
         except AttributeError:
             logging.debug("the following key was not cleaned: " + key)
             newkey = key
