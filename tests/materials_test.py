@@ -17,7 +17,6 @@ XSDIR = as_file(resources.joinpath("xsdir_mcnp6.2"))
 ISOTOPES_FILE = as_file(resources_pkg.joinpath("Isotopes.txt"))
 # Other
 with XSDIR as xsdir_file, ISOTOPES_FILE as isotopes_file:
-
     LIBMAN = LibManager(xsdir_file, isotopes_file=isotopes_file, defaultlib="81c")
 
 # Files
@@ -39,7 +38,6 @@ with as_file(resources.joinpath("activation.i")) as inp:
 
 
 class TestZaid:
-
     tests = [
         {"str": "1001.31c   -2.3", "res": [-2.3, "1", "001", "31c"]},
         {"str": "1001.31c\t-2.3", "res": [-2.3, "1", "001", "31c"]},
@@ -104,7 +102,6 @@ class TestElement:
 
 
 class TestSubmaterial:
-
     def test_get_info(self):
         txt = [
             "C header",
@@ -120,9 +117,21 @@ class TestSubmaterial:
         assert len(df_el.columns) == 2
         assert len(df_zaid.columns) == 3
 
+    def test_dosimetry(self):
+        lm = LibManager(dosimetry_lib="21c")
+        txt = [
+            "C header",
+            "8016.31c        1     $ O-16   AB(%) 99.757",
+            "8017.31c        1     $ O-17   AB(%) 0.038",
+            "8018.21c        1     $ O-18   AB(%) 0.205",
+        ]
+        material = SubMaterial.from_text(txt)
+        material.translate("00c", lm)
+        assert material.zaidList[2].library == "21c"
+        assert material.zaidList[0].library == "00c"
+
 
 class TestMaterial:
-
     def test_natural_expansion(self):
         lm = LibManager()
         material = Material.from_text(["C Header", "M1 1000.31c   -2.3"])
