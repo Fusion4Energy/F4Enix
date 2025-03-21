@@ -609,7 +609,7 @@ class SubMaterial:
                 newtag = newlib
 
             # if it is a dosimetry library, the translation needs to be ignored
-            if zaid.library == lib_manager.dosimetry_lib and zaid.library is not None:
+            if zaid.library in lib_manager.dosimetry_lib:
                 # fake a 1to1 translation where the original suffix is retained
                 translation = {zaid.element + zaid.isotope: (zaid.library, 1, 1)}
             else:

@@ -86,7 +86,7 @@ class LibManager:
         defaultlib: str | None = None,
         activationfile: os.PathLike | None = None,
         isotopes_file: os.PathLike | None = None,
-        dosimetry_lib: str | None = None,
+        dosimetry_lib: list[str] | None = None,
     ) -> None:
         """
         Object dealing with all complex operations that involves nuclear data.
@@ -104,8 +104,8 @@ class LibManager:
         isotopes_file : str or path, optional
             path to the isotopes files. If None (default) the file is searched
             in the current directory.
-        dosimetry_lib : str, optional
-            library to be used for dosimetry. The default is None.
+        dosimetry_lib : list[str], optional
+            libraries to be used for dosimetry. The default is None.
             If a library is provided, this would be considered as dosimetry
             library and will be ignored during translation operations.
 
@@ -127,8 +127,8 @@ class LibManager:
             contains the libraries available for each code.
         reactions : dict[str, pd.DataFrame]
             contains the reactions data for the different activation libraries.
-        dosimetry_lib : str | None
-            Library considered as dosimetry. This is ignored
+        dosimetry_lib : list[str]
+            Libraries considered as dosimetry. These are ignored
             during translation operations.
 
         Returns
@@ -136,7 +136,10 @@ class LibManager:
         None.
 
         """
-        self.dosimetry_lib = dosimetry_lib
+        if dosimetry_lib is None:
+            self.dosimetry_lib = []
+        else:
+            self.dosimetry_lib = dosimetry_lib
 
         if xsdir_path is None:
             resources = files(pkg_res)
