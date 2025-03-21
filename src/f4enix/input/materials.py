@@ -545,11 +545,7 @@ class SubMaterial:
                 zaid.to_xml(libmanager, material)
 
     def translate(
-        self,
-        newlib: dict | str,
-        lib_manager: LibManager,
-        code: str = "mcnp",
-        update: bool = True,
+        self, newlib: dict | str, lib_manager: LibManager, code: str = "mcnp"
     ) -> None:
         """
         This method implements the translation logic of JADE. All zaids are
@@ -612,19 +608,24 @@ class SubMaterial:
             else:
                 newtag = newlib
 
-            try:
-                translation = lib_manager.convertZaid(
-                    zaid.element + zaid.isotope, newtag, code
-                )
-            except ValueError:
-                # No Available translation was found, ignore zaid
-                # Only video warning, to propagate to the log would be too much
-                print(
-                    "  WARNING: no available translation was found for "
-                    + zaid.name
-                    + ".\n  The zaid has been ignored. "
-                )
-                continue
+            # if it is a dosimetry library, the translation needs to be ignored
+            if zaid.library in lib_manager.dosimetry_lib:
+                # fake a 1to1 translation where the original suffix is retained
+                translation = {zaid.element + zaid.isotope: (zaid.library, 1, 1)}
+            else:
+                try:
+                    translation = lib_manager.convertZaid(
+                        zaid.element + zaid.isotope, newtag, code
+                    )
+                except ValueError:
+                    # No Available translation was found, ignore zaid
+                    # Only video warning, to propagate to the log would be too much
+                    print(
+                        "  WARNING: no available translation was found for "
+                        + zaid.name
+                        + ".\n  The zaid has been ignored. "
+                    )
+                    continue
 
             # Check if it is  atomic or mass fraction
             if float(zaid.fraction) < 0:
