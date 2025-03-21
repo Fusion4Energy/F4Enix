@@ -130,6 +130,14 @@ class TestSubmaterial:
         assert material.zaidList[2].library == "21c"
         assert material.zaidList[0].library == "00c"
 
+    def test_zaid_not_found(self):
+        txt = [
+            "C header",
+            "8001.31c        1     $ O-16   AB(%) 99.757",
+        ]
+        material = SubMaterial.from_text(txt)
+        material.translate("00c", LIBMAN)
+
 
 class TestMaterial:
     def test_natural_expansion(self):
