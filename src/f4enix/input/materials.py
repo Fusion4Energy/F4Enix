@@ -82,6 +82,7 @@ class Zaid:
         library: str,
         ab: str = "",
         fullname: str = "",
+        elem_mass_fraction: float | None = None,
     ) -> None:
         """
         Object representing a Zaid
@@ -100,6 +101,8 @@ class Zaid:
             abundance of the zaid in the material. The default is ''.
         fullname : str, optional
             formula name (e.g. H1). The default is ''.
+        elem_mass_fraction : float, optional
+            mass fraction of the element in the submaterial. The default is None
 
         Returns
         -------
@@ -119,6 +122,7 @@ class Zaid:
         self.library = library
         self.ab = ab
         self.fullname = fullname
+        self.elem_mass_fraction = elem_mass_fraction
 
         if self.library is None:
             self.name = self.element + self.isotope
@@ -182,12 +186,17 @@ class Zaid:
             abundance = "%s" % float("%.5g" % float(self.ab))
         except ValueError:
             abundance = ""
+        try:
+            mass_fraction = "%s" % float("%.5g" % float(self.elem_mass_fraction * 100))
+        except TypeError:
+            mass_fraction = ""
 
         abundance = "AB(%) " + abundance
+        weight = "WEIGHT(%) " + mass_fraction
         inline_comm = "    $ " + self.fullname
-        args = (zaidname, fraction, inline_comm, abundance)
+        args = (zaidname, fraction, inline_comm, weight, abundance)
 
-        return "{0:>15} {1:>18} {2:<12} {3:<10}".format(*args)
+        return "{0:>15} {1:>18} {2:<12} {3:<10} {4:<10}".format(*args)
 
     def to_xml(self, libmanager: LibManager, submaterial: SubMaterial) -> None:
         """Generate XML content for a nuclide within a material.
@@ -274,7 +283,7 @@ class Element:
         self.Z = zaid.element
         self.zaids = zaidList
 
-    def update_zaidinfo(self, libmanager: LibManager) -> None:
+    def update_zaidinfo(self, libmanager: LibManager, mass_fraction: float) -> None:
         """
         Update zaids infos through a libmanager. Info are the formula name and
         the abundance in the material.
@@ -283,6 +292,8 @@ class Element:
         ----------
         libmanager : libmanager.LibManager
             libmanager handling the libraries operations.
+        mass_fraction : float
+            mass fraction of the element in the submaterial.
 
         Returns
         -------
@@ -299,6 +310,7 @@ class Element:
             #            zaid.update_info(ab,fullname)
             zaid.ab = ab
             zaid.fullname = fullname
+            zaid.elem_mass_fraction = mass_fraction
 
     def get_fraction(self) -> float:
         """
@@ -653,7 +665,9 @@ class SubMaterial:
         self.zaidList = newzaids
         self._collapse_zaids()
 
-    def _update_info(self, lib_manager: LibManager) -> None:
+    def _update_info(
+        self, lib_manager: LibManager, element_mass_fractions: pd.Series
+    ) -> None:
         """
         This methods allows to update the in-line comments for every zaids
         containing additional information
@@ -662,6 +676,8 @@ class SubMaterial:
         ----------
         lib_manager : libmanager.LibManager
             Library manager for the conversion.
+        element_mass_fractions : pd.Series
+            Series containing the mass fractions of the elements in the submaterial.
 
         Returns
         -------
@@ -671,14 +687,17 @@ class SubMaterial:
         self._collapse_zaids()  # To be sure to have adjourned elements
 
         for elem in self.elements:
-            elem.update_zaidinfo(lib_manager)
+            fullname = Zaid.from_string(elem.Z + "000 -1").get_fullname(lib_manager)
+            element_name = fullname.split("-")[0]
+            mass_fraction = element_mass_fractions[element_name]
+            elem.update_zaidinfo(lib_manager, mass_fraction)
 
         # TODO
         # Here the zaidlist of the submaterial should be adjourned or the next
         # collapse zaid will cancel the informations. If update info is used
         # as last operations there are no problems.
 
-    def get_info(self, lib_manager: LibManager) -> tuple[pd.DataFrame]:
+    def get_info(self, lib_manager: LibManager) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Returns DataFrame containing the different fractions of the elements
         and zaids
@@ -897,8 +916,11 @@ class Material:
 
         submat = SubMaterial("", zaid_list)
         submat.translate(lib, libman)
-        submat._update_info(libman)
-        return cls(None, None, f"M{mat_id}", submaterials=[submat], header=f"C {name}")
+        material = cls(
+            None, None, f"M{mat_id}", submaterials=[submat], header=f"C {name}"
+        )
+        material._update_info(libman)
+        return material
 
     @classmethod
     def from_text(cls, text: list[str]) -> Material:
@@ -1080,8 +1102,14 @@ class Material:
 
         lib_manager: (LibManager) Library manager for the conversion
         """
-        for submaterial in self.submaterials:
-            submaterial._update_info(lib_manager)
+        fake_mat = copy.deepcopy(self)
+        fake_mat.switch_fraction("atom", lib_manager)
+        fake_mat.switch_fraction("mass", lib_manager)
+        _, df_elem = fake_mat.get_info(lib_manager)
+
+        for i, submaterial in enumerate(self.submaterials):
+            element_fractions = df_elem.loc[self.name, i + 1]["Sub-Material Fraction"]
+            submaterial._update_info(lib_manager, element_fractions)
 
     def switch_fraction(
         self, ftype: str, lib_manager: LibManager, inplace: bool = True
@@ -1137,7 +1165,10 @@ class Material:
                             newz.fraction = (-1 * zaid.fraction / atom_mass) / norm
                             new_zaids.append(newz)
                     new_submat.zaidList = new_zaids
-                    new_submat._update_info(lib_manager)
+                    # new_submat._update_info(lib_manager)
+                    # adjourn the element list
+                    new_submat._collapse_zaids()
+                    submat._collapse_zaids()
                     new_submats.append(new_submat)
             else:
                 new_submats = self.submaterials
@@ -1164,7 +1195,10 @@ class Material:
                             newz.fraction = (-1 * zaid.fraction * atom_mass) / norm
                             new_zaids.append(newz)
                     new_submat.zaidList = new_zaids
-                    new_submat._update_info(lib_manager)
+                    # adjourn the element list
+                    new_submat._collapse_zaids()
+                    submat._collapse_zaids()
+                    # new_submat._update_info(lib_manager)
                     new_submats.append(new_submat)
             else:
                 new_submats = self.submaterials
@@ -1172,7 +1206,7 @@ class Material:
         else:
             raise KeyError(ftype + " is not a valid key error [atom, mass]")
 
-        self._update_info(lib_manager)
+        # self._update_info(lib_manager)
 
         return new_submats
 
@@ -1234,6 +1268,96 @@ class Material:
         mass_number = 1 / mass_number_rec
 
         return tad * 1e24 / AVOGADRO_NUMBER * mass_number
+
+    def get_info(self, lib_manager: LibManager, zaids: bool = False):
+        """Get information on the fraction of the different elements and zaids contained
+        in the materials.
+
+        Parameters
+        ----------
+        lib_manager : LibManager
+            library manager to handle lib operations
+        zaids : bool, optional
+            If true the info is output also at zaid level, by default False
+
+        Returns
+        -------
+        df_complete: pd.DataFrame
+            detailed dataframe
+        df_elem: pd.DataFrame
+            dataframe grouped at element level
+        """
+        infos = []
+        complete_infos = []
+        submats_atom = self.switch_fraction("atom", lib_manager, inplace=False)
+        submats_mass = self.switch_fraction("mass", lib_manager, inplace=False)
+        i = 0
+        for submat, submat_a, submat_m in zip(
+            self.submaterials, submats_atom, submats_mass
+        ):
+            dic_el, dic_zaids = submat.get_info(lib_manager)
+            dic_el_a, dic_zaids_a = submat_a.get_info(lib_manager)
+            dic_el_m, dic_zaids_m = submat_m.get_info(lib_manager)
+
+            if zaids:
+                dic = dic_zaids
+                dic_a = dic_zaids_a
+                dic_m = dic_zaids_m
+            else:
+                dic = dic_el
+                dic_a = dic_el_a
+                dic_m = dic_el_m
+
+            dic["Material"] = self.name
+            dic["Submaterial"] = i + 1
+            infos.append(dic)
+
+            c_dic = copy.deepcopy(dic)
+            c_dic["Atom Fraction"] = dic_a["Fraction"]
+            c_dic["Mass Fraction"] = dic_m["Fraction"]
+            complete_infos.append(c_dic)
+
+            i = i + 1
+
+        df = pd.concat(infos)
+        df_complete = pd.concat(complete_infos)
+        del df_complete["Fraction"]
+
+        if zaids:
+            df.set_index(
+                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
+            )
+            df_complete.set_index(
+                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
+            )
+
+        else:
+            df.set_index(["Material", "Submaterial", "Element"], inplace=True)
+            df_complete.set_index(["Material", "Submaterial", "Element"], inplace=True)
+
+        # Additional df containing normalized element fraction of submaterial
+        # and material
+
+        # Get total fractions
+        df_elem = df.groupby(["Material", "Submaterial", "Element"]).sum()
+        df_sub = df.groupby(["Material", "Submaterial"]).sum()
+        df_mat = df.groupby(["Material"]).sum()
+
+        # Compute percentages
+        sub_percentage = []
+        mat_percentage = []
+        for idx, row in df_elem.iterrows():
+            matID = idx[0]
+            elemID = idx[1]
+            sub_percentage.append(
+                row["Fraction"] / df_sub["Fraction"].loc[(matID, elemID)]
+            )
+            mat_percentage.append(row["Fraction"] / df_mat["Fraction"].loc[matID])
+
+        df_elem["Sub-Material Fraction"] = sub_percentage
+        df_elem["Material Fraction"] = mat_percentage
+
+        return df_complete, df_elem
 
 
 class MatCardsList(Sequence):
@@ -1485,7 +1609,7 @@ class MatCardsList(Sequence):
             mat._update_info(lib_manager)
 
     def get_info(
-        self, lib_manager: LibManager, zaids: bool = False, complete: bool = True
+        self, lib_manager: LibManager, zaids: bool = False
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Get the material informations in terms of fraction and composition
@@ -1497,9 +1621,6 @@ class MatCardsList(Sequence):
             To handle element name recovering.
         zaids : bool, optional
             Consider or not the zaid level. The default is False.
-        complete: bool, optional
-            If True both the atom and mass fraction are given in the raw
-            table. The default is True.
 
         Returns
         -------
@@ -1510,81 +1631,17 @@ class MatCardsList(Sequence):
             material and submaterial.
 
         """
-        infos = []
-        complete_infos = []
+        df_list = []
+        df_elem_list = []
         for mat in self.materials:
-            submats_atom = mat.switch_fraction("atom", lib_manager, inplace=False)
-            submats_mass = mat.switch_fraction("mass", lib_manager, inplace=False)
-            i = 0
-            for submat, submat_a, submat_m in zip(
-                mat.submaterials, submats_atom, submats_mass
-            ):
-                dic_el, dic_zaids = submat.get_info(lib_manager)
-                dic_el_a, dic_zaids_a = submat_a.get_info(lib_manager)
-                dic_el_m, dic_zaids_m = submat_m.get_info(lib_manager)
+            df, df_elem = mat.get_info(lib_manager, zaids=zaids)
+            df_list.append(df)
+            df_elem_list.append(df_elem)
 
-                if zaids:
-                    dic = dic_zaids
-                    dic_a = dic_zaids_a
-                    dic_m = dic_zaids_m
-                else:
-                    dic = dic_el
-                    dic_a = dic_el_a
-                    dic_m = dic_el_m
+        df = pd.concat(df_list)
+        df_elem = pd.concat(df_elem_list)
 
-                dic["Material"] = mat.name
-                dic["Submaterial"] = i + 1
-                infos.append(dic)
-
-                c_dic = copy.deepcopy(dic)
-                c_dic["Atom Fraction"] = dic_a["Fraction"]
-                c_dic["Mass Fraction"] = dic_m["Fraction"]
-                complete_infos.append(c_dic)
-
-                i = i + 1
-
-        df = pd.concat(infos)
-        df_complete = pd.concat(complete_infos)
-        del df_complete["Fraction"]
-
-        if zaids:
-            df.set_index(
-                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
-            )
-            df_complete.set_index(
-                ["Material", "Submaterial", "Element", "Isotope"], inplace=True
-            )
-
-        else:
-            df.set_index(["Material", "Submaterial", "Element"], inplace=True)
-            df_complete.set_index(["Material", "Submaterial", "Element"], inplace=True)
-
-        # Additional df containing normalized element fraction of submaterial
-        # and material
-
-        # Get total fractions
-        df_elem = df.groupby(["Material", "Submaterial", "Element"]).sum()
-        df_sub = df.groupby(["Material", "Submaterial"]).sum()
-        df_mat = df.groupby(["Material"]).sum()
-
-        # Compute percentages
-        sub_percentage = []
-        mat_percentage = []
-        for idx, row in df_elem.iterrows():
-            matID = idx[0]
-            elemID = idx[1]
-            sub_percentage.append(
-                row["Fraction"] / df_sub["Fraction"].loc[(matID, elemID)]
-            )
-            mat_percentage.append(row["Fraction"] / df_mat["Fraction"].loc[matID])
-
-        df_elem["Sub-Material Fraction"] = sub_percentage
-        df_elem["Material Fraction"] = mat_percentage
-
-        if complete:
-            return df_complete, df_elem
-        else:
-            return df, df_elem
+        return df, df_elem
 
     def generate_material(
         self,
@@ -1651,7 +1708,6 @@ class MatCardsList(Sequence):
                 if fractiontype == "mass":
                     norm_factor = -norm_factor
                 submat.scale_fractions(norm_factor)
-                submat._update_info(libmanager)
                 # Add info to the header in order to back-trace the generation
                 submat.header = "C {}, submaterial {}\n{}".format(
                     materialname, j + 1, submat.header
@@ -1671,6 +1727,7 @@ class MatCardsList(Sequence):
         newmat = Material(
             None, None, mat_name, submaterials=submaterials, header=main_header
         )
+        newmat._update_info(libmanager)
 
         return newmat
 

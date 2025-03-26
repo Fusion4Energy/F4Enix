@@ -265,7 +265,10 @@ class TestInput:
         assert True
 
         # let's check also that abundances info is correctly added
-        assert "$ H-1    AB(%) 99.988" in newinput.materials.materials[0].to_text()
+        assert (
+            "$ H-1    WEIGHT(%) 100.0 AB(%) 99.988"
+            in newinput.materials.materials[0].to_text()
+        )
 
     def test_get_cells_by_id(self):
         cards = self.testInput.get_cells_by_id([1, 2])

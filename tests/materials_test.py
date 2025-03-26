@@ -1,14 +1,15 @@
 import os
-import pytest
+import re
 from copy import deepcopy
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
 
-from f4enix.input.materials import Element, Zaid, MatCardsList, Material, SubMaterial
-from f4enix.input.libmanager import LibManager
-from f4enix.input.MCNPinput import Input
+import pytest
+
 import f4enix.resources as pkg_res
 import tests.resources.materials as mat_res
-
+from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import Element, MatCardsList, Material, SubMaterial, Zaid
+from f4enix.input.MCNPinput import Input
 
 resources = files(mat_res)
 resources_pkg = files(pkg_res)
@@ -63,6 +64,25 @@ class TestZaid:
             assert zaid.isotope == res[2]
             assert zaid.library == res[3]
 
+    def test_to_text(self):
+        zaid = Zaid(
+            "-2.3",
+            "1",
+            "001",
+            "31c",
+        )
+        assert (
+            zaid.to_text().strip()
+            == "1001.31c       -2.300000E+0     $        WEIGHT(%)  AB(%)"
+        )
+        zaid.elem_mass_fraction = 0.1116316166
+        zaid.ab = 0.514343484384
+
+        assert (
+            zaid.to_text().strip()
+            == "1001.31c       -2.300000E+0     $        WEIGHT(%) 11.163 AB(%) 0.51434"
+        )
+
 
 class TestElement:
     zaid_strings = ["1001.31c   -1", "1002.31c   -3"]
@@ -86,7 +106,7 @@ class TestElement:
         elem.Z = "1"
 
         # Check the correct update of infos in element
-        elem.update_zaidinfo(LIBMAN)
+        elem.update_zaidinfo(LIBMAN, 0.5)
         res = [{"fullname": "H-1", "ab": 25}, {"fullname": "H-2", "ab": 75}]
         for zaid, checks in zip(elem.zaids, res):
             assert int(zaid.ab) == checks["ab"]
@@ -157,7 +177,7 @@ class TestMaterial:
         for matcard in [matcard1, matcard2]:
             # Fake translation in order to normalize the fractions
             material = matcard[0]
-            material._update_info(LIBMAN)
+            # material._update_info(LIBMAN)
             original = material.to_text()
 
             # -- Switch back and forth --
@@ -168,6 +188,8 @@ class TestMaterial:
             # switch to mass
             material.switch_fraction("mass", LIBMAN)
             mass = material.to_text()
+            # verify that they are indeed different
+            assert original != mass
             # change again, should do nothing
             material.switch_fraction("mass", LIBMAN)
             unchanged = material.to_text()
@@ -175,7 +197,7 @@ class TestMaterial:
             # go back to atom
             material.switch_fraction("atom", LIBMAN)
             atom = material.to_text()
-            # at last check that the inplace oprion works
+            # at last check that the inplace option works
             material.switch_fraction("mass", LIBMAN, inplace=False)
             inplace = material.to_text()
             assert inplace == atom
@@ -235,9 +257,7 @@ class TestMaterial:
             (7000, -0.4),
         ]
         mat = Material.from_zaids(zaids, LIBMAN, "31c", "header")
-        assert (
-            mat.to_text()
-            == """C header
+        txt = """C header
 M1
        1001.31c       -4.698638E+0     $ H-1    AB(%) 99.971
        1002.31c       -1.361756E-3     $ H-2    AB(%) 0.028974
@@ -259,7 +279,7 @@ M1
       26058.31c       -2.340355E-4     $ Fe-58  AB(%) 0.29254
        7014.31c       -3.983744E-1     $ N-14   AB(%) 99.594
        7015.31c       -1.625644E-3     $ N-15   AB(%) 0.40641"""
-        )
+        compare_without_dollar_comments(txt, mat.to_text())
 
     def test_get_tad(self):
         with as_file(resources.joinpath("tad_test.i")) as inp:
@@ -308,6 +328,29 @@ M1
                 pytest.approx(mat_card.get_density(tads[mat], libman), 1e-4)
                 == dens_mats[mat]
             )
+
+    def test_get_info(self):
+        txt = [
+            "C header",
+            "8016.31c        1.333870E-2     $ O-16   AB(%) 99.757",
+            "8017.31c        5.081060E-6     $ O-17   AB(%) 0.038",
+            "8018.31c        2.741100E-5     $ O-18   AB(%) 0.205",
+        ]
+        submat1 = SubMaterial.from_text(txt)
+        txt = ["C header", "1001.31c  1e-2", "8016.31c  1e-2"]
+        submat2 = SubMaterial.from_text(txt)
+        material = Material(None, None, "M1", submaterials=[submat1, submat2])
+        lm = LibManager()
+        df, df_elem = material.get_info(lib_manager=lm, zaids=True)
+        assert df.iloc[0]["Atom Fraction"] != df.iloc[0]["Mass Fraction"]
+
+    def test_update_info(self):
+        libman = LibManager()
+        material = Material.from_zaids([(1000, 1), (56000, 1)], libman, "31c")
+        assert (
+            "1001.31c        9.998550E-1     $ H-1    WEIGHT(%) 0.72865 AB(%) 99.986"
+            in material.to_text()
+        )
 
 
 class TestMatCardList:
@@ -442,7 +485,7 @@ class TestMatCardList:
         matcard1 = deepcopy(inp_matcard1)
         matcard2 = deepcopy(inp_matcard2)
         for matcard in [matcard1, matcard2]:
-            df, df_elem = matcard.get_info(LIBMAN, zaids=True, complete=True)
+            df, df_elem = matcard.get_info(LIBMAN, zaids=True)
             assert len(df) == 8
             assert len(df_elem) == 7
 
@@ -463,7 +506,7 @@ class TestMatCardList:
             for line in infile:
                 text_A = text_A + line
 
-        assert text_A == newmat.to_text()
+        compare_without_dollar_comments(text_A, newmat.to_text())
 
         # using mass fraction
         fraction_type = "mass"
@@ -476,4 +519,14 @@ class TestMatCardList:
             for line in infile:
                 text_B = text_B + line
 
-        assert text_B == newmat.to_text()
+        compare_without_dollar_comments(text_B, newmat.to_text())
+
+
+def compare_without_dollar_comments(text_A: str, text_B: str):
+    # strip all dollars
+    pattern = re.compile(r"\$.*?\n")
+    newtextA = pattern.sub("", text_A)
+    newtextA = newtextA.split("$")[0]
+    newtextB = pattern.sub("", text_B)
+    newtextB = newtextB.split("$")[0]
+    assert newtextA == newtextB
