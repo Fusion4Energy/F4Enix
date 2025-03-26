@@ -521,6 +521,25 @@ class TestMatCardList:
 
         compare_without_dollar_comments(text_B, newmat.to_text())
 
+    def test_fractions_to_atom_density(self):
+        matcard = deepcopy(inp3_matcard2)
+        density = 2
+
+        submats = matcard["m1"].switch_fraction("mass", LIBMAN, inplace=False)
+        newmat = Material(None, None, "", submaterials=submats)
+        submats = newmat.switch_fraction("atom", LIBMAN, inplace=False)
+        fraction = submats[0].zaidList[0].fraction
+
+        tad = matcard["m1"].get_tad(density, LIBMAN)
+
+        matcard.fractions_to_atom_densities(LIBMAN, density)
+
+        assert (
+            pytest.approx(matcard["m1"].submaterials[0].zaidList[0].fraction)
+            == fraction * tad
+        )
+        assert matcard["m1"].submaterials[0].zaidList[1].fraction > 0
+
 
 def compare_without_dollar_comments(text_A: str, text_B: str):
     # strip all dollars

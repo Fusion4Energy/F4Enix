@@ -1359,6 +1359,33 @@ class Material:
 
         return df_complete, df_elem
 
+    def fractions_to_atom_densities(
+        self, lib_manager: LibManager, density: float
+    ) -> None:
+        """Given a specific mass density of the material, replace the atom fractions
+        in the material with un-normalized atom fractions which correspond to the
+        zaid atom densitiy in the material.
+
+        This is obtained multiplying the normalized atom fraction of each zaid by the
+        total atomic density of the material.
+
+        Parameters
+        ----------
+        lib_manager : LibManager
+            Library manager for the conversion.
+        density : float
+            mass density of the material in g/cm^3.
+        """
+        # force a double switch towards atom fractions
+        self.switch_fraction("mass", lib_manager, inplace=True)
+        self.switch_fraction("atom", lib_manager, inplace=True)
+        tad = self.get_tad(density, lib_manager)
+        for submat in self.submaterials:
+            for zaid in submat.zaidList:
+                zaid.fraction = zaid.fraction * tad
+            submat._collapse_zaids()
+        self._update_info(lib_manager)
+
 
 class MatCardsList(Sequence):
     def __init__(self, materials: list[Material]) -> None:
@@ -1730,6 +1757,26 @@ class MatCardsList(Sequence):
         newmat._update_info(libmanager)
 
         return newmat
+
+    def fractions_to_atom_densities(
+        self, lib_manager: LibManager, density: float
+    ) -> None:
+        """Given a specific mass density of the material, replace the atom fractions
+        in the material with un-normalized atom fractions which correspond to the
+        zaid atom densitiy in the material.
+
+        This is obtained multiplying the normalized atom fraction of each zaid by the
+        total atomic density of the material.
+
+        Parameters
+        ----------
+        lib_manager : LibManager
+            Library manager for the conversion.
+        density : float
+            mass density of the material in g/cm^3.
+        """
+        for material in self.materials:
+            material.fractions_to_atom_densities(lib_manager, density)
 
 
 @contextmanager
