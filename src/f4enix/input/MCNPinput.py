@@ -1700,7 +1700,9 @@ class Input:
         # need to do the check for strings since there may be asterisks
         for i in range:
             for j in used_index:
-                if str(i) in j:  # that's for the asterisk problem
+                index = j.replace("*", "")
+                index = index.replace("+", "")
+                if str(i) == index:
                     return False
         return True
 

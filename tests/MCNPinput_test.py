@@ -48,6 +48,10 @@ class TestInput:
         assert inp.check_range(range(1000, 10010))
         assert not inp.check_range([1, 1e4])
 
+        assert not inp.check_range([89], who="surf")
+        assert inp.check_range([360], who="surf")
+        assert not inp.check_range([1360], who="surf")
+
     def test_cell_property(self):
         inp = deepcopy(self.testInput)
         # verify that the name and values have been changed
@@ -240,7 +244,7 @@ class TestInput:
         # check some macro properties
         assert inp.header[0].strip("\n").strip("\r") == "This is the header"
         assert len(inp.cells) == 128
-        assert len(inp.surfs) == 129
+        assert len(inp.surfs) == 130
         assert len(inp.materials) == 25
         assert len(inp.tally_keys) == 7
         assert len(inp.fmesh_keys) == 5
