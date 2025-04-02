@@ -313,6 +313,7 @@ c 111  cz 1385.03
 c 54   cz 1389.5
 *128   pz  1000.0
 *129   pz -1000.0
+1360   pz -2000
 c  57   so  3000
 c   --------- END of surface section
 

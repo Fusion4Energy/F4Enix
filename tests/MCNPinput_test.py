@@ -48,6 +48,9 @@ class TestInput:
         assert inp.check_range(range(1000, 10010))
         assert not inp.check_range([1, 1e4])
 
+        assert not inp.check_range([89], who="surf")
+        assert inp.check_range([360], who="surf")
+
     def test_cell_property(self):
         inp = deepcopy(self.testInput)
         # verify that the name and values have been changed
