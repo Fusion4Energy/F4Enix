@@ -1,16 +1,16 @@
 import os
 import re
+from importlib.resources import as_file, files
+
 import pytest
 import pyvista as pv
-from importlib.resources import files, as_file
-
-from f4enix.output.meshtal import Meshtal
-from f4enix.output.meshtal import identical_mesh
-from f4enix.input.MCNPinput import Input
 from numjuggler import parser
+
 import tests.resources.meshtal as resources
-import tests.resources.meshtal.tests as res
 import tests.resources.meshtal.expected as res_exp
+import tests.resources.meshtal.tests as res
+from f4enix.input.MCNPinput import Input
+from f4enix.output.meshtal import Meshtal, identical_mesh
 
 resources_write = files(res)
 expected = files(res_exp)
@@ -288,7 +288,7 @@ class TestMeshtal:
         meshtal.readMesh()
         meshtal.transform_fmesh(input_file)
         meshtal.write_all(tmpdir)
-        assert meshtal.mesh[2024].grid.bounds == (
+        assert tuple(meshtal.mesh[2024].grid.bounds) == (
             567.0,
             573.0,
             47.0,
@@ -296,8 +296,8 @@ class TestMeshtal:
             387.0,
             393.0,
         )
-        assert meshtal.mesh[2024].grid.center == [570.0, 50.0, 390.0]
-        assert meshtal.mesh[2024].grid.bounds == (
+        assert tuple(meshtal.mesh[2024].grid.center) == (570.0, 50.0, 390.0)
+        assert tuple(meshtal.mesh[2024].grid.bounds) == (
             567.0,
             573.0,
             47.0,
@@ -305,10 +305,10 @@ class TestMeshtal:
             387.0,
             393.0,
         )
-        assert meshtal.mesh[2124].grid.center == [0.0, 0.0, 0.0]
+        assert tuple(meshtal.mesh[2124].grid.center) == (0.0, 0.0, 0.0)
         assert pytest.approx(meshtal.mesh[2124].grid.bounds[0], 1e-5) == -3.845138
-        assert meshtal.mesh[2224].grid.center == [1.0, 1.0, 1.0]
-        assert meshtal.mesh[2224].grid.bounds == (
+        assert tuple(meshtal.mesh[2224].grid.center) == (1.0, 1.0, 1.0)
+        assert tuple(meshtal.mesh[2224].grid.bounds) == (
             -2.0,
             4.0,
             -2.0,
@@ -316,6 +316,6 @@ class TestMeshtal:
             -2.0,
             4.0,
         )
-        assert meshtal.mesh[2324].grid.center == [10.0, 10.0, 10.0]
+        assert tuple(meshtal.mesh[2324].grid.center) == (10.0, 10.0, 10.0)
         assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == 6.52463
         meshtal.write_all(tmpdir)
