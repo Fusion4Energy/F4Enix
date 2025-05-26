@@ -94,6 +94,34 @@ class TestIrradiationFile:
         assert irrfile.irr_schedules[0].daughter == "24051"
         assert irrfile.irr_schedules[1].daughter == "26055"
 
+    def test_multiple_irradiations(self, tmpdir):
+        """
+        Test multiple irradiation lines
+        """
+        with as_file(RESOURCES.joinpath("irr_test")) as inp:
+            irrfile = IrradiationFile.from_text(inp)
+
+        new_times = {
+            "24051": ["5.982e+00", "5.697e+00"],
+            "25054": ["5.881e+00", "1.829e+00"],
+            "26055": ["4.487e+00", "6.364e-01"],
+            "26059": ["6.645e+00", "5.651e+00"],
+            "27062": ["1.336e+00", "4.151e-01"],
+            "27062900": ["4.151e-01", "4.151e-01"],
+        }
+        irrfile.add_irradiation_times(new_times)
+
+        assert irrfile.nsc == 4
+        irrfile.write(tmpdir)
+
+        new_irrfile_path = os.path.join(tmpdir, "irrad")
+        new_irrfile = IrradiationFile.from_text(new_irrfile_path)
+        assert new_irrfile.nsc == 4
+        assert new_irrfile.irr_schedules[0].times[-1] == "5.697e+00"
+        new_irrfile.remove_irradiation_time(3)
+        assert new_irrfile.nsc == 3
+        assert new_irrfile.irr_schedules[0].times[-1] == "5.982e+00"
+
 
 class TestIrradiation:
 

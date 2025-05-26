@@ -105,20 +105,26 @@ class IrradiationFile:
         self.header = header
         self.formatting = formatting
 
+        self._update_irrformat()  # Update the irradiation format string
+
+        self.name = name
+
+    def _update_irrformat(self) -> None:
+        """
+        Update the irradiation format string (_irrformat) based on self.nsc and self.formatting.
+        """
         # Compute irradiation header
-        w1 = str(formatting[0])
-        w2 = str(formatting[1])
-        w3 = str(formatting[2])
-        w4 = str(formatting[3])
+        w1 = str(self.formatting[0])
+        w2 = str(self.formatting[1])
+        w3 = str(self.formatting[2])
+        w4 = str(self.formatting[3])
 
         head = "{:>" + w1 + "s}{:>" + w2 + "s}{:>"
-        for i in range(nsc):
+        for _ in range(self.nsc):
             head += w3 + "s}{:>"
 
         head += w4 + "s}"
-
         self._irrformat = head
-        self.name = name
 
     def get_daughters(self) -> list[str]:
         """
@@ -207,7 +213,7 @@ class IrradiationFile:
 
         return cls(nsc, irr_schedules, header=header)
 
-    def write(self, path: os.PathLike, format: bool) -> None:
+    def write(self, path: os.PathLike) -> None:
         """
         Write the D1S irradiation file
 
@@ -243,14 +249,7 @@ class IrradiationFile:
             # write schedules
             for schedule in self.irr_schedules:
                 args = schedule._get_format_args()
-                if (format):
-                    outfile.write(self._irrformat.format(*args) + "\n")
-                else:
-                    # write the unformatted text
-                    fmt = ""
-                    for s in args:
-                        fmt += "{:<" + str(len(str(s)) + 1) + "}"
-                    outfile.write(fmt.format(*args) + "\n")
+                outfile.write(self._irrformat.format(*args) + "\n")
 
         logging.info("Irradiation file written at {}".format(outfile))
 
@@ -279,6 +278,87 @@ class IrradiationFile:
         self.irr_schedules = new_irradiations
         return ans
 
+    def add_irradiation_times(self, times_dict: dict[str, list[str]]) -> None:
+        """
+        Add irradiation times to all daughters.
+
+        Parameters
+        ----------
+        times_dict : dict[str, list[str]]
+            A dictionary where keys are daughter ZAIDs (strings) and values are
+            lists of time correction factors to be added.
+
+        Updates
+        -------
+        self.nsc : int
+            Updates the number of irradiation schedules to reflect the new maximum
+            number of time correction factors.
+
+        Raises
+        ------
+        ValueError
+            If the lengths of the times lists are not equal after adding.
+        """
+
+        # Ensure all daughters in `self.irr_schedules` have a corresponding entry in `times_dict`
+        for irradiation in self.irr_schedules:
+            if irradiation.daughter not in times_dict:
+                raise KeyError(
+                    f"No cooling times provided for daughter {irradiation.daughter}."
+                )
+
+        for irradiation in self.irr_schedules:
+            if irradiation.daughter in times_dict:
+                # Add the new times to the existing ones
+                irradiation.times.extend(times_dict[irradiation.daughter])
+
+        # Ensure all times lists have the same length
+        max_length = max(len(irradiation.times) for irradiation in self.irr_schedules)
+        for irradiation in self.irr_schedules:
+            if len(irradiation.times) != max_length:
+                raise ValueError(
+                    "All times lists must have the same length. "
+                    f"Irradiation for daughter {irradiation.daughter} has a different length."
+                )
+
+        # Update the number of schedules (nsc)
+        self.nsc = max_length
+
+        # Update the irradiation format
+        self._update_irrformat()
+
+    def remove_irradiation_time(self, index: int) -> None:
+        """
+        Remove a time correction factor from all daughters by index.
+
+        Parameters
+        ----------
+        index : int
+            The index of the time correction factor to be removed.
+
+        Raises
+        ------
+        IndexError
+            If the provided index is out of range for any daughter's times list.
+        """
+        for irradiation in self.irr_schedules:
+            if index < 0 or index >= len(irradiation.times):
+                raise IndexError(
+                    f"Index {index} is out of range for daughter {irradiation.daughter}."
+                )
+            # Remove the time correction factor at the specified index
+            irradiation.times.pop(index)
+
+        # Update the number of schedules (nsc) to reflect the new maximum length
+        self.nsc = (
+            max(len(irradiation.times) for irradiation in self.irr_schedules)
+            if self.irr_schedules
+            else 0
+        )
+
+        # Update the irradiation format
+        self._update_irrformat()
+
 
 class Irradiation:
     def __init__(
@@ -306,7 +386,7 @@ class Irradiation:
             additional '900' appended to the zaid number.
         lambd : str
             disintegration constant [1/s].
-        times : list of strings
+        _times : list of strings
             time correction factors.
         comment : str, optional
             comment to the irradiation. The default is None.
@@ -318,8 +398,22 @@ class Irradiation:
         """
         self.daughter = daughter
         self.lambd = lambd
-        self.times = times
+        self._times = times
         self.comment = comment
+
+    @property
+    def times(self) -> list[str]:
+        """Get the time correction factors."""
+        return self._times
+
+    @times.setter
+    def times(self, value: list[str]) -> None:
+        """Set the time correction factors."""
+        if not isinstance(value, list):
+            raise TypeError("times must be a list of strings")
+        if not all(isinstance(t, str) for t in value):
+            raise ValueError("All elements in times must be strings")
+        self._times = value
 
     def __eq__(self, other) -> bool:
         """
@@ -405,7 +499,9 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(self.daughter, self.lambd, self.times, self.comment)
+""".format(
+            self.daughter, self.lambd, self.times, self.comment
+        )
 
         return text
 
@@ -666,7 +762,9 @@ parent: {}
 MT channel: {}
 daughter: {}
 comment: {}
-""".format(self.parent, self.MT, self.daughter, self.comment)
+""".format(
+            self.parent, self.MT, self.daughter, self.comment
+        )
         return text
 
     @classmethod
