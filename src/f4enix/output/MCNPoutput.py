@@ -39,6 +39,7 @@ TOTAL_LP = "particles got lost"
 # -- Patterns --
 PAT_NPS_LINE = re.compile(r" source")
 PAT_WARNING = re.compile(r"warning\.")
+PAT_FATAL = re.compile(r"[\s\t]+fatal error")
 
 STAT_CHECKS_COLUMNS = [
     "TFC bin behaviour",
@@ -712,3 +713,19 @@ class Output:
 
         df = pd.DataFrame(warnings, columns=["Warning"])
         return df.groupby("Warning").size()
+
+    def get_fatal_errors(self) -> list[str]:
+        """Get the fatal errors from the output file.
+
+        Returns
+        -------
+        list[str]
+            list of fatal errors
+        """
+        fatal_errors = []
+        for line in self.lines:
+            if PAT_FATAL.match(line):
+                error = line.split("fatal error.")[-1].strip()
+                fatal_errors.append(error)
+
+        return fatal_errors
