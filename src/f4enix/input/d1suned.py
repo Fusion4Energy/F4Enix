@@ -310,7 +310,7 @@ class IrradiationFile:
         for irradiation in self.irr_schedules:
             if irradiation.daughter in times_dict:
                 # Add the new times to the existing ones
-                irradiation.times.extend(times_dict[irradiation.daughter])
+                irradiation._times.extend(times_dict[irradiation.daughter])
 
         # Ensure all times lists have the same length
         max_length = max(len(irradiation.times) for irradiation in self.irr_schedules)
@@ -347,7 +347,7 @@ class IrradiationFile:
                     f"Index {index} is out of range for daughter {irradiation.daughter}."
                 )
             # Remove the time correction factor at the specified index
-            irradiation.times.pop(index)
+            irradiation._times.pop(index)
 
         # Update the number of schedules (nsc) to reflect the new maximum length
         self.nsc = (
@@ -402,18 +402,9 @@ class Irradiation:
         self.comment = comment
 
     @property
-    def times(self) -> list[str]:
-        """Get the time correction factors."""
-        return self._times
-
-    @times.setter
-    def times(self, value: list[str]) -> None:
-        """Set the time correction factors."""
-        if not isinstance(value, list):
-            raise TypeError("times must be a list of strings")
-        if not all(isinstance(t, str) for t in value):
-            raise ValueError("All elements in times must be strings")
-        self._times = value
+    def times(self) -> tuple[str, ...]:
+        """Get the time correction factors as an immutable tuple."""
+        return tuple(self._times)
 
     def __eq__(self, other) -> bool:
         """
@@ -437,6 +428,28 @@ class Irradiation:
             return condition
         else:
             return False
+
+    def modify_value(self, index: int, new_value: float) -> None:
+        """
+        Modify a value in the times list at the specified index.
+
+        Parameters
+        ----------
+        index : int
+            The index of the value to be modified.
+        new_value : float
+            The new value to be assigned, which will be converted to a string.
+
+        Raises
+        ------
+        IndexError
+            If the provided index is out of range for the times list.
+        """
+        if index < 0 or index >= len(self._times):
+            raise IndexError(f"Index {index} is out of range for the times list.")
+
+        # Convert the new value to a string and assign it to the specified index
+        self._times[index] = f"{new_value:.3e}"  # Format as scientific notation
 
     @classmethod
     def from_text(cls, text: str, nsc: int) -> Irradiation:

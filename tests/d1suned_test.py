@@ -121,6 +121,8 @@ class TestIrradiationFile:
         new_irrfile.remove_irradiation_time(3)
         assert new_irrfile.nsc == 3
         assert new_irrfile.irr_schedules[0].times[-1] == "5.982e+00"
+        irrfile.irr_schedules[0].modify_value(3, 4.56)
+        assert float(irrfile.irr_schedules[0].times[3]) == 4.56
 
 
 class TestIrradiation:
