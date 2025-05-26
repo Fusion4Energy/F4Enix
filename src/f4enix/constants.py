@@ -26,6 +26,10 @@ and limitations under the Licence.
 """
 
 import re
+from pathlib import Path
+
+# --- Typing ---
+PathLike = Path | str
 
 # --- PATTERNS ---
 PAT_BREAK = re.compile(r"[\s\t]*\n")
