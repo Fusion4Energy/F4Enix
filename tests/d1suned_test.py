@@ -123,7 +123,7 @@ class TestIrradiationFile:
             irrfile.add_irradiation_times(invalid_key_times)
 
         # Test for ValueError when lists of different lengths are provided
-        new_times = {
+        extra_times = {
             "24051": ["5.982e+00", "5.697e+00"],
             "25054": ["5.881e+00", "1.829e+00"],
             "26055": ["4.487e+00", "6.364e-01"],
@@ -135,7 +135,7 @@ class TestIrradiationFile:
             ValueError,
             match="All input time correction factor lists in `times_dict` must have the same length.",
         ):
-            irrfile.add_irradiation_times(new_times)
+            irrfile.add_irradiation_times(extra_times)
 
         new_times = {
             "24051": ["5.982e+00", "5.697e+00"],
