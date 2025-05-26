@@ -1745,7 +1745,7 @@ class MatCardsList(Sequence):
 
             # Change the header of the first submaterial to include the mat. 1
             new_sub_header = (
-                str(material.header) + "\n" + current_submaterials[0].header
+                str(material.header).strip("\n") + "\n" + current_submaterials[0].header
             ).strip("\n")
             current_submaterials[0].header = new_sub_header
             submaterials.extend(current_submaterials)
