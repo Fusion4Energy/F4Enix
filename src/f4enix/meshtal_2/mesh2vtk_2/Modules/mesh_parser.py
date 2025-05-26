@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .FMesh import FMesh, MeshData
@@ -16,13 +17,30 @@ from .functions.read_functions import (
 from .functions.utils import myOpen
 
 
-class MeshtalParser:
+class Parser(ABC):
+    @abstractmethod
+    def __init__(self, filename: str | Path): ...
+
+    @abstractmethod
+    def get_meshlist(self) -> tuple: ...
+
+    @abstractmethod
+    def get_FMesh(self, tally) -> FMesh: ...
+
+    @abstractmethod
+    def get_boundaries(self, tally): ...
+
+    @abstractmethod
+    def get_header(self, tally): ...
+
+
+class MeshtalParser(Parser):
     """read meshtal formatted file (support block, column or CuV format)."""
 
     def __init__(self, filename: str | Path):
-        self._filename = filename
-        self._fic = myOpen(filename, "r")
-        self._tallyPos = scan_meshfile(self.fic)
+        self.filename = filename
+        self.fic = myOpen(filename, "r")
+        self.tallyPos = scan_meshfile(self.fic)
 
     def get_meshlist(self) -> tuple:
         """return list of mesh stored in the meshtal"""
@@ -79,10 +97,10 @@ class MeshtalParser:
         return particle, comments
 
 
-class CUVMeshParser:
+class CUVMeshParser(Parser):
     """read CUV formatted file."""
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str | Path):
         self.filename = filename
         self.fic = myOpen(filename, "r")
         self.tallyPos = scan_cuvfile(self.fic)
@@ -142,10 +160,10 @@ class CUVMeshParser:
         return particle, comments
 
 
-class CDGSMeshParser:
+class CDGSMeshParser(Parser):
     """read CDGS formatted file."""
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str | Path):
         self.filename = filename
         self.fic = myOpen(filename, "r")
         self.srcmeshPos = scan_cdgsfile(self.fic)

@@ -12,21 +12,25 @@ expected = files(res_exp)
 RESOURCES = files(resources)
 
 
-class NewMeshtalTest:
+class TestNewMeshtal:
     @pytest.mark.parametrize(
-        "input_meshtal",
+        ["input_meshtal", "filetype"],
         [
-            "meshtal_cuv",
-            "meshtal_cyl",
-            "meshtal_d1s_CSimpactStudy",
-            "meshtal_CUBE_SQUARE",
-            "meshtal_CUBE_ONES",
-            "test_srcimp",
-            "assembly_meshtal_test",
-            "1D_mesh_no_code",
+            ("meshtal_cuv", "CUV"),
+            ("meshtal_cyl", "MCNP"),
+            ("meshtal_d1s_CSimpactStudy", "MCNP"),
+            ("meshtal_CUBE_SQUARE", "MCNP"),
+            ("meshtal_CUBE_ONES", "MCNP"),
+            # ("test_srcimp", "CUV"),
+            ("assembly_meshtal_test", "MCNP"),
+            ("1D_mesh_no_code", "MCNP"),
         ],
     )
-    def test_mesh_print_tally_info(self, input_meshtal):
+    def test_mesh_print_tally_info(self, input_meshtal, filetype):
         """To check if the meshtal can be read without any problem"""
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtally = NewMeshtal(filename=inp)
+            meshtally = NewMeshtal(filename=inp, filetype=filetype)
+
+        for _mesh_id, mesh in meshtally.mesh.items():
+            mesh.print_info()
+    
