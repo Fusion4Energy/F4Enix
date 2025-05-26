@@ -100,7 +100,7 @@ class IrradiationFile:
         None.
 
         """
-        self.nsc = nsc
+        self._nsc = nsc
         self.irr_schedules = irr_schedules
         self.header = header
         self.formatting = formatting
@@ -108,6 +108,11 @@ class IrradiationFile:
         self._update_irrformat()  # Update the irradiation format string
 
         self.name = name
+
+    @property
+    def nsc(self) -> int:
+        """Get the number of irradiation schedules."""
+        return self._nsc
 
     def _update_irrformat(self) -> None:
         """
@@ -222,9 +227,6 @@ class IrradiationFile:
         path : os.PathLike
             output path where to save the file (only directory). self.name will
             be used as output file name
-        format : bool
-            if True, the file will be formatted using the formatting
-            attributes. If False, the file will be written as it is.
 
         Returns
         -------
@@ -280,7 +282,13 @@ class IrradiationFile:
 
     def add_irradiation_times(self, times_dict: dict[str, list[str]]) -> None:
         """
-        Add irradiation times to all daughters.
+        Add irradiation times to all daughters in the irradiation schedules.
+
+        This method updates the time correction factors for each daughter in the
+        irradiation schedules by appending the new times provided in the `times_dict`.
+        It ensures that all daughters have the same number of time correction factors
+        after the update. If the lengths of the time correction factors are inconsistent,
+        an error is raised.
 
         Parameters
         ----------
@@ -288,41 +296,43 @@ class IrradiationFile:
             A dictionary where keys are daughter ZAIDs (strings) and values are
             lists of time correction factors to be added.
 
-        Updates
-        -------
-        self.nsc : int
-            Updates the number of irradiation schedules to reflect the new maximum
-            number of time correction factors.
-
         Raises
         ------
         ValueError
             If the lengths of the times lists are not equal after adding.
         """
-
+        # Ensure all input time correction factor lists in `times_dict` are of the same length
+        input_lengths = {len(times) for times in times_dict.values()}
+        if len(input_lengths) > 1:
+            raise ValueError(
+                "All input time correction factor lists in `times_dict` must have the same length."
+            )
         # Ensure all daughters in `self.irr_schedules` have a corresponding entry in `times_dict`
-        for irradiation in self.irr_schedules:
-            if irradiation.daughter not in times_dict:
+        daughters_in_schedules = {
+            irradiation.daughter for irradiation in self.irr_schedules
+        }
+        # Ensure there are no extra keys in `times_dict` that are not in the daughters
+        for key in times_dict:
+            if key not in daughters_in_schedules:
                 raise KeyError(
-                    f"No cooling times provided for daughter {irradiation.daughter}."
+                    f"Invalid key '{key}' provided. It does not match any daughter."
                 )
 
+        for daughter in daughters_in_schedules:
+            if daughter not in times_dict:
+                raise KeyError(
+                    f"No time correction factors provided for daughter {daughter}."
+                )
+
+        # Add the new times to each daughter
         for irradiation in self.irr_schedules:
-            if irradiation.daughter in times_dict:
-                # Add the new times to the existing ones
-                irradiation._times.extend(times_dict[irradiation.daughter])
+            irradiation._times.extend(times_dict[irradiation.daughter])
 
         # Ensure all times lists have the same length
         max_length = max(len(irradiation.times) for irradiation in self.irr_schedules)
-        for irradiation in self.irr_schedules:
-            if len(irradiation.times) != max_length:
-                raise ValueError(
-                    "All times lists must have the same length. "
-                    f"Irradiation for daughter {irradiation.daughter} has a different length."
-                )
 
         # Update the number of schedules (nsc)
-        self.nsc = max_length
+        self._nsc = max_length
 
         # Update the irradiation format
         self._update_irrformat()
@@ -350,11 +360,7 @@ class IrradiationFile:
             irradiation._times.pop(index)
 
         # Update the number of schedules (nsc) to reflect the new maximum length
-        self.nsc = (
-            max(len(irradiation.times) for irradiation in self.irr_schedules)
-            if self.irr_schedules
-            else 0
-        )
+        self._nsc = self._nsc - 1
 
         # Update the irradiation format
         self._update_irrformat()
@@ -386,7 +392,7 @@ class Irradiation:
             additional '900' appended to the zaid number.
         lambd : str
             disintegration constant [1/s].
-        _times : list of strings
+        times : list of strings
             time correction factors.
         comment : str, optional
             comment to the irradiation. The default is None.
@@ -429,7 +435,7 @@ class Irradiation:
         else:
             return False
 
-    def modify_value(self, index: int, new_value: float) -> None:
+    def modify_time_val(self, index: int, new_value: float) -> None:
         """
         Modify a value in the times list at the specified index.
 

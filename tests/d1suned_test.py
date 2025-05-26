@@ -101,6 +101,42 @@ class TestIrradiationFile:
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
             irrfile = IrradiationFile.from_text(inp)
 
+        # Test for KeyError when a daughter is missing in times_dict
+        missing_key_times = {
+            "24051": ["5.982e+00", "5.697e+00"],
+            "26055": ["4.487e+00", "6.364e-01"],
+            # Missing "25054" and other daughters
+        }
+        with pytest.raises(KeyError, match="No time correction factors provided"):
+            irrfile.add_irradiation_times(missing_key_times)
+
+        # Test for KeyError when an invalid key is provided in times_dict
+        invalid_key_times = {
+            "24051": ["5.982e+00", "5.697e+00"],
+            "25054": ["5.881e+00", "1.829e+00"],
+            "99999": ["4.487e+00", "6.364e-01"],  # Invalid key
+        }
+        with pytest.raises(
+            KeyError,
+            match="Invalid key '99999' provided. It does not match any daughter.",
+        ):
+            irrfile.add_irradiation_times(invalid_key_times)
+
+        # Test for ValueError when lists of different lengths are provided
+        new_times = {
+            "24051": ["5.982e+00", "5.697e+00"],
+            "25054": ["5.881e+00", "1.829e+00"],
+            "26055": ["4.487e+00", "6.364e-01"],
+            "26059": ["6.645e+00", "5.651e+00"],
+            "27062": ["1.336e+00", "4.151e-01"],
+            "27062900": ["4.151e-01", "4.151e-01", "1.0e+00"],  # Extra value
+        }
+        with pytest.raises(
+            ValueError,
+            match="All input time correction factor lists in `times_dict` must have the same length.",
+        ):
+            irrfile.add_irradiation_times(new_times)
+
         new_times = {
             "24051": ["5.982e+00", "5.697e+00"],
             "25054": ["5.881e+00", "1.829e+00"],
@@ -121,7 +157,7 @@ class TestIrradiationFile:
         new_irrfile.remove_irradiation_time(3)
         assert new_irrfile.nsc == 3
         assert new_irrfile.irr_schedules[0].times[-1] == "5.982e+00"
-        irrfile.irr_schedules[0].modify_value(3, 4.56)
+        irrfile.irr_schedules[0].modify_time_val(3, 4.56)
         assert float(irrfile.irr_schedules[0].times[3]) == 4.56
 
 
