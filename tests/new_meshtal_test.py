@@ -30,7 +30,7 @@ class TestNewMeshtal:
         """To check if the meshtal can be read without any problem"""
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
             meshtally = NewMeshtal(filename=inp, filetype=filetype)
+            meshtally.readMesh()
 
         for _mesh_id, mesh in meshtally.mesh.items():
             mesh.print_info()
-    

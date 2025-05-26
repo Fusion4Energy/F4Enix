@@ -25,7 +25,7 @@ class Parser(ABC):
     def get_meshlist(self) -> tuple: ...
 
     @abstractmethod
-    def get_FMesh(self, tally) -> FMesh: ...
+    def get_FMesh(self, tally: int, norm=None, filter=None) -> FMesh: ...
 
     @abstractmethod
     def get_boundaries(self, tally): ...
@@ -46,7 +46,7 @@ class MeshtalParser(Parser):
         """return list of mesh stored in the meshtal"""
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally) -> FMesh:
+    def get_FMesh(self, tally: int) -> FMesh:
         """return FMesh object with all data of the mesh tally number"""
         tally = str(tally)
         if tally not in self.tallyPos.keys():

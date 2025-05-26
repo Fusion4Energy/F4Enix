@@ -27,7 +27,26 @@ class NewMeshtal:
         self.filetype = filetype
 
         self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
-        self.mesh: dict[int, NewMesh] = self._build_mesh_dict()
+        self.mesh: dict[int, NewMesh] = {}
+
+    def readMesh(
+        self,
+        mesh: int | list[int] | None = None,
+        cell_filters: list[int] | None = None,
+        norm: str | None = None,
+    ) -> None:
+        """Read the meshtal file and build the mesh dictionary."""
+        if not mesh:
+            self.mesh = self._build_mesh_dict()
+        elif isinstance(mesh, int):
+            self.mesh = {
+                mesh: NewMesh(self._meshtal_parser.get_FMesh(mesh, norm, cell_filters))
+            }
+        elif isinstance(mesh, list):
+            self.mesh = {
+                m: NewMesh(self._meshtal_parser.get_FMesh(m, norm, cell_filters))
+                for m in mesh
+            }
 
     def _build_mesh_dict(self) -> dict[int, NewMesh]:
         """Build a dictionary of meshes from the meshtal file."""
