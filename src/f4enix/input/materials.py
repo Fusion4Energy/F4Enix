@@ -1719,9 +1719,7 @@ class MatCardsList(Sequence):
         for materialname, percentage in zip(materials, percentages):
             materialname = materialname.upper()
             percentage_str = str(round(float(percentage) * 100, 2)) + "%"
-            main_header = "{}C Material: {} Percentage: {} ({})\n".format(
-                main_header, materialname, percentage_str, fractiontype
-            )
+            main_header = f"{main_header}C Material: {materialname} Percentage: {percentage_str} ({fractiontype})\n"
             material = copy.deepcopy(self[materialname])
             # Ensure materials have the requested fraction type
             material.switch_fraction(fractiontype, libmanager)
@@ -1736,17 +1734,19 @@ class MatCardsList(Sequence):
                     norm_factor = -norm_factor
                 submat.scale_fractions(norm_factor)
                 # Add info to the header in order to back-trace the generation
-                submat.header = "C {}, submaterial {}\n{}".format(
-                    materialname, j + 1, submat.header
-                )
+                if submat.header is None:
+                    comment = "C no submat header"
+                else:
+                    comment = submat.header
+                submat.header = f"C {materialname}, submaterial {j + 1}\n{comment}"
                 # Drop additional keys if present
                 submat.additional_keys = []
                 current_submaterials.append(submat)
 
             # Change the header of the first submaterial to include the mat. 1
-            new_sub_header = (material.header + current_submaterials[0].header).strip(
-                "\n"
-            )
+            new_sub_header = (
+                str(material.header).strip("\n") + "\n" + current_submaterials[0].header
+            ).strip("\n")
             current_submaterials[0].header = new_sub_header
             submaterials.extend(current_submaterials)
 
