@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 import pyvista as pv
+from numpy.testing import assert_array_almost_equal, assert_array_equal
+
 from f4enix.input.ww_gvr.meshgrids import (
     _correct_theta_vector,
     _create_cylindrical_grid_with_z_axis,
@@ -8,7 +10,6 @@ from f4enix.input.ww_gvr.meshgrids import (
     create_cartesian_grid,
     create_cylindrical_grid,
 )
-from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 # ruff: noqa: PLR2004
 
@@ -25,9 +26,9 @@ def test_create_cartesian_grid():
     cell_1 = grid.extract_cells(1)
     cell_7 = grid.extract_cells(7)
 
-    assert type(cell_0) == pv.UnstructuredGrid
-    assert type(cell_1) == pv.UnstructuredGrid
-    assert type(cell_7) == pv.UnstructuredGrid
+    assert isinstance(cell_0, pv.UnstructuredGrid)
+    assert isinstance(cell_1, pv.UnstructuredGrid)
+    assert isinstance(cell_7, pv.UnstructuredGrid)
 
     assert_array_almost_equal([0.5, 15, 5.5], cell_0.center)
     assert_array_almost_equal([1.5, 15, 5.5], cell_1.center)
@@ -47,9 +48,9 @@ def test_create_cartesian_grid_translated():
     cell_1 = grid.extract_cells(1)
     cell_7 = grid.extract_cells(7)
 
-    assert type(cell_0) == pv.UnstructuredGrid
-    assert type(cell_1) == pv.UnstructuredGrid
-    assert type(cell_7) == pv.UnstructuredGrid
+    assert isinstance(cell_0, pv.UnstructuredGrid)
+    assert isinstance(cell_1, pv.UnstructuredGrid)
+    assert isinstance(cell_7, pv.UnstructuredGrid)
 
     assert_array_almost_equal([100.5, 115, 105.5], cell_0.center)
     assert_array_almost_equal([101.5, 115, 105.5], cell_1.center)
@@ -70,10 +71,10 @@ def test_create_cylindrical_grid_z_axis():
     cell_2 = grid.extract_cells(2)
     cell_7 = grid.extract_cells(7)
 
-    assert type(cell_0) == pv.UnstructuredGrid
-    assert type(cell_1) == pv.UnstructuredGrid
-    assert type(cell_2) == pv.UnstructuredGrid
-    assert type(cell_7) == pv.UnstructuredGrid
+    assert isinstance(cell_0, pv.UnstructuredGrid)
+    assert isinstance(cell_1, pv.UnstructuredGrid)
+    assert isinstance(cell_2, pv.UnstructuredGrid)
+    assert isinstance(cell_7, pv.UnstructuredGrid)
 
     assert_array_almost_equal([0.5, 0.5, 15], cell_0.center)
     assert_array_almost_equal([1.0, 1, 15], cell_1.center)
@@ -129,8 +130,8 @@ def test_create_cylindrical_grid_rotated_vec():
     )
     cell_0 = non_rotated_grid.extract_cells(0)
     cell_1 = non_rotated_grid.extract_cells(1)
-    assert type(cell_0) == pv.UnstructuredGrid
-    assert type(cell_1) == pv.UnstructuredGrid
+    assert isinstance(cell_0, pv.UnstructuredGrid)
+    assert isinstance(cell_1, pv.UnstructuredGrid)
     assert_array_almost_equal([105.0, 105, 105], cell_0.center)
     assert_array_almost_equal([95.0, 105, 105], cell_1.center)
 
@@ -140,7 +141,7 @@ def test_create_cylindrical_grid_rotated_vec():
     )
     cell_0 = rotated_grid.extract_cells(0)
     cell_1 = rotated_grid.extract_cells(1)
-    assert type(cell_0) == pv.UnstructuredGrid
-    assert type(cell_1) == pv.UnstructuredGrid
+    assert isinstance(cell_0, pv.UnstructuredGrid)
+    assert isinstance(cell_1, pv.UnstructuredGrid)
     assert_array_almost_equal([95.0, 105, 105], cell_0.center)
     assert_array_almost_equal([95.0, 95, 105], cell_1.center)

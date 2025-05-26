@@ -335,7 +335,7 @@ def _write_header(f: TextIO, header: WWHeader) -> None:
     f.write(f"{header.origin[2]:>#13.5g}\n")
 
     f.write(f"{header.ncx:>#9.5g}{header.ncy:>#13.5g}{header.ncz:>#13.5g}")
-    if type(header) == WWHeaderCyl:
+    if isinstance(header, WWHeaderCyl):
         f.write(f"{header.director_1[0]:>#13.5g}")
         f.write(f"{header.director_1[1]:>#13.5g}")
         f.write(f"{header.director_1[2]:>#13.5g}\n")

@@ -8,11 +8,12 @@ These meshes follow the convention of k, j, i vectors.
     | 3 | 4 |
     --- ---
     | 1 | 2 |
-    --- ---    i	 
+    --- ---    i
 
 The values are given in an array of shape (k, j, i).
 """
 
+# flake8: noqa: PLR2004
 from typing import Optional
 
 import numpy as np
