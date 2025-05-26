@@ -1,0 +1,81 @@
+ 
+  comment.  Physics models disabled.
+         1-       MCNP XS LEAK SPHERE TEST INPUT VRT
+         2-       1  0          -1    IMP:N=1   IMP:P=1
+         3-       2  1 -0.302  +1 -2     IMP:N=1   IMP:P=1
+  fatal error.  no m card for material no. 1
+         4-       3  0          +2    IMP:N=0   IMP:P=0
+         5-       
+         6-       1 S 0 0 0 5
+  warning.  this surface has been replaced by a surface of type so
+         7-       2 S 0 0 0 50
+  warning.  this surface has been replaced by a surface of type so
+         8-       3 S 0 0 0 60
+         9-       C
+  warning.  this surface has been replaced by a surface of type so
+        10-       
+        11-       C
+        12-       SDEF POS 0 0 0 PAR=N ERG=d1 $ position, particle type, energy
+        13-       SI1 H 1e-6 0.1 1 10 14      $ histogram boundaries
+        14-       SP1 D 0    1   1 1  1       $ probabilities for each bin
+        15-       C
+        16-       MODE N P
+  comment.  photonuclear physics may be needed (phys:p).
+        17-       PHYS:P J 1
+        18-       c
+        19-       PRDMP  2J  -1 $ Flag to print the mctal
+        20-       NPS 1E4
+        21-       FC22 Gamma flux at the external surface
+        22-       F22:P 5
+  warning.  without bremsstrahlung, flux estimates will be low.
+        23-       E22: 1e-2 1e-1 1 5 20
+
+ ***************************************************
+ * Random Number Generator  =                    1 *
+ * Random Number Seed       =       19073486328125 *
+ * Random Number Multiplier =       19073486328125 *
+ * Random Number Adder      =                    0 *
+ * Random Number Bits Used  =                   48 *
+ * Random Number Stride     =               152917 *
+ ***************************************************
+
+ 
+  comment.  total nubar used if fissionable isotopes are present.
+ 
+  fatal error.  surface        5 of tally       22 not found.
+  fatal error.  FILES card is missing.
+ 
+  fatal error.  photon material        1 is not defined.
+ 
+  warning.  no cross-section tables are called for in this problem.
+ 
+  fatal error.     1 tally volumes or areas were not input nor calculated.
+1cells                                                                                                  print table 60
+
+                               atom        gram                                            neutron    photon     photon wt            photon
+              cell      mat   density     density     volume       mass            pieces importance importance generation    mat     dens     irs
+
+        1        1        0  0.00000E+00 0.00000E+00 5.23599E+02 0.00000E+00           1  1.0000E+00 1.0000E+00 -1.000E+00     0    0.0000E+00  1 
+        2        2        0 -3.02000E-01 0.00000E+00 5.23075E+05 0.00000E+00           1  1.0000E+00 1.0000E+00 -1.000E+00     0 #!-3.0200E-01  1 
+        3        3        0  0.00000E+00 0.00000E+00 0.00000E+00 0.00000E+00           0  0.0000E+00 0.0000E+00 -1.000E+00     0    0.0000E+00  1 
+
+ total                                               5.23599E+05 0.00000E+00
+ 
+  warning.  surface        3 is not used for anything.
+
+1meshtally memory allocation
+   mesh     voxels     ebin   tbin     elements    cell/voxel      size       memory
+ total                                                                          0.0 B 
+
+    minimum source weight = 1.0000E+00    maximum source weight = 1.0000E+00
+
+         6 warning messages so far.
+
+         5 fatal errors so far.
+
+         6 warning messages so far.
+
+         5 fatal errors so far.
+
+
+ run terminated because of fatal errors.
