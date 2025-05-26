@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numpy <= 1.26.4",
+    "numpy",
     "numjuggler >= 2.42.37",
     "pyvista >= 0.39.1",
     "pandas",
