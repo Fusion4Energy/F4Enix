@@ -207,7 +207,7 @@ class IrradiationFile:
 
         return cls(nsc, irr_schedules, header=header)
 
-    def write(self, path: os.PathLike) -> None:
+    def write(self, path: os.PathLike, format: bool) -> None:
         """
         Write the D1S irradiation file
 
@@ -216,6 +216,9 @@ class IrradiationFile:
         path : os.PathLike
             output path where to save the file (only directory). self.name will
             be used as output file name
+        format : bool
+            if True, the file will be formatted using the formatting
+            attributes. If False, the file will be written as it is.
 
         Returns
         -------
@@ -240,7 +243,14 @@ class IrradiationFile:
             # write schedules
             for schedule in self.irr_schedules:
                 args = schedule._get_format_args()
-                outfile.write(self._irrformat.format(*args) + "\n")
+                if (format):
+                    outfile.write(self._irrformat.format(*args) + "\n")
+                else:
+                    # write the unformatted text
+                    fmt = ""
+                    for s in args:
+                        fmt += "{:<" + str(len(str(s)) + 1) + "}"
+                    outfile.write(fmt.format(*args) + "\n")
 
         logging.info("Irradiation file written at {}".format(outfile))
 
