@@ -34,3 +34,9 @@ class TestNewMeshtal:
 
         for _mesh_id, mesh in meshtally.mesh.items():
             mesh.print_info()
+
+    def test_same_mesh(self):
+        with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+            meshtally = NewMeshtal(inp)
+        meshtally.readMesh()
+        assert meshtally.mesh[124].sameMesh(meshtally.mesh[124])
