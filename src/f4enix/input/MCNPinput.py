@@ -869,13 +869,13 @@ class Input:
             # Add a break
             outfile.write("\n")
             # Add materials
+            if trans is not None:
+                outfile.writelines(Input._print_cards(trans))
             if materials is not None and len(materials.matdic) > 0:
                 outfile.write(materials.to_text() + "\n")
             # other data is not mandatory to be written
             if other_data is not None:
                 outfile.writelines(Input._print_cards(other_data, wrap=wrap))
-            if trans is not None:
-                outfile.writelines(Input._print_cards(trans))
 
     def _extraction_function(
         self,
