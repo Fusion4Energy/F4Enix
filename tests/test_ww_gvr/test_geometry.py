@@ -1,10 +1,12 @@
 import numpy as np
 import pyvista as pv
+
 from f4enix.input.ww_gvr.geometry import Geometry
 from f4enix.input.ww_gvr.models import ParticleType, Vectors
 from f4enix.input.ww_gvr.ww_parser import WWHeader, WWHeaderCyl
 
 # ruff: noqa: PLR2004
+
 
 def test_fill_grid_values_cart():
     header = WWHeader(
