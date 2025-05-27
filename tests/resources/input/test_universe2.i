@@ -2,7 +2,11 @@ Title
 c
 C Cells section
 c Universe level 0
-1 0 -1 imp:n=1 fill=125
+1 0 -1 
+      imp:n=1   *fill=125 (0 0 0 
+C a breaking comment
+                   1 1 1 $ some dollar comment
+                   1 1 1) VOL=1
 99 0 1 imp:n=0
 C
 c Universe level 1
