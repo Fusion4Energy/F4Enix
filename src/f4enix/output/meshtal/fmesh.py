@@ -10,8 +10,11 @@ from numjuggler import parser
 from tqdm import tqdm
 
 from f4enix.constants import PathLike
-
-from .functions.alberto import ExtraBin, _rectilinear_grid, _structured_grid
+from f4enix.output.meshtal.aux_meshtal_functions import (
+    ExtraBin,
+    _rectilinear_grid,
+    _structured_grid,
+)
 
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
@@ -251,7 +254,7 @@ class MeshData:
         return bin_mesh
 
 
-class FMesh(MeshData):
+class Fmesh(MeshData):
     """class storing all kind of mesh Fmesh, CuV, CDGS"""
 
     def __init__(self, mesh: MeshData, meshLabel: str, trsf=None):

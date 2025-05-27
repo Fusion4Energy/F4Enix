@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from .FMesh import FMesh, MeshData
-from .functions.alberto import (
+from f4enix.output.meshtal.aux_meshtal_functions import (
     _get_cdgsheader,
     _get_cdgsmesh_boundaries,
     _get_CDGSmesh_data,
@@ -15,6 +14,7 @@ from .functions.alberto import (
     _scan_meshfile,
     myOpen,
 )
+from f4enix.output.meshtal.fmesh import Fmesh, MeshData
 
 
 class Parser(ABC):
@@ -25,7 +25,7 @@ class Parser(ABC):
     def get_meshlist(self) -> tuple: ...
 
     @abstractmethod
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> FMesh: ...
+    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh: ...
 
     @abstractmethod
     def get_boundaries(self, tally): ...
@@ -46,8 +46,8 @@ class MeshtalParser(Parser):
         """return list of mesh stored in the meshtal"""
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int) -> FMesh:
-        """return FMesh object with all data of the mesh tally number"""
+    def get_FMesh(self, tally: int) -> Fmesh:
+        """return Fmesh object with all data of the mesh tally number"""
         tally = str(tally)
         if tally not in self.tallyPos.keys():
             print("bad tally entry")
@@ -70,7 +70,7 @@ class MeshtalParser(Parser):
         data = _get_mesh_data(self.fic, dataPos, geom, meshbins[4].explicit, shape)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = FMesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally, trsf)
         fm.type = "meshtal"
         fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
@@ -109,8 +109,8 @@ class CUVMeshParser(Parser):
         """return list of mesh stored in the CUV file"""
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> FMesh:
-        """return FMesh object with all data of the mesh tally number"""
+    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
+        """return Fmesh object with all data of the mesh tally number"""
         tally = str(tally)
         if tally not in self.tallyPos.keys():
             print("bad tally entry")
@@ -133,7 +133,7 @@ class CUVMeshParser(Parser):
         data = _get_CUVmesh_data(self.fic, dataPos, shape, norm, filter)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = FMesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally, trsf)
         fm.type = "CUV"
         fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
@@ -172,8 +172,8 @@ class CDGSMeshParser(Parser):
         """return list of source meshes stored in the CCDGS file"""
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> FMesh:
-        """return FMesh object with all data of the mesh tally number"""
+    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
+        """return Fmesh object with all data of the mesh tally number"""
         tally = str(tally)
         if tally not in self.srcmeshPos.keys():
             print("bad tally entry")
@@ -196,7 +196,7 @@ class CDGSMeshParser(Parser):
         data = _get_CDGSmesh_data(self.fic, dataPos, shape)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = FMesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally, trsf)
         fm.type = "CDGS"
         fm.particle = None
         fm.cooling_time, fm.strength, fm.comments = _get_cdgsheader(self.fic, meshPos)

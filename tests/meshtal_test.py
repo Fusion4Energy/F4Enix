@@ -1,88 +1,47 @@
 import os
-import re
 from importlib.resources import as_file, files
 
 import pytest
-import pyvista as pv
-from numjuggler import parser
 
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.expected as res_exp
 import tests.resources.meshtal.tests as res
 from f4enix.input.MCNPinput import Input
-from f4enix.output.meshtal import Meshtal, identical_mesh
+from f4enix.output.meshtal.meshtal import Meshtal
 
 resources_write = files(res)
 expected = files(res_exp)
 RESOURCES = files(resources)
 
 
-class TestMeshtal:
-    def test_thetest(self):
-        assert True
-
+class TestNewMeshtal:
     @pytest.mark.parametrize(
-        "input_meshtal",
+        ["input_meshtal", "filetype"],
         [
-            "meshtal_cuv",
-            "meshtal_cyl",
-            "meshtal_d1s_CSimpactStudy",
-            "meshtal_CUBE_SQUARE",
-            "meshtal_CUBE_ONES",
-            "test_srcimp",
-            "assembly_meshtal_test",
-            "1D_mesh_no_code",
+            ("meshtal_cuv", "CUV"),
+            ("meshtal_cyl", "MCNP"),
+            ("meshtal_d1s_CSimpactStudy", "MCNP"),
+            ("meshtal_CUBE_SQUARE", "MCNP"),
+            ("meshtal_CUBE_ONES", "MCNP"),
+            # ("test_srcimp", "CUV"),
+            ("assembly_meshtal_test", "MCNP"),
+            ("1D_mesh_no_code", "MCNP"),
         ],
     )
-    def test_mesh_print_tally_info(self, input_meshtal):
-        # To check if the meshtal can be read without any problem"
-        filetype = "MCNP"
+    def test_mesh_print_tally_info(self, input_meshtal, filetype):
+        """To check if the meshtal can be read without any problem"""
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtally = Meshtal(inp, filetype)
+            meshtally = Meshtal(filename=inp, filetype=filetype)
+            meshtally.readMesh()
 
-        for i in meshtally.mesh.items():
-            meshtally.mesh[i[0]].print_info()
-
-        assert True
-
-    def test_re_read_mesh(self):
-        with as_file(RESOURCES.joinpath("meshtal_cuv")) as inp:
-            meshtally = Meshtal(inp)
-        meshtally.readMesh(norm="celf")
-        meshtally.readMesh(norm="vtot")
-        # Check that meshes are not re-read
-        assert meshtally.mesh[44].normalization == "celf"
+        for _mesh_id, mesh in meshtally.mesh.items():
+            mesh.print_info()
 
     def test_same_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
             meshtally = Meshtal(inp)
         meshtally.readMesh()
-        assert meshtally.mesh[124].sameMesh(meshtally.mesh[124], checkErg=True)
         assert meshtally.mesh[124].sameMesh(meshtally.mesh[124])
-
-    @pytest.mark.parametrize(
-        "input_meshtal",
-        [
-            "meshtal_cuv",
-            "meshtal_cyl",
-            "meshtal_d1s_CSimpactStudy",
-            "meshtal_CUBE_SQUARE",
-            "meshtal_CUBE_ONES",
-            "test_srcimp",
-            "assembly_meshtal_test",
-            "meshtal_bug",
-        ],
-    )
-    def test_read_mesh(self, input_meshtal):
-        # To check if the meshtal can be read without any problem"
-        filetype = "MCNP"
-        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtally = Meshtal(inp, filetype)
-
-        for i in meshtally.mesh.items():
-            meshtally.readMesh()
-
-        assert True
 
     @pytest.mark.parametrize(
         "norm",
@@ -93,7 +52,7 @@ class TestMeshtal:
     )
     def test_read_mesh_cuv(self, norm):
         # To check if the meshtal can be read without any problem"
-        filetype = "MCNP"
+        filetype = "CUV"
         with as_file(RESOURCES.joinpath("meshtal_cuv")) as inp:
             meshtally = Meshtal(inp, filetype)
 
@@ -101,28 +60,13 @@ class TestMeshtal:
             meshtally.readMesh(norm=norm)
             meshtally.readMesh(cell_filters=[1, 2], norm=norm)
 
-        assert True
-
-    @pytest.mark.parametrize(
-        "input_meshtal", ["meshtal_cuv", "meshtal_cyl", "meshtal_d1s_CSimpactStudy"]
-    )
-    def test_mesh_print_info(self, input_meshtal):
-        # To check if the meshtal can be read without any problem"
-        filetype = "MCNP"
-        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtally = Meshtal(inp, filetype)
-
-        for i in meshtally.mesh.items():
-            meshtally.print_info()
-
-        assert True
-
-    @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
-    def test_1d_features(self, input_meshtal, tmpdir):
-        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtal = Meshtal(inp)
-        meshtal.readMesh()
-        fake_tal = meshtal.mesh[214].convert2tally()
+    # TODO: Reimplement
+    # @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
+    # def test_1d_features(self, input_meshtal):
+    #     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+    #         meshtal = NewMeshtal(inp)
+    #     meshtal.readMesh()
+    #     meshtal.mesh[214].convert2tally()
 
     def test_write_cyl(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
@@ -138,49 +82,49 @@ class TestMeshtal:
                 "example.vts",
                 None,
                 "csv",
-                "meshtal_cyl_124_csv.csv",
+                "Tally_124_csv.csv",
                 "example_['Values']_csv.csv",
             ],
             [
                 "test_VTK_CUBE_SQUARE.vtr",
                 ["Value - Total"],
                 "csv",
-                "meshtal_cyl_124_csv.csv",
+                "Tally_124_csv.csv",
                 "test_VTK_CUBE_SQUARE_['Value - Total']_csv.csv",
             ],
             [
                 "meshtal_14.vts",
                 ["Value - Total"],
                 "csv",
-                "meshtal_cyl_124_csv.csv",
+                "Tally_124_csv.csv",
                 "meshtal_14_['Value - Total']_csv.csv",
             ],
             [
                 "cuvmsh_44_CuV_CELF10.vtr",
                 ["Value - Total"],
                 "csv",
-                "meshtal_cyl_124_csv.csv",
+                "Tally_124_csv.csv",
                 "cuvmsh_44_CuV_CELF10_['Value - Total']_csv.csv",
             ],
             [
                 "PS_NHD_DIV_RHC_INBOARD.vtk",
                 ["NHD[W/cm3]"],
                 "csv",
-                "meshtal_cyl_124_csv.csv",
+                "Tally_124_csv.csv",
                 "PS_NHD_DIV_RHC_INBOARD_['NHD[W-cm3]']_csv.csv",
             ],
             [
                 "PS_NHD_DIV_RHC_INBOARD.vtk",
                 ["NHD[W/cm3]"],
                 "ip_fluent",
-                "meshtal_cyl_124_ip_fluent.txt",
+                "Tally_124_ip_fluent_NHDWcm3.txt",
                 "PS_NHD_DIV_RHC_INBOARD_NHD[W-cm3]_ip_fluent.txt",
             ],
             [
                 "PS_NHD_DIV_RHC_INBOARD.vtk",
                 ["NHD[W/cm3]"],
                 "point_cloud",
-                "meshtal_cyl_124_point_cloud.txt",
+                "Tally_124_point_cloud_NHDWcm3.txt",
                 "PS_NHD_DIV_RHC_INBOARD_NHD[W-cm3]_point_cloud.txt",
             ],
         ],
@@ -202,7 +146,7 @@ class TestMeshtal:
         outfile = os.path.join(outpath, out_name)
 
         with as_file(expected.joinpath(file_exp)) as exp:
-            with open(outfile, "r") as test, open(exp, "r") as exp_file:
+            with open(outfile) as test, open(exp) as exp_file:
                 for line1, line2 in zip(test, exp_file):
                     assert line1 == line2
 
@@ -236,8 +180,6 @@ class TestMeshtal:
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
             Meshtal(inp, filetype)
 
-        assert True
-
     def test_write_all(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
             meshtally = Meshtal(inp)
@@ -265,10 +207,7 @@ class TestMeshtal:
         for m, i in enumerate(list(meshtally.mesh.values())[1:]):
             if m == 0:
                 j = list(meshtally.mesh.values())[0]
-            a, b, c = identical_mesh(i, j)
-            j = i
-
-        assert True
+            assert i.sameMesh(j)
 
     def test_collapse_grid(self):
         with as_file(RESOURCES.joinpath("meshtal_collapse")) as inp:

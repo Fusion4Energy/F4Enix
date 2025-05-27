@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from f4enix.meshtal_2.mesh2vtk_2.Modules.FMesh import FMesh
+    from f4enix.output.meshtal.fmesh import Fmesh
 
 import math
 
@@ -452,7 +452,7 @@ def _get_labels(
 
 
 def _rectilinear_grid(
-    mesh: "FMesh", labels: tuple[str, str] = COLUMN_LABELS
+    mesh: "Fmesh", labels: tuple[str, str] = COLUMN_LABELS
 ) -> vtk.vtkRectilinearGrid:
     rgrid = vtk.vtkRectilinearGrid()
     rgrid.SetDimensions(mesh.nx1 + 1, mesh.nx2 + 1, mesh.nx3 + 1)
@@ -481,7 +481,7 @@ def _rectilinear_grid(
 
 
 def _structured_grid(
-    mesh: "FMesh", trsf=None, labels: tuple[str, str] = COLUMN_LABELS
+    mesh: "Fmesh", trsf=None, labels: tuple[str, str] = COLUMN_LABELS
 ) -> vtk.vtkStructuredGrid:
     if trsf is None:
         origin = (0.0, 0.0, 0.0)
@@ -627,7 +627,7 @@ def _get_etbin_tag(line: str) -> str | None:
         return "cel"
 
 
-def _scan_meshfile(fic: myOpen) -> "FMesh":
+def _scan_meshfile(fic: myOpen) -> "Fmesh":
     tally = dict()
     while True:
         pos = fic._tell()
@@ -642,7 +642,7 @@ def _scan_meshfile(fic: myOpen) -> "FMesh":
     return tally
 
 
-def _scan_cuvfile(fic: myOpen) -> "FMesh":
+def _scan_cuvfile(fic: myOpen) -> "Fmesh":
     cuvmesh = dict()
     while True:
         pos = fic._tell()

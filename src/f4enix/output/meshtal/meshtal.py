@@ -6,9 +6,9 @@ from numjuggler import parser
 
 from f4enix.constants import PathLike
 from f4enix.input.MCNPinput import Input
-from f4enix.meshtal_2.mesh2vtk_2.Modules.FMesh import FMesh
-from f4enix.meshtal_2.mesh2vtk_2.Modules.functions.alberto import COLUMN_LABELS
-from f4enix.meshtal_2.mesh2vtk_2.Modules.mesh_parser import (
+from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
+from f4enix.output.meshtal.fmesh import Fmesh
+from f4enix.output.meshtal.mesh_parser import (
     CDGSMeshParser,
     CUVMeshParser,
     MeshtalParser,
@@ -22,12 +22,12 @@ PARSER_SELECTOR: dict[str, type[Parser]] = {
 }
 
 
-class NewMeshtal:
+class Meshtal:
     def __init__(self, filename: PathLike, filetype: str = "MCNP"):
         self.filetype = filetype
 
         self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
-        self.mesh: dict[int, FMesh] = {}
+        self.mesh: dict[int, Fmesh] = {}
 
     def readMesh(
         self,
@@ -45,7 +45,7 @@ class NewMeshtal:
                 m: self._meshtal_parser.get_FMesh(m, norm, cell_filters) for m in mesh
             }
 
-    def _build_mesh_dict(self) -> dict[int, FMesh]:
+    def _build_mesh_dict(self) -> dict[int, Fmesh]:
         """Build a dictionary of meshes from the meshtal file."""
         mesh_dict = {}
         for mesh_id in self._meshtal_parser.get_meshlist():
