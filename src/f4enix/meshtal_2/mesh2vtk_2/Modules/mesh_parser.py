@@ -2,19 +2,19 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .FMesh import FMesh, MeshData
-from .functions.read_functions import (
-    get_cdgsheader,
-    get_cdgsmesh_boundaries,
-    get_CDGSmesh_data,
-    get_CUVmesh_data,
-    get_header,
-    get_mesh_boundaries,
-    get_mesh_data,
-    scan_cdgsfile,
-    scan_cuvfile,
-    scan_meshfile,
+from .functions.alberto import (
+    _get_cdgsheader,
+    _get_cdgsmesh_boundaries,
+    _get_CDGSmesh_data,
+    _get_CUVmesh_data,
+    _get_header,
+    _get_mesh_boundaries,
+    _get_mesh_data,
+    _scan_cdgsfile,
+    _scan_cuvfile,
+    _scan_meshfile,
+    myOpen,
 )
-from .functions.utils import myOpen
 
 
 class Parser(ABC):
@@ -40,7 +40,7 @@ class MeshtalParser(Parser):
     def __init__(self, filename: str | Path):
         self.filename = filename
         self.fic = myOpen(filename, "r")
-        self.tallyPos = scan_meshfile(self.fic)
+        self.tallyPos = _scan_meshfile(self.fic)
 
     def get_meshlist(self) -> tuple:
         """return list of mesh stored in the meshtal"""
@@ -53,7 +53,7 @@ class MeshtalParser(Parser):
             print("bad tally entry")
             return
         tallyPos, boundPos, dataPos = self.tallyPos[tally]
-        geom, trsf, meshbins = get_mesh_boundaries(self.fic, boundPos)
+        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos)
 
         nx1 = len(meshbins[0]) - 1
         nx2 = len(meshbins[1]) - 1
@@ -67,12 +67,12 @@ class MeshtalParser(Parser):
             nt += 1
 
         shape = (nt, ne, nx3, nx2, nx1, 2)
-        data = get_mesh_data(self.fic, dataPos, geom, meshbins[4].explicit, shape)
+        data = _get_mesh_data(self.fic, dataPos, geom, meshbins[4].explicit, shape)
 
         mesh = MeshData(geom, *meshbins, data)
         fm = FMesh(mesh, tally, trsf)
         fm.type = "meshtal"
-        fm.particle, fm.comments = get_header(self.fic, tallyPos)
+        fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
         return fm
 
@@ -83,7 +83,7 @@ class MeshtalParser(Parser):
             print("bad tally entry")
             return
         boundPos = self.tallyPos[tally][1]
-        geom, trsf, meshbins = get_mesh_boundaries(self.fic, boundPos)
+        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos)
         return geom, trsf, meshbins
 
     def get_header(self, tally):
@@ -93,7 +93,7 @@ class MeshtalParser(Parser):
             print("bad tally entry")
             return
         tallyPos = self.tallyPos[tally][0]
-        particle, comments = get_header(self.fic, tallyPos)
+        particle, comments = _get_header(self.fic, tallyPos)
         return particle, comments
 
 
@@ -103,7 +103,7 @@ class CUVMeshParser(Parser):
     def __init__(self, filename: str | Path):
         self.filename = filename
         self.fic = myOpen(filename, "r")
-        self.tallyPos = scan_cuvfile(self.fic)
+        self.tallyPos = _scan_cuvfile(self.fic)
 
     def get_meshlist(self) -> tuple:
         """return list of mesh stored in the CUV file"""
@@ -116,7 +116,7 @@ class CUVMeshParser(Parser):
             print("bad tally entry")
             return
         tallyPos, boundPos, dataPos = self.tallyPos[tally]
-        geom, trsf, meshbins = get_mesh_boundaries(self.fic, boundPos, cuv=True)
+        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos, cuv=True)
 
         nx1 = len(meshbins[0]) - 1
         nx2 = len(meshbins[1]) - 1
@@ -130,12 +130,12 @@ class CUVMeshParser(Parser):
             nt += 1
 
         shape = (nt, ne, nx3, nx2, nx1, 2)
-        data = get_CUVmesh_data(self.fic, dataPos, shape, norm, filter)
+        data = _get_CUVmesh_data(self.fic, dataPos, shape, norm, filter)
 
         mesh = MeshData(geom, *meshbins, data)
         fm = FMesh(mesh, tally, trsf)
         fm.type = "CUV"
-        fm.particle, fm.comments = get_header(self.fic, tallyPos)
+        fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
         return fm
 
@@ -146,7 +146,7 @@ class CUVMeshParser(Parser):
             print("bad tally entry")
             return
         boundPos = self.tallyPos[tally][1]
-        geom, trsf, meshbins = get_mesh_boundaries(self.fic, boundPos, cuv=True)
+        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos, cuv=True)
         return geom, trsf, meshbins
 
     def get_header(self, tally):
@@ -156,7 +156,7 @@ class CUVMeshParser(Parser):
             print("bad tally entry")
             return
         tallyPos = self.tallyPos[tally][0]
-        particle, comments = get_header(self.fic, tallyPos)
+        particle, comments = _get_header(self.fic, tallyPos)
         return particle, comments
 
 
@@ -166,7 +166,7 @@ class CDGSMeshParser(Parser):
     def __init__(self, filename: str | Path):
         self.filename = filename
         self.fic = myOpen(filename, "r")
-        self.srcmeshPos = scan_cdgsfile(self.fic)
+        self.srcmeshPos = _scan_cdgsfile(self.fic)
 
     def get_meshlist(self) -> tuple:
         """return list of source meshes stored in the CCDGS file"""
@@ -179,7 +179,7 @@ class CDGSMeshParser(Parser):
             print("bad tally entry")
             return
         meshPos, dataPos = self.srcmeshPos[tally]
-        geom, trsf, meshbins = get_cdgsmesh_boundaries(self.fic, meshPos)
+        geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, meshPos)
 
         nx1 = len(meshbins[0]) - 1
         nx2 = len(meshbins[1]) - 1
@@ -193,13 +193,13 @@ class CDGSMeshParser(Parser):
             nt += 1
 
         shape = (nt, ne, nx3, nx2, nx1, 2)
-        data = get_CDGSmesh_data(self.fic, dataPos, shape)
+        data = _get_CDGSmesh_data(self.fic, dataPos, shape)
 
         mesh = MeshData(geom, *meshbins, data)
         fm = FMesh(mesh, tally, trsf)
         fm.type = "CDGS"
         fm.particle = None
-        fm.cooling_time, fm.strength, fm.comments = get_cdgsheader(self.fic, meshPos)
+        fm.cooling_time, fm.strength, fm.comments = _get_cdgsheader(self.fic, meshPos)
 
         return fm
 
@@ -210,7 +210,7 @@ class CDGSMeshParser(Parser):
             print("bad tally entry")
             return
         boundPos = self.tallyPos[tally][1]
-        geom, trsf, meshbins = get_cdgsmesh_boundaries(self.fic, boundPos, cuv=True)
+        geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, boundPos, cuv=True)
         return geom, trsf, meshbins
 
     def get_header(self, tally):
@@ -220,5 +220,5 @@ class CDGSMeshParser(Parser):
             print("bad tally entry")
             return
         tallyPos = self.tallyPos[tally][0]
-        particle, comments = get_cdgsheader(self.fic, tallyPos)
+        particle, comments = _get_cdgsheader(self.fic, tallyPos)
         return particle, comments

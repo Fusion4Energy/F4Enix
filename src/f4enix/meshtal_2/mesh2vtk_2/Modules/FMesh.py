@@ -11,8 +11,7 @@ from tqdm import tqdm
 
 from f4enix.constants import PathLike
 
-from .functions.utils import ExtraBin
-from .functions.vtk_functions import rectilinear_grid, structured_grid
+from .functions.alberto import ExtraBin, _rectilinear_grid, _structured_grid
 
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
@@ -360,13 +359,13 @@ class FMesh(MeshData):
     def _create_grid(self, binlabels=None) -> pv.PolyData:
         if self._geom == "rec" and self._trsf is None:
             if binlabels:
-                gd = rectilinear_grid(self, labels=binlabels)
+                gd = _rectilinear_grid(self, labels=binlabels)
             else:
-                gd = rectilinear_grid(self)
+                gd = _rectilinear_grid(self)
         elif binlabels:
-            gd = structured_grid(self, trsf=self._trsf, labels=binlabels)
+            gd = _structured_grid(self, trsf=self._trsf, labels=binlabels)
         else:
-            gd = structured_grid(self, trsf=self._trsf)
+            gd = _structured_grid(self, trsf=self._trsf)
 
         pv_grid = pv.wrap(gd)
         assert isinstance(pv_grid, pv.DataSet), "Could not generate PyVista object..."
