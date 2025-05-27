@@ -341,6 +341,9 @@ class FMesh(MeshData):
         }
         return info
 
+    def convert2tally(self):
+        raise NotImplementedError()
+
     def write_vtk(self, filename: str, binary: bool = False, binlabels=None) -> None:
         """Write Fmesh in vtk file"""
 
