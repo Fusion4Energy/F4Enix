@@ -6,6 +6,7 @@ import pytest
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.expected as res_exp
 import tests.resources.meshtal.tests as res
+from f4enix.input.MCNPinput import Input
 from f4enix.output.new_meshtal import NewMeshtal
 
 resources_write = files(res)
@@ -150,3 +151,109 @@ class TestNewMeshtal:
 
         # Also always test the .vtk writing
         fmesh.write(outpath)
+
+    def test_write_outfile(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = NewMeshtal(inp)
+        meshtally.readMesh()
+        fmesh = meshtally.mesh[124]
+        outpath = tmpdir.mkdir("sub_csv")
+        fmesh.write(outpath, outfile="test")
+        assert os.path.exists(os.path.join(outpath, "test.vtr"))
+
+    @pytest.mark.parametrize(
+        "input_meshtal",
+        [
+            "meshtal_cuv",
+            "meshtal_cyl",
+            "meshtal_d1s_CSimpactStudy",
+            "meshtal_d1s_IVVS_FDR",
+            "meshtal_rect_VV",
+            "test_srcimp",
+            "assembly_meshtal_test",
+        ],
+    )
+    def test_reading(self, input_meshtal):
+        # To check if the meshtal can be read without any problem"
+        filetype = "MCNP"
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            NewMeshtal(inp, filetype)
+
+    def test_write_all(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = NewMeshtal(inp)
+        meshtally.readMesh()
+        meshtally.write_all(tmpdir)
+
+    @pytest.mark.parametrize(
+        "input_meshtal",
+        [
+            "meshtal_cuv",
+            "meshtal_cyl",
+            "meshtal_d1s_CSimpactStudy",
+            "meshtal_CUBE_SQUARE",
+            "meshtal_CUBE_ONES",
+            "test_srcimp",
+            "assembly_meshtal_test",
+        ],
+    )
+    def test_identical_mesh(self, input_meshtal):
+        # To check if the meshtal can be read without any problem"
+        filetype = "MCNP"
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtally = NewMeshtal(inp, filetype)
+
+        for m, i in enumerate(list(meshtally.mesh.values())[1:]):
+            if m == 0:
+                j = list(meshtally.mesh.values())[0]
+            assert i.sameMesh(j)
+
+    def test_collapse_grid(self):
+        with as_file(RESOURCES.joinpath("meshtal_collapse")) as inp:
+            meshtal = NewMeshtal(inp)
+
+        meshtal.readMesh()
+        dict_names = {4: ["A", "B"], 14: ["C", "D"]}
+        grid = meshtal.collapse_grids(dict_names)
+        assert len(grid.array_names) == 4
+
+    def test_transform_grid(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_transform")) as inp:
+            meshtal = NewMeshtal(inp)
+        with as_file(RESOURCES.joinpath("transforms.i")) as mcnp_inp:
+            input_file = Input.from_input(mcnp_inp)
+
+        meshtal.readMesh()
+        meshtal.transform_fmesh(input_file)
+        meshtal.write_all(tmpdir)
+        assert tuple(meshtal.mesh[2024].grid.bounds) == (
+            567.0,
+            573.0,
+            47.0,
+            53.0,
+            387.0,
+            393.0,
+        )
+        assert tuple(meshtal.mesh[2024].grid.center) == (570.0, 50.0, 390.0)
+        assert tuple(meshtal.mesh[2024].grid.bounds) == (
+            567.0,
+            573.0,
+            47.0,
+            53.0,
+            387.0,
+            393.0,
+        )
+        assert tuple(meshtal.mesh[2124].grid.center) == (0.0, 0.0, 0.0)
+        assert pytest.approx(meshtal.mesh[2124].grid.bounds[0], 1e-5) == -3.845138
+        assert tuple(meshtal.mesh[2224].grid.center) == (1.0, 1.0, 1.0)
+        assert tuple(meshtal.mesh[2224].grid.bounds) == (
+            -2.0,
+            4.0,
+            -2.0,
+            4.0,
+            -2.0,
+            4.0,
+        )
+        assert tuple(meshtal.mesh[2324].grid.center) == (10.0, 10.0, 10.0)
+        assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == 6.52463
+        meshtal.write_all(tmpdir)

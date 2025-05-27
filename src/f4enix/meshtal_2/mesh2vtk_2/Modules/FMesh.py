@@ -4,7 +4,9 @@ import os
 import re
 
 import numpy
+import numpy as np
 import pyvista as pv
+from numjuggler import parser
 from tqdm import tqdm
 
 from f4enix.constants import PathLike
@@ -547,6 +549,86 @@ class FMesh(MeshData):
         # This is mostly used for quicker testing
         grid = pv.read(vtk_file)
         self.grid = grid
+
+    def apply_transformation(self, tr: parser.Card) -> None:
+        """Apply a transformation to the mesh object
+
+        Parameters
+        ----------
+        tr : parser.Card
+            transformation card to be applied to the fmesh
+
+        Raises
+        ------
+        ValueError
+            If a non-transformation card is passed
+        ValueError
+            If the transformation card has not 4 (translation) or 13 (affine transformation) values
+        """
+        if tr.ctype != 5:
+            raise ValueError("Numjuggler card is not a transformation")
+        if len(tr.values) not in [4, 13]:
+            raise ValueError(
+                "Numjuggler transformation card has not 4 (translation) or 13 (rototranslation) values"
+            )
+        transf_values = []
+
+        if len(tr.values) == 13:
+            for k, val in enumerate(tr.values[1:]):
+                if k < 3:
+                    transf_values.append(val[0])
+                elif tr.unit == "*":
+                    transf_values.append(np.cos(np.radians(val[0])))
+                else:
+                    transf_values.append(val[0])
+            transf_matrix_dcm = np.array(
+                [
+                    transf_values[3:6],
+                    transf_values[6:9],
+                    transf_values[9:],
+                ]
+            )
+            # Compute the transpose of the matrix
+            transposed_matrix = np.transpose(transf_matrix_dcm)
+
+            # Compute the inverse of the transposed matrix
+            try:
+                inverted_transposed_matrix = np.linalg.inv(transposed_matrix)
+            except np.linalg.LinAlgError:
+                print("The transformation matrix is not invertible.")
+            transform_matrix = np.array(
+                [
+                    [
+                        inverted_transposed_matrix[0][0],
+                        inverted_transposed_matrix[0][1],
+                        inverted_transposed_matrix[0][2],
+                        transf_values[0],
+                    ],
+                    [
+                        inverted_transposed_matrix[1][0],
+                        inverted_transposed_matrix[1][1],
+                        inverted_transposed_matrix[1][2],
+                        transf_values[1],
+                    ],
+                    [
+                        inverted_transposed_matrix[2][0],
+                        inverted_transposed_matrix[2][1],
+                        inverted_transposed_matrix[2][2],
+                        transf_values[2],
+                    ],
+                    [0, 0, 0, 1],
+                ]
+            )
+        else:
+            transform_matrix = np.array(
+                [
+                    [1, 0, 0, tr.values[1][0]],
+                    [0, 1, 0, tr.values[2][0]],
+                    [0, 0, 1, tr.values[3][0]],
+                    [0, 0, 0, 1],
+                ]
+            )
+        self.grid = self.grid.transform(transform_matrix, inplace=False)
 
 
 def add_mesh(mesh1: MeshData, mesh2: MeshData) -> MeshData:
