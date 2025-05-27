@@ -170,7 +170,7 @@ class CDGSMeshParser(Parser):
 
     def get_meshlist(self) -> tuple:
         """return list of source meshes stored in the CCDGS file"""
-        return tuple(sorted(self.tallyPos.keys()))
+        return tuple(sorted(self.srcmeshPos.keys()))
 
     def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
         """return Fmesh object with all data of the mesh tally number"""
@@ -206,19 +206,19 @@ class CDGSMeshParser(Parser):
     def get_boundaries(self, tally):
         """return mesh information type, boundaries, ..."""
         tally = str(tally)
-        if tally not in self.tallyPos.keys():
+        if tally not in self.srcmeshPos.keys():
             print("bad tally entry")
             return
-        boundPos = self.tallyPos[tally][1]
+        boundPos = self.srcmeshPos[tally][1]
         geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, boundPos, cuv=True)
         return geom, trsf, meshbins
 
     def get_header(self, tally):
         """return mesh header information"""
         tally = str(tally)
-        if tally not in self.tallyPos.keys():
+        if tally not in self.srcmeshPos.keys():
             print("bad tally entry")
             return
-        tallyPos = self.tallyPos[tally][0]
+        tallyPos = self.srcmeshPos[tally][0]
         particle, comments = _get_cdgsheader(self.fic, tallyPos)
         return particle, comments

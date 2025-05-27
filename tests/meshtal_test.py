@@ -14,7 +14,7 @@ expected = files(res_exp)
 RESOURCES = files(resources)
 
 
-class TestNewMeshtal:
+class TestMeshtal:
     @pytest.mark.parametrize(
         ["input_meshtal", "filetype"],
         [
@@ -258,3 +258,48 @@ class TestNewMeshtal:
         assert tuple(meshtal.mesh[2324].grid.center) == (10.0, 10.0, 10.0)
         assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == 6.52463
         meshtal.write_all(tmpdir)
+
+    def test_time_energy_bins(self):
+        # To check if the meshtal can be read without any problem"
+        with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
+            meshtal = Meshtal(inp)
+
+        meshtal.readMesh()
+        assert (
+            pytest.approx(meshtal.mesh[54].grid.cell_data["Value - Total_t001_e001"][0])
+            == 1.0
+        )
+        filtered_mesh = meshtal.create_filtered_mesh(
+            54, binlabels=("Value - Total", "Error - Total"), ebin=0, tbin=0
+        )
+        assert pytest.approx(filtered_mesh.grid.cell_data["Value - Total"][0]) == 1.0
+
+        filtered_mesh = meshtal.create_filtered_mesh(
+            64, binlabels=("Value - Total", "Error - Total"), ebin=None, tbin=0
+        )
+        assert (
+            pytest.approx(filtered_mesh.grid.cell_data["Value - Total_e001"][0]) == 1.0
+        )
+
+        filtered_mesh = meshtal.create_filtered_mesh(
+            64, binlabels=("Value - Total", "Error - Total"), ebin=0, tbin=None
+        )
+        assert (
+            pytest.approx(filtered_mesh.grid.cell_data["Value - Total_t001"][0]) == 1.0
+        )
+
+        filtered_mesh = meshtal.create_filtered_mesh(
+            64, binlabels=("Value - Total", "Error - Total"), ebin=None, tbin=None
+        )
+        assert (
+            pytest.approx(filtered_mesh.grid.cell_data["Value - Total_t001_e001"][0])
+            == 1.0
+        )
+
+    def test_cdgs(self, tmpdir):
+        # To check if the meshtal can be read without any problem"
+        with as_file(RESOURCES.joinpath("cdgs_test")) as inp:
+            meshtal = Meshtal(inp, filetype="CDGS")
+
+        meshtal.readMesh()
+        meshtal.mesh[1].write(tmpdir)

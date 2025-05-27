@@ -400,45 +400,45 @@ def _get_labels(
         for it in range(nt - 1):
             ie_label = []
             for ie in range(ne - 1):
-                val_label = f"{valstr}_{it+1:03d}_{ie+1:03d}"
-                err_label = f"{errstr}_{it+1:03d}_{ie+1:03d}"
+                val_label = f"{valstr}_t{it+1:03d}_e{ie+1:03d}"
+                err_label = f"{errstr}_t{it+1:03d}_e{ie+1:03d}"
                 ie_label.append((val_label, err_label))
-            val_label = f"{valstr}_{it+1:03d}_Tot"
-            err_label = f"{errstr}_{it+1:03d}_Tot"
+            val_label = f"{valstr}_t{it+1:03d}_eTot"
+            err_label = f"{errstr}_t{it+1:03d}_eTot"
             ie_label.append((val_label, err_label))
             it_label.append(ie_label)
 
         ie_label = []
         for ie in range(ne - 1):
-            val_label = f"{valstr}_Tot_{ie+1:03d}"
-            err_label = f"{errstr}_Tot_{ie+1:03d}"
+            val_label = f"{valstr}_tTot_e{ie+1:03d}"
+            err_label = f"{errstr}_tTot_e{ie+1:03d}"
             ie_label.append((val_label, err_label))
-        val_label = f"{valstr}_Tot_Tot"
-        err_label = f"{errstr}_Tot_Tot"
+        val_label = f"{valstr}_tTot_eTot"
+        err_label = f"{errstr}_tTot_eTot"
         ie_label.append((val_label, err_label))
         it_label.append(ie_label)
 
     elif nt > 1:
         for it in range(nt - 1):
-            val_label = f"{valstr}_{it+1:03d}"
-            err_label = f"{errstr}_{it+1:03d}"
+            val_label = f"{valstr}_t{it+1:03d}"
+            err_label = f"{errstr}_t{it+1:03d}"
             ie_label = [(val_label, err_label)]
             it_label.append(ie_label)
 
-        val_label = f"{valstr}_Tot"
-        err_label = f"{errstr}_Tot"
+        val_label = f"{valstr}_tTot"
+        err_label = f"{errstr}_tTot"
         ie_label = [(val_label, err_label)]
         it_label.append(ie_label)
 
     elif ne > 1:
         ie_label = []
         for ie in range(ne - 1):
-            val_label = f"{valstr}_{ie+1:03d}"
-            err_label = f"{errstr}_{ie+1:03d}"
+            val_label = f"{valstr}_e{ie+1:03d}"
+            err_label = f"{errstr}_e{ie+1:03d}"
             ie_label.append((val_label, err_label))
 
-        val_label = f"{valstr}_Tot"
-        err_label = f"{errstr}_Tot"
+        val_label = f"{valstr}_eTot"
+        err_label = f"{errstr}_eTot"
         ie_label.append((val_label, err_label))
         it_label.append(ie_label)
 
@@ -843,9 +843,7 @@ def _get_mesh_boundaries(fic: myOpen, position: int = None, cuv=None):
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def _get_cdgsmesh_boundaries(
-    fic: myOpen, position: int
-) -> tuple[
+def _get_cdgsmesh_boundaries(fic: myOpen, position: int) -> tuple[
     str,
     tuple[np.ndarray, np.ndarray] | None,
     tuple[np.ndarray, np.ndarray, np.ndarray, ExtraBin, ExtraBin],

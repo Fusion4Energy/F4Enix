@@ -173,7 +173,7 @@ class MeshData:
         """multiply mesh values by the factor and return a new MeshData object"""
         return scale_mesh(self, factor)
 
-    def get_etbin_data(self, ebin: int = None, tbin: int = None):
+    def get_etbin_data(self, ebin: int | None = None, tbin: int | None = None):
         """Return a sub mesh with only data of selected energy and time bins"""
 
         if ebin is None:
@@ -257,7 +257,7 @@ class MeshData:
 class Fmesh(MeshData):
     """class storing all kind of mesh Fmesh, CuV, CDGS"""
 
-    def __init__(self, mesh: MeshData, meshLabel: str, trsf=None):
+    def __init__(self, mesh: MeshData, meshLabel: str, trsf=None, binlabels=None):
         super().__init__(
             mesh.geom,
             mesh.x1bin,
@@ -273,7 +273,7 @@ class Fmesh(MeshData):
         self._type = None
         self._comments = None
         self._particle = None
-        self.grid: pv.DataSet = self._create_grid(binlabels=None)
+        self.grid: pv.DataSet = self._create_grid(binlabels=binlabels)
 
     def __add__(self, mesh2):
         return add_mesh(self, mesh2)

@@ -29,6 +29,17 @@ class Meshtal:
         self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
         self.mesh: dict[int, Fmesh] = {}
 
+    def create_filtered_mesh(
+        self,
+        mesh_id: int,
+        binlabels: tuple[str],
+        ebin: int | None = None,
+        tbin: int | None = None,
+    ) -> Fmesh:
+        etbin_data = self.mesh[mesh_id].get_etbin_data(ebin=ebin, tbin=tbin)
+        etbin_mesh = Fmesh(etbin_data, str(mesh_id), trsf=None, binlabels=binlabels)
+        return etbin_mesh
+
     def readMesh(
         self,
         mesh: int | list[int] | None = None,
