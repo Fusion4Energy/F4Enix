@@ -2371,7 +2371,7 @@ class myOpen:
     def _seek(self, pos: int):
         self._file.seek(pos)
 
-    def _skipline(self, n: int = 1, verbose=False):
+    def _skipline(self, n: int = 1, verbose: bool = False):
         for i in range(n):
             line = self._file.readline()
             if verbose:
@@ -2464,7 +2464,7 @@ def _get_block_data(
     position: int,
     type: str,
     explicit_time: bool,
-    shape: tuple[int, int, int, int, int],
+    shape: tuple[int, int, int, int, int, int],
     dtme: bool = False,
 ) -> np.ndarray:
     fic._seek(position)
@@ -3004,7 +3004,7 @@ def _scan_cuvfile(fic: myOpen) -> FMesh:
     return cuvmesh
 
 
-def _scan_cdgsfile(fic: myOpen):
+def _scan_cdgsfile(fic: myOpen) -> dict[str, list[int]]:
     srcmesh = dict()
     line = fic._readline().split()
     nmesh = int(float(line[1]))
@@ -3030,7 +3030,7 @@ def _scan_cdgsfile(fic: myOpen):
     return srcmesh
 
 
-def _skip_cuvdata(fic: myOpen):
+def _skip_cuvdata(fic: myOpen) -> tuple[int, int]:
 
     line = fic._readline()[0:30]
     while line[0:22] != " Tally bin boundaries:":
@@ -3056,7 +3056,7 @@ def _skip_cuvdata(fic: myOpen):
     return (bound_pos, data_pos)
 
 
-def _get_mesh_block(fic: myOpen):
+def _get_mesh_block(fic: myOpen) -> tuple[int, int]:
     blk_line = 0
     while blk_line < 2:
         line = fic._readline()
@@ -3072,7 +3072,7 @@ def _get_mesh_block(fic: myOpen):
     return (bound_pos, data_pos)
 
 
-def _get_header(fic: myOpen, position):
+def _get_header(fic: myOpen, position: int) -> tuple[str, str | None]:
     particle_list = ("neutron", "photon", "electron", "proton", "deuteron")
     fic._seek(position)
     fic._skipline()
@@ -3093,7 +3093,7 @@ def _get_header(fic: myOpen, position):
     return part, comments
 
 
-def _get_cdgsheader(fic: myOpen, position):
+def _get_cdgsheader(fic: myOpen, position: int) -> tuple[float, float, str]:
     fic._seek(position)
     fic._skipline()
     comments = fic._readline()
@@ -3105,7 +3105,9 @@ def _get_cdgsheader(fic: myOpen, position):
     return cooling, strength, comments
 
 
-def _get_mesh_type(fic: myOpen, position, geom="rec", explicit_time=False):
+def _get_mesh_type(
+    fic: myOpen, position: int, geom: str = "rec", explicit_time: bool = False
+) -> str:
     fic._seek(position)
     line = fic._readline()
 
@@ -3118,7 +3120,7 @@ def _get_mesh_type(fic: myOpen, position, geom="rec", explicit_time=False):
         fic._skipline(4)
     else:
         fic._skipline()
-    line = fic.readline()
+    line = fic._readline()
     if geom == "rec":
         if "Z bin" in line:
             return "ij"
@@ -3139,7 +3141,7 @@ def _get_mesh_type(fic: myOpen, position, geom="rec", explicit_time=False):
             return "bad"
 
 
-def _get_mesh_boundaries(fic: myOpen, position=None, cuv=None):
+def _get_mesh_boundaries(fic: myOpen, position: int = None, cuv=None):
     if position is not None:
         fic._seek(position)
         fic._skipline()
@@ -3190,7 +3192,11 @@ def _get_mesh_boundaries(fic: myOpen, position=None, cuv=None):
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def _get_cdgsmesh_boundaries(fic: myOpen, position):
+def _get_cdgsmesh_boundaries(fic: myOpen, position: int) -> tuple[
+    str,
+    tuple[np.ndarray, np.ndarray] | None,
+    tuple[np.ndarray, np.ndarray, np.ndarray, ExtraBin, ExtraBin],
+]:
     fic._seek(position)
     fic._skipline(4)
     line = fic._readline().split()
@@ -3220,20 +3226,33 @@ def _get_cdgsmesh_boundaries(fic: myOpen, position):
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def get_mesh_data(fic: myOpen, position, geom, explicit_time, shape):
+def _get_mesh_data(
+    fic: myOpen,
+    position: int,
+    geom: str,
+    explicit_time: bool,
+    shape: tuple[int, int, int, int, int, int],
+) -> np.ndarray:
 
     type = _get_mesh_type(fic, position, geom, explicit_time)
     if type == "col" or type == "cf":
         data = _get_column_data(fic, position, type, shape)
     elif type == "oldCUV":
         # in mcnp5 version of d1suned CUV was written in meshtal files with CDGS format
-        data = get_CDGSmesh_data(fic, position, shape, oldCUV=True)
+        data = _get_CDGSmesh_data(fic, position, shape, oldCUV=True)
     else:
         data = _get_block_data(fic, position, type, explicit_time, shape)
     return data
 
 
-def get_CUVmesh_data(fic: myOpen, position, shape, norm=None, filter=None):
+def _get_CUVmesh_data(
+    fic: myOpen,
+    position,
+    shape: tuple[int, int, int, int, int, int],
+    norm: str = None,
+    filter: list[int] = None,
+) -> np.ndarray:
+
     fic._seek(position)
     fic._skipline()
 
@@ -3256,7 +3275,13 @@ def get_CUVmesh_data(fic: myOpen, position, shape, norm=None, filter=None):
     return data
 
 
-def get_CDGSmesh_data(fic: myOpen, position, shape, oldCUV=False):
+def _get_CDGSmesh_data(
+    fic: myOpen,
+    position: int,
+    shape: tuple[int, int, int, int, int, int],
+    oldCUV: bool = False,
+) -> np.ndarray:
+
     fic._seek(position)
     if oldCUV:
         fic._skipline(4)
