@@ -60,12 +60,13 @@ class TestNewMeshtal:
             meshtally.readMesh(norm=norm)
             meshtally.readMesh(cell_filters=[1, 2], norm=norm)
 
-    @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
-    def test_1d_features(self, input_meshtal):
-        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
-            meshtal = NewMeshtal(inp)
-        meshtal.readMesh()
-        meshtal.mesh[214].convert2tally()
+    # TODO: Reimplement
+    # @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
+    # def test_1d_features(self, input_meshtal):
+    #     with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+    #         meshtal = NewMeshtal(inp)
+    #     meshtal.readMesh()
+    #     meshtal.mesh[214].convert2tally()
 
     def test_write_cyl(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:

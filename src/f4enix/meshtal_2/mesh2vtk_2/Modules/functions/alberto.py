@@ -496,9 +496,9 @@ def _structured_grid(
 
     if mesh.geom == "cyl":
         if mesh.x3bin[1] > 0.5:
-            mesh.x3bin = np.insert(mesh.x3bin, 1, 0.5, axis=0)
-            mesh.nx3 += 1
-            mesh.data = np.insert(mesh.data, 0, mesh.data[:, :, 0, :, :, :], axis=2)
+            mesh._x3bin = np.insert(mesh.x3bin, 1, 0.5, axis=0)
+            mesh._nx3 += 1
+            mesh._data = np.insert(mesh.data, 0, mesh.data[:, :, 0, :, :, :], axis=2)
 
     npts = (mesh.nx1 + 1) * (mesh.nx2 + 1) * (mesh.nx3 + 1)
     pts.SetNumberOfPoints(npts)
