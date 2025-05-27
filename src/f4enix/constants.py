@@ -25,11 +25,12 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
+import os
 import re
 from pathlib import Path
 
 # --- Typing ---
-PathLike = Path | str
+PathLike = Path | str | os.PathLike
 
 # --- PATTERNS ---
 PAT_BREAK = re.compile(r"[\s\t]*\n")

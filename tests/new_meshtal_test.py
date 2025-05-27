@@ -1,3 +1,4 @@
+import os
 from importlib.resources import as_file, files
 
 import pytest
@@ -64,3 +65,88 @@ class TestNewMeshtal:
             meshtal = NewMeshtal(inp)
         meshtal.readMesh()
         meshtal.mesh[214].convert2tally()
+
+    def test_write_cyl(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = NewMeshtal(inp)
+        meshtally.readMesh()
+        outpath = tmpdir.mkdir("sub_cyl")
+        meshtally.mesh[124].write(outpath)
+
+    @pytest.mark.parametrize(
+        ["file_read", "list_array_names", "out_format", "out_name", "file_exp"],
+        [
+            [
+                "example.vts",
+                None,
+                "csv",
+                "Tally_124_csv.csv",
+                "example_['Values']_csv.csv",
+            ],
+            [
+                "test_VTK_CUBE_SQUARE.vtr",
+                ["Value - Total"],
+                "csv",
+                "Tally_124_csv.csv",
+                "test_VTK_CUBE_SQUARE_['Value - Total']_csv.csv",
+            ],
+            [
+                "meshtal_14.vts",
+                ["Value - Total"],
+                "csv",
+                "Tally_124_csv.csv",
+                "meshtal_14_['Value - Total']_csv.csv",
+            ],
+            [
+                "cuvmsh_44_CuV_CELF10.vtr",
+                ["Value - Total"],
+                "csv",
+                "Tally_124_csv.csv",
+                "cuvmsh_44_CuV_CELF10_['Value - Total']_csv.csv",
+            ],
+            [
+                "PS_NHD_DIV_RHC_INBOARD.vtk",
+                ["NHD[W/cm3]"],
+                "csv",
+                "Tally_124_csv.csv",
+                "PS_NHD_DIV_RHC_INBOARD_['NHD[W-cm3]']_csv.csv",
+            ],
+            [
+                "PS_NHD_DIV_RHC_INBOARD.vtk",
+                ["NHD[W/cm3]"],
+                "ip_fluent",
+                "Tally_124_ip_fluent_NHDWcm3.txt",
+                "PS_NHD_DIV_RHC_INBOARD_NHD[W-cm3]_ip_fluent.txt",
+            ],
+            [
+                "PS_NHD_DIV_RHC_INBOARD.vtk",
+                ["NHD[W/cm3]"],
+                "point_cloud",
+                "Tally_124_point_cloud_NHDWcm3.txt",
+                "PS_NHD_DIV_RHC_INBOARD_NHD[W-cm3]_point_cloud.txt",
+            ],
+        ],
+    )
+    def test_write(
+        self, file_read, list_array_names, out_format, out_name, file_exp, tmpdir
+    ):
+        # Whatever mesh can be read here, the grid will be overridden
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = NewMeshtal(inp)
+        meshtally.readMesh()
+        fmesh = meshtally.mesh[124]
+
+        with as_file(resources_write.joinpath(file_read)) as inp:
+            fmesh._read_from_vtk(inp)
+
+        outpath = tmpdir.mkdir("sub_csv")
+        fmesh.write(outpath, out_format=out_format, list_array_names=list_array_names)
+        outfile = os.path.join(outpath, out_name)
+
+        with as_file(expected.joinpath(file_exp)) as exp:
+            with open(outfile) as test, open(exp) as exp_file:
+                for line1, line2 in zip(test, exp_file):
+                    assert line1 == line2
+
+        # Also always test the .vtk writing
+        fmesh.write(outpath)

@@ -1,8 +1,18 @@
+import csv
+import logging
+import os
+import re
+
 import numpy
-import vtk
+import pyvista as pv
+from tqdm import tqdm
+
+from f4enix.constants import PathLike
 
 from .functions.utils import ExtraBin
 from .functions.vtk_functions import rectilinear_grid, structured_grid
+
+ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
 
 class MeshData:
@@ -259,6 +269,7 @@ class FMesh(MeshData):
         self._type = None
         self._comments = None
         self._particle = None
+        self.grid: pv.DataSet = self._create_grid(binlabels=None)
 
     def __add__(self, mesh2):
         return add_mesh(self, mesh2)
@@ -344,31 +355,178 @@ class FMesh(MeshData):
     def convert2tally(self):
         raise NotImplementedError()
 
-    def write_vtk(self, filename: str, binary: bool = False, binlabels=None) -> None:
-        """Write Fmesh in vtk file"""
-
+    def _create_grid(self, binlabels=None) -> pv.PolyData:
         if self._geom == "rec" and self._trsf is None:
-            gW = vtk.vtkXMLRectilinearGridWriter()
             if binlabels:
                 gd = rectilinear_grid(self, labels=binlabels)
             else:
                 gd = rectilinear_grid(self)
+        elif binlabels:
+            gd = structured_grid(self, trsf=self._trsf, labels=binlabels)
+        else:
+            gd = structured_grid(self, trsf=self._trsf)
+
+        pv_grid = pv.wrap(gd)
+        assert isinstance(pv_grid, pv.DataSet), "Could not generate PyVista object..."
+        return pv_grid
+
+    def write(
+        self,
+        outpath: PathLike,
+        list_array_names: list[str] | None = None,
+        out_format: str = "vtk",
+        outfile: str | None = None,
+    ) -> None:
+        """Export the mesh to a file. vtk, csv, fluent (txt) and point cloud
+        (txt) formats can be selected.
+
+        Parameters
+        ----------
+        outpath : os.PathLike | str
+            path to the output folder.
+        list_array_names : list[str], optional
+            arrays to be exported. The default is None, meaning that all the
+            available arrays will be used.
+        out_format : str, optional
+            output format. The allowed ones are ['point_cloud', 'ip_fluent',
+            'csv', 'vtk']. Default is .vtk
+        outfile : str, optional
+            name of the output file. If specified, overrides the default one.
+            Do not include the extension of the file here. Default is None.
+
+        Raises
+        ------
+        KeyError
+            raises KeyError if the output format is not allowed.
+        """
+        if list_array_names is None:
+            list_array_names = list(self.grid.array_names)
+
+        if outfile is None:
+            file_name = f"Tally_{self.tally}_{out_format}"
+        else:
+            file_name = outfile
+
+        # TODO either all cells or all point data are supported if not a vtk
+        if out_format != "vtk":
+            len_data = len(self.grid.cell_data)
+            len_point = len(self.grid.point_data)
+            if len_data > 0 and len_point == 0:
+                f_points = self.grid.cell_centers().points
+            elif len_point > 0:
+                f_points = self.grid.points
+            else:
+                raise ValueError(
+                    "mix between cell and point data is only supported for vtk"
+                )
+
+        filepath = os.path.join(outpath, file_name)
+        mesh_type = str(type(self.grid)).split(".")[-1][:-2]
+
+        if out_format == "vtk":
+            self._write_vtk(filepath, mesh_type)
+        elif out_format == "csv":
+            self._write_csv(filepath, f_points, list_array_names)
+        elif out_format == "point_cloud":
+            self._write_point_cloud(filepath, list_array_names, f_points)
+        elif out_format == "ip_fluent":
+            self._write_fluent(filepath, list_array_names, f_points)
+        else:
+            raise KeyError(
+                f"Invalid format, these are the ones allowed: {ALLOWED_OUTPUT_FORMATS}"
+            )
+
+    def _write_vtk(self, filepath: PathLike, mesh_type: str) -> None:
+        if mesh_type == "StructuredGrid":
+            ext = ".vts"
+        elif mesh_type == "UnstructuredGrid":
+            ext = ".vtu"
+        elif mesh_type == "RectilinearGrid":
             ext = ".vtr"
         else:
-            gW = vtk.vtkXMLStructuredGridWriter()
-            if binlabels:
-                gd = structured_grid(self, trsf=self._trsf, labels=binlabels)
-            else:
-                gd = structured_grid(self, trsf=self._trsf)
-            ext = ".vts"
+            ext = ".vtk"
 
-        filename += ext
-        gW.SetFileName(filename)
-        if not binary:
-            gW.SetDataModeToAscii()
+        self.grid.save(str(filepath) + ext)
 
-        gW.SetInputData(gd)
-        gW.Write()
+    def _write_csv(
+        self, filepath: PathLike, f_points: numpy.ndarray, list_array_names: list[str]
+    ) -> None:
+        new_name = str(filepath) + ".csv"
+
+        with open(new_name, "w", newline="") as outfile:
+            writer = csv.writer(outfile)
+
+            # # TODO This may create some issues...
+            # values_type = self.get_array_type(list_array_names[0])
+            # if values_type == "cells":  # Take points or centers
+            #     f_points = self.centers
+            # else:  # Points
+            #     f_points = self.points
+
+            for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
+                csv_points = [
+                    f"{f_points[i][0]:.3f}",
+                    f" {f_points[i][1]:.3f}",
+                    f" {f_points[i][2]:.3f}",
+                ]
+                for array_name in list_array_names:
+                    csv_points.append(f" {self.grid[array_name][i]:.3f}")
+                writer.writerow(csv_points)
+
+            logging.info(f"{new_name} created successfully!")
+
+    def _write_point_cloud(
+        self, filepath: PathLike, list_array_names: list[str], f_points: numpy.ndarray
+    ) -> None:
+        for array_name in list_array_names:
+            values = self.grid[array_name]
+            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            with open(new_name, "w") as outfile:
+                outfile.write("x, y, z, value\n")
+                # TODO this can probably be optmized using
+                # outfile.writeline()
+                for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
+                    outfile.write(f"{f_points[i][0]:.3f},")
+                    outfile.write(f"{f_points[i][1]:.3f},")
+                    outfile.write(f"{f_points[i][2]:.3f},")
+                    outfile.write(f"{values[i]:.3f}\n")
+            logging.info(f"{new_name} created successfully!")
+
+    def _write_fluent(
+        self, filepath: PathLike, list_array_names: list[str], f_points: numpy.ndarray
+    ) -> None:
+        for array_name in list_array_names:
+            values = self.grid[array_name]
+            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            with open(new_name, "w") as outfile:
+                guion1 = "3"
+                n_coord = f_points.shape[1]  # self.n_coordinates
+                n_values = str(len(f_points))
+                guion2 = "1"
+                uds = "uds-0"
+                beginning = f"{guion1}\n{n_coord}\n{n_values}\n{guion2}\n{uds}\n"
+                outfile.write(beginning)
+                outfile.write("(")
+                for i in tqdm(range(len(f_points)), unit=" x points", desc="Writing x"):
+                    outfile.write(f"{f_points[i][0]:.3f}\n")
+
+                outfile.write(")\n")
+                outfile.write("(")
+
+                for i in tqdm(range(len(f_points)), unit=" y points", desc="Writing y"):
+                    outfile.write(f"{f_points[i][1]:.3f}\n")
+                outfile.write(")\n")
+                outfile.write("(")
+                for i in tqdm(range(len(f_points)), unit=" z points", desc="Writing z"):
+                    outfile.write(f"{f_points[i][2]:.3f}\n")
+                outfile.write(")\n")
+                outfile.write("(")
+                for i in tqdm(
+                    range(len(f_points)), unit=" values", desc="Writing values"
+                ):
+                    outfile.write(f"{values[i]:.3f}\n")
+                outfile.write(")\n")
+            logging.info(f"{new_name} created successfully!")
 
     def sameMesh(self, other_mesh: MeshData) -> bool:
         if self.geom != other_mesh.geom:
@@ -384,6 +542,11 @@ class FMesh(MeshData):
                 return False
 
         return True
+
+    def _read_from_vtk(self, vtk_file: os.PathLike) -> None:
+        # This is mostly used for quicker testing
+        grid = pv.read(vtk_file)
+        self.grid = grid
 
 
 def add_mesh(mesh1: MeshData, mesh2: MeshData) -> MeshData:
@@ -413,3 +576,10 @@ def scale_mesh(mesh: MeshData, factor: float) -> MeshData:
     fscale.data[:, :, :, :, :, :] = mesh.data[:, :, :, :, :, :]
     fscale.data[:, :, :, :, :, 0] = fscale.data[:, :, :, :, :, 0] * factor
     return fscale
+
+
+def clean_path(name: str) -> str:
+    """Remove special characters from the path to make it a valid file name."""
+    pat_wrong_file_char = re.compile(r"[\[\]\\\/]")
+    fixed_name = pat_wrong_file_char.sub("", name)
+    return fixed_name
