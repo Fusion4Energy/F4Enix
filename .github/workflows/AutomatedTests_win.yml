@@ -6,9 +6,9 @@ name: testing Windows
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main, developing ]
+    branches: [main, developing]
   pull_request:
-    branches: [ main, developing ]
+    branches: [main, developing]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -34,13 +34,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-
       # Install the package
       - name: Install the package
         run: |
           python -m pip install --upgrade pip
           python -m pip install .[tests]
-
 
       # Run pytest
       - name: Testing
