@@ -7,6 +7,7 @@ from numjuggler import parser
 from f4enix.constants import PathLike
 from f4enix.input.MCNPinput import Input
 from f4enix.meshtal_2.mesh2vtk_2.Modules.FMesh import FMesh
+from f4enix.meshtal_2.mesh2vtk_2.Modules.functions.alberto import COLUMN_LABELS
 from f4enix.meshtal_2.mesh2vtk_2.Modules.mesh_parser import (
     CDGSMeshParser,
     CUVMeshParser,
@@ -95,7 +96,6 @@ class NewMeshtal:
             if the fmeshes have different geometry if they do not contain
             only the default fields ['Value - Total', 'Error - Total'].
         """
-        ids = ["Value - Total", "Error - Total"]
         try:
             # check that the collapse is doable
             for i, key in enumerate(list(name_dict.keys())):
@@ -118,7 +118,7 @@ class NewMeshtal:
             for i, key in enumerate(list(name_dict.keys())):
                 fmesh = self.mesh[key]
                 # check that there are only the two usual values, no binning
-                assert fmesh.grid.array_names == ids
+                assert tuple(fmesh.grid.array_names) == COLUMN_LABELS
         except AssertionError:
             raise RuntimeError("no binning allowed for the collapse")
         for i, key in enumerate(list(name_dict.keys())):
@@ -129,7 +129,7 @@ class NewMeshtal:
                     grid.rename_array(old_name, new_name)
             else:
                 # results just have to be added for the other fmeshes
-                for array_name, id in zip(name_dict[key], ids):
+                for array_name, id in zip(name_dict[key], COLUMN_LABELS):
                     grid[array_name] = fmesh.grid[id]
         return grid
 

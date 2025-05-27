@@ -9,6 +9,10 @@ import numpy as np
 import vtk
 from vtk.util import numpy_support
 
+VALUE_LABEL = "Value - Total"
+ERROR_LABEL = "Error - Total"
+COLUMN_LABELS = (VALUE_LABEL, ERROR_LABEL)
+
 
 class myOpen:
     def __init__(self, filename: str, mode: str):
@@ -387,7 +391,7 @@ def _makeVTKarray(array: np.ndarray) -> vtk.vtkFloatArray:
 
 
 def _get_labels(
-    nt: int, ne: int, labels: tuple[str, str] = ("value", "error")
+    nt: int, ne: int, labels: tuple[str, str] = COLUMN_LABELS
 ) -> list[list[tuple[str, str]]]:
     valstr, errstr = labels
 
@@ -448,7 +452,7 @@ def _get_labels(
 
 
 def _rectilinear_grid(
-    mesh: "FMesh", labels: tuple[str, str] = ("value", "error")
+    mesh: "FMesh", labels: tuple[str, str] = COLUMN_LABELS
 ) -> vtk.vtkRectilinearGrid:
     rgrid = vtk.vtkRectilinearGrid()
     rgrid.SetDimensions(mesh.nx1 + 1, mesh.nx2 + 1, mesh.nx3 + 1)
@@ -477,7 +481,7 @@ def _rectilinear_grid(
 
 
 def _structured_grid(
-    mesh: "FMesh", trsf=None, labels: tuple[str, str] = ("value", "error")
+    mesh: "FMesh", trsf=None, labels: tuple[str, str] = COLUMN_LABELS
 ) -> vtk.vtkStructuredGrid:
     if trsf is None:
         origin = (0.0, 0.0, 0.0)
