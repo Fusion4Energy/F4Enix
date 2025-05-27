@@ -1088,6 +1088,41 @@ class Input:
                 newdensity = "{:.5e}".format(density * factor)
                 cell.set_d(newdensity)
 
+    def get_densities_range(self) -> pd.DataFrame:
+        """Return a DataFrame listing for all material the minimum and maximum
+        density values encountered in the input cells.
+
+        Returns
+        -------
+        pd.DataFrame
+            Range of densities used for each material.
+        """
+        lm = LibManager()
+        materials = []
+        for _, cell in self.cells.items():
+            mat_id = cell.get_m()
+            if mat_id == 0:
+                continue  # ignore void cells
+            dens = float(cell.get_d())
+
+            # if the density is negative (mass) leave it as it is,
+            # if atomic fraction is used, convert it to mass first
+            if dens < 0:
+                dens = abs(dens)
+            else:
+                dens = self.materials[f"M{mat_id}"].get_density(dens, lm)
+
+            materials.append([mat_id, dens])
+
+        df = pd.DataFrame(materials, columns=["Material ID", "Density"])
+        min_vals = df.groupby("Material ID")["Density"].min()
+        max_vals = df.groupby("Material ID")["Density"].max()
+        summary = pd.DataFrame()
+        summary["Min density [g/cc]"] = min_vals
+        summary["Max density [g/cc]"] = max_vals
+        summary["Material ID"] = max_vals.index
+        return summary.set_index("Material ID").sort_index()
+
     def get_cells_summary(self) -> pd.DataFrame:
         """Get a summary of infos for each cell
 

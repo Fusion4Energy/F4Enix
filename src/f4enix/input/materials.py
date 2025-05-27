@@ -1733,12 +1733,14 @@ class MatCardsList(Sequence):
                 if fractiontype == "mass":
                     norm_factor = -norm_factor
                 submat.scale_fractions(norm_factor)
-                # Add info to the header in order to back-trace the generation
+
                 if submat.header is None:
                     comment = "C no submat header"
                 else:
                     comment = submat.header
+                # Add info to the header in order to back-trace the generation
                 submat.header = f"C {materialname}, submaterial {j + 1}\n{comment}"
+
                 # Drop additional keys if present
                 submat.additional_keys = []
                 current_submaterials.append(submat)
@@ -1747,6 +1749,7 @@ class MatCardsList(Sequence):
             new_sub_header = (
                 str(material.header).strip("\n") + "\n" + current_submaterials[0].header
             ).strip("\n")
+
             current_submaterials[0].header = new_sub_header
             submaterials.extend(current_submaterials)
 
