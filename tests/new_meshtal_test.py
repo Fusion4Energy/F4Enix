@@ -40,3 +40,27 @@ class TestNewMeshtal:
             meshtally = NewMeshtal(inp)
         meshtally.readMesh()
         assert meshtally.mesh[124].sameMesh(meshtally.mesh[124])
+
+    @pytest.mark.parametrize(
+        "norm",
+        [
+            "vtot",
+            "celf",
+        ],
+    )
+    def test_read_mesh_cuv(self, norm):
+        # To check if the meshtal can be read without any problem"
+        filetype = "CUV"
+        with as_file(RESOURCES.joinpath("meshtal_cuv")) as inp:
+            meshtally = NewMeshtal(inp, filetype)
+
+        for i in meshtally.mesh.items():
+            meshtally.readMesh(norm=norm)
+            meshtally.readMesh(cell_filters=[1, 2], norm=norm)
+
+    @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
+    def test_1d_features(self, input_meshtal):
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtal = NewMeshtal(inp)
+        meshtal.readMesh()
+        meshtal.mesh[214].convert2tally()

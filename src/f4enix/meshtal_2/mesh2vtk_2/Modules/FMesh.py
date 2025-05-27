@@ -326,7 +326,7 @@ class FMesh(MeshData):
             raise TypeError(f"particle should be string type not {type(value)}")
         self._particle = value
 
-    def get_info(self) -> dict:
+    def print_info(self) -> dict:
         info = {
             "tally": self.tally,
             "type": self.type,
@@ -367,21 +367,20 @@ class FMesh(MeshData):
         gW.SetInputData(gd)
         gW.Write()
 
-
-def same_mesh(mesh1: MeshData, mesh2: MeshData) -> bool:
-    if mesh1.geom != mesh2.geom:
-        return False
-    if mesh1.data.shape != mesh2.data.shape:
-        return False
-
-    mesh1_xbins = (mesh1.x1bin, mesh1.x2bin, mesh1.x3bin)
-    mesh2_xbins = (mesh2.x1bin, mesh2.x2bin, mesh2.x3bin)
-
-    for bin1, bin2 in zip(mesh1_xbins, mesh2_xbins):
-        if numpy.any(abs(bin1 - bin2) > 1e-12):
+    def sameMesh(self, other_mesh: MeshData) -> bool:
+        if self.geom != other_mesh.geom:
+            return False
+        if self.data.shape != other_mesh.data.shape:
             return False
 
-    return True
+        mesh1_xbins = (self.x1bin, self.x2bin, self.x3bin)
+        mesh2_xbins = (other_mesh.x1bin, other_mesh.x2bin, other_mesh.x3bin)
+
+        for bin1, bin2 in zip(mesh1_xbins, mesh2_xbins):
+            if numpy.any(abs(bin1 - bin2) > 1e-12):
+                return False
+
+        return True
 
 
 def add_mesh(mesh1: MeshData, mesh2: MeshData) -> MeshData:
