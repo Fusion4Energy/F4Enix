@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+
 from f4enix.input.ww_gvr.models import Vectors
 from f4enix.input.ww_gvr.ww_parser import (
     WWHeader,

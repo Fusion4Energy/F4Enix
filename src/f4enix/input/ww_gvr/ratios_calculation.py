@@ -45,7 +45,7 @@ def _find_neighbour_values(array: np.ndarray, k: int, j: int, i: int) -> np.ndar
         [k + 1, j, i],
         [k - 1, j, i],
     ]
-    for i, index in enumerate(neighbouring_indices):
+    for i_index, index in enumerate(neighbouring_indices):
         index_is_valid = True
 
         for index_i, dimension_i in zip(index, array.shape):
@@ -54,7 +54,7 @@ def _find_neighbour_values(array: np.ndarray, k: int, j: int, i: int) -> np.ndar
                 break
 
         if index_is_valid:
-            neighbour_values[i] = array[index[0], index[1], index[2]]
+            neighbour_values[i_index] = array[index[0], index[1], index[2]]
 
     return neighbour_values
 

@@ -540,6 +540,43 @@ class TestMatCardList:
         )
         assert matcard["m1"].submaterials[0].zaidList[1].fraction > 0
 
+    def test_generate_material_from_created_materials(self):
+        materials = MatCardsList([])
+        zaids = [("1001", -100), ("B-0", -200), ("C-12", -50)]
+        newmat = Material.from_zaids(zaids, LIBMAN, "31c", "B4CH2", 302)
+        materials.append(newmat)
+        zaids = [("1001", 2), ("O-0", 1)]
+        newmat = Material.from_zaids(zaids, LIBMAN, "31c", "Water", 400)
+        materials.append(newmat)
+        newmat = materials.generate_material(
+            ["M302", "M400"],
+            [0.2, 0.8],
+            "31c",
+            LIBMAN,
+            fractiontype="atom",
+            mat_name="M500",
+        )
+        assert (
+            newmat.to_text()
+            == """C Material: M302 Percentage: 20.0% (atom)
+C Material: M400 Percentage: 80.0% (atom)
+M500
+C B4CH2
+C M302, submaterial 1
+C no submat header
+       1001.31c        1.628143E-1     $ H-1    WEIGHT(%) 28.571 AB(%) 100.0
+       5010.31c        5.963525E-3     $ B-10   WEIGHT(%) 57.143 AB(%) 19.65
+       5011.31c        2.438520E-2     $ B-11   WEIGHT(%) 57.143 AB(%) 80.35
+       6012.31c        6.837012E-3     $ C-12   WEIGHT(%) 14.286 AB(%) 100.0
+C Water
+C M400, submaterial 1
+C no submat header
+       1001.31c        5.333336E-1     $ H-1    WEIGHT(%) 11.189 AB(%) 100.0
+       8016.31c        2.660188E-1     $ O-16   WEIGHT(%) 88.811 AB(%) 99.757
+       8017.31c        1.022667E-4     $ O-17   WEIGHT(%) 88.811 AB(%) 0.03835
+       8018.31c        5.453336E-4     $ O-18   WEIGHT(%) 88.811 AB(%) 0.2045"""
+        )
+
 
 def compare_without_dollar_comments(text_A: str, text_B: str):
     # strip all dollars

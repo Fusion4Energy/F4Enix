@@ -1,12 +1,13 @@
-from importlib.resources import files, as_file
-import pandas as pd
 import os
+from importlib.resources import as_file, files
 
-from f4enix.output.MCNPoutput import Output
-from f4enix.input.MCNPinput import Input
-from f4enix.output.mctal import Mctal
-import tests.resources.output as resources
+import pandas as pd
 import pytest
+
+import tests.resources.output as resources
+from f4enix.input.MCNPinput import Input
+from f4enix.output.MCNPoutput import Output
+from f4enix.output.mctal import Mctal
 
 RESOURCES = files(resources)
 
@@ -139,3 +140,10 @@ class TestOutput:
         df_2 = outp.assign_tally_description(df, mctal.tallies)
         assert len(df_2) == 11
         assert df_2["Neutron heating F6 [6]"] == "Passed"
+
+    def test_get_fatal_errors(self):
+        with as_file(RESOURCES.joinpath("outp_fatal")) as file:
+            outp = Output(file)
+        errors = outp.get_fatal_errors()
+        assert len(errors) == 5
+        assert errors[-1] == "1 tally volumes or areas were not input nor calculated."

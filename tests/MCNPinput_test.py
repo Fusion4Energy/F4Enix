@@ -664,6 +664,18 @@ C a breaking comment
         assert new_cell.card(wrap=False, comment=False).split()[0] == "50"
         assert mcnp_input.cells["22"].card(wrap=False, comment=False).split()[0] == "50"
 
+    def test_get_density_range(self):
+        with as_file(resources_inp.joinpath("test_rho_range.i")) as FILE1:
+            inp = Input.from_input(FILE1)
+        d_range = inp.get_densities_range()
+        assert d_range.loc[30]["Min density [g/cc]"] == 0.945
+        assert d_range.loc[30]["Max density [g/cc]"] == 0.946
+        assert (
+            d_range.loc[7]["Min density [g/cc]"]
+            == d_range.loc[7]["Max density [g/cc]"]
+            == pytest.approx(0.999978)
+        )
+
 
 class TestD1S_Input:
     with (

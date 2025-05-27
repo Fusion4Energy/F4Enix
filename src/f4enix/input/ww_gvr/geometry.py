@@ -18,6 +18,8 @@ from f4enix.input.ww_gvr.models import CoordinateType, ValuesByParticle, Vectors
 from f4enix.input.ww_gvr.utils import build_1d_vectors, compose_b2_vectors
 from f4enix.input.ww_gvr.ww_parser import WWHeader, WWHeaderCyl
 
+LARGE_NUMBER = 1e5
+
 
 class Geometry:
     def __init__(
@@ -41,12 +43,16 @@ class Geometry:
 
         self._coordinate_type = (
             CoordinateType.CARTESIAN
-            if type(header) == WWHeader
+            if type(header) is WWHeader
             else CoordinateType.CYLINDRICAL
         )
 
-        self._director_1 = header.director_1 if type(header) == WWHeaderCyl else None
-        self._director_2 = header.director_2 if type(header) == WWHeaderCyl else None
+        self._director_1 = (
+            header.director_1 if isinstance(header, WWHeaderCyl) else None
+        )
+        self._director_2 = (
+            header.director_2 if isinstance(header, WWHeaderCyl) else None
+        )
         self._origin = header.origin
 
         self._grid = self._create_grid()
@@ -233,7 +239,7 @@ class Geometry:
         data = np.array(self._grid[args_dict["scalars"]])
         data_max = data.max()
         data_min = data[data != 0].min()
-        if data_max / data_min < 1e5:
+        if data_max / data_min < LARGE_NUMBER:
             args_dict["log_scale"] = False
             return args_dict
 
