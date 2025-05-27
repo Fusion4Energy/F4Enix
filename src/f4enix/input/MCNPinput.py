@@ -1706,6 +1706,19 @@ class Input:
                     return False
         return True
 
+    def delete_fill_cards(self) -> None:
+        """Delete all fill cards from the input cells."""
+        for key, cell in self.cells.items():
+            if cell.get_f() is not None:
+                # remove the fill card if present
+                cell.remove_fill()
+
+                # Be sure to have correct fields generated
+                cell_lines = cell.card(wrap=True).splitlines(keepends=True)
+                new_cell = parser.Card(cell_lines, 3, cell.pos)
+                new_cell.get_values()
+                self.cells[key] = new_cell
+
 
 class D1S_Input(Input):
     def __init__(

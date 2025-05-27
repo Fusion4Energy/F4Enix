@@ -535,6 +535,21 @@ class TestInput:
             text == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
         )
 
+    def test_delete_fill_cards(self):
+        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+            newinp = Input.from_input(inp_file)
+        newinp.delete_fill_cards()
+        assert newinp.cells["1"].get_f() is None
+        assert (
+            newinp.cells["1"].card().replace("\r", "")
+            == """1 0 -1 
+      imp:n=1               
+C a breaking comment
+                         $ some dollar comment
+                          VOL=1
+"""
+        )
+
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
         sur = 180
