@@ -46,7 +46,7 @@ class MeshtalParser(Parser):
         """return list of mesh stored in the meshtal"""
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int) -> Fmesh:
+    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
         """return Fmesh object with all data of the mesh tally number"""
         tally = str(tally)
         if tally not in self.tallyPos.keys():

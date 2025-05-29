@@ -188,3 +188,8 @@ class Meshtal:
         """
         for key, transf in transf_dict.items():
             self.mesh[key].apply_transformation(transf)
+
+    @property
+    def mesh_ids(self) -> list[int]:
+        """Returns the list of mesh IDs."""
+        return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
