@@ -25,17 +25,19 @@ class Parser(ABC):
     def get_meshlist(self) -> tuple: ...
 
     @abstractmethod
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh: ...
+    def get_FMesh(
+        self, tally: int, norm: str | None = None, filter: list[int] | None = None
+    ) -> Fmesh: ...
 
     @abstractmethod
-    def get_boundaries(self, tally): ...
+    def get_boundaries(self, tally: int): ...
 
     @abstractmethod
-    def get_header(self, tally): ...
+    def get_header(self, tally: int): ...
 
 
 class MeshtalParser(Parser):
-    """read meshtal formatted file (support block, column or CuV format)."""
+    """Read meshtal formatted file (support block, column or CuV format)."""
 
     def __init__(self, filename: str | Path):
         self.filename = filename
@@ -43,16 +45,41 @@ class MeshtalParser(Parser):
         self.tallyPos = _scan_meshfile(self.fic)
 
     def get_meshlist(self) -> tuple:
-        """return list of mesh stored in the meshtal"""
+        """Return list of mesh stored in the CUV file.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the tally numbers of the meshes.
+        """
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int) -> Fmesh:
-        """return Fmesh object with all data of the mesh tally number"""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        tallyPos, boundPos, dataPos = self.tallyPos[tally]
+    def get_FMesh(
+        self,
+        tally: int,
+        norm: str | None = None,
+        filter: list[int] | None = None,
+    ) -> Fmesh:
+        """Returns Fmesh object representing a eshtally.
+
+        Parameters
+        ----------
+        tally : int
+            The mesh tally number to retrieve.
+        norm : str | None, optional
+            Normalization option for CUV meshes, not used.
+        filter : list[int] | None, optional
+            List of cells with which voxels in CUV meshes are filtered, not used.
+
+        Returns
+        -------
+        Fmesh
+            An Fmesh object containing the mesh data.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        tallyPos, boundPos, dataPos = self.tallyPos[tally_str]
         geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos)
 
         nx1 = len(meshbins[0]) - 1
@@ -70,35 +97,55 @@ class MeshtalParser(Parser):
         data = _get_mesh_data(self.fic, dataPos, geom, meshbins[4].explicit, shape)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = Fmesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally_str, trsf)
         fm.type = "meshtal"
         fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
         return fm
 
-    def get_boundaries(self, tally):
-        """return mesh information type, boundaries, ..."""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        boundPos = self.tallyPos[tally][1]
+    def get_boundaries(self, tally: int):
+        """Return mesh information type, boundaries, ...
+
+        Parameters
+        ----------
+        tally : int
+            The source mesh number to retrieve boundaries for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the geometry, transformation, and mesh bins.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        boundPos = self.tallyPos[tally_str][1]
         geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos)
         return geom, trsf, meshbins
 
-    def get_header(self, tally):
-        """return mesh header information"""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        tallyPos = self.tallyPos[tally][0]
+    def get_header(self, tally: int):
+        """Return mesh header information.
+
+        Parameters
+        ----------
+        tally : int
+            The mesh tally number to retrieve header information for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the particle type and comments associated with the mesh tally.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        tallyPos = self.tallyPos[tally_str][0]
         particle, comments = _get_header(self.fic, tallyPos)
         return particle, comments
 
 
 class CUVMeshParser(Parser):
-    """read CUV formatted file."""
+    """Read CUV formatted file."""
 
     def __init__(self, filename: str | Path):
         self.filename = filename
@@ -106,16 +153,38 @@ class CUVMeshParser(Parser):
         self.tallyPos = _scan_cuvfile(self.fic)
 
     def get_meshlist(self) -> tuple:
-        """return list of mesh stored in the CUV file"""
+        """Return list of mesh stored in the CUV file.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the tally numbers of the meshes.
+        """
         return tuple(sorted(self.tallyPos.keys()))
 
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
-        """return Fmesh object with all data of the mesh tally number"""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        tallyPos, boundPos, dataPos = self.tallyPos[tally]
+    def get_FMesh(
+        self, tally: int, norm: str | None = None, filter: list[int] | None = None
+    ) -> Fmesh:
+        """Returns Fmesh object representing a CUV meshtally.
+
+        Parameters
+        ----------
+        tally : int
+            The mesh tally number to retrieve.
+        norm : str | None, optional
+            Normalization option for CUV meshes.
+        filter : list[int] | None, optional
+            List of cells with which voxels in CUV meshes are filtered.
+
+        Returns
+        -------
+        Fmesh
+            An Fmesh object containing the mesh data.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        tallyPos, boundPos, dataPos = self.tallyPos[tally_str]
         geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos, cuv=True)
 
         nx1 = len(meshbins[0]) - 1
@@ -133,35 +202,55 @@ class CUVMeshParser(Parser):
         data = _get_CUVmesh_data(self.fic, dataPos, shape, norm, filter)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = Fmesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally_str, trsf)
         fm.type = "CUV"
         fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
         return fm
 
-    def get_boundaries(self, tally):
-        """return mesh information type, boundaries, ..."""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        boundPos = self.tallyPos[tally][1]
+    def get_boundaries(self, tally: int):
+        """Return mesh information type, boundaries, ...
+
+        Parameters
+        ----------
+        tally : int
+            The source mesh number to retrieve boundaries for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the geometry, transformation, and mesh bins.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        boundPos = self.tallyPos[tally_str][1]
         geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos, cuv=True)
         return geom, trsf, meshbins
 
-    def get_header(self, tally):
-        """return mesh header information"""
-        tally = str(tally)
-        if tally not in self.tallyPos.keys():
-            print("bad tally entry")
-            return
-        tallyPos = self.tallyPos[tally][0]
+    def get_header(self, tally: int):
+        """Return mesh header information.
+
+        Parameters
+        ----------
+        tally : int
+            The mesh tally number to retrieve header information for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the particle type and comments associated with the mesh tally.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.tallyPos.keys():
+            raise KeyError("bad tally entry")
+        tallyPos = self.tallyPos[tally_str][0]
         particle, comments = _get_header(self.fic, tallyPos)
         return particle, comments
 
 
 class CDGSMeshParser(Parser):
-    """read CDGS formatted file."""
+    """Read CDGS formatted file."""
 
     def __init__(self, filename: str | Path):
         self.filename = filename
@@ -169,16 +258,39 @@ class CDGSMeshParser(Parser):
         self.srcmeshPos = _scan_cdgsfile(self.fic)
 
     def get_meshlist(self) -> tuple:
-        """return list of source meshes stored in the CCDGS file"""
+        """Return list of mesh stored in the CDGS file.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the CDGS mesh ids.
+        """
         return tuple(sorted(self.srcmeshPos.keys()))
 
-    def get_FMesh(self, tally: int, norm=None, filter=None) -> Fmesh:
-        """return Fmesh object with all data of the mesh tally number"""
-        tally = str(tally)
-        if tally not in self.srcmeshPos.keys():
-            print("bad tally entry")
-            return
-        meshPos, dataPos = self.srcmeshPos[tally]
+    def get_FMesh(
+        self, tally: int, norm: str | None = None, filter: list[int] | None = None
+    ) -> Fmesh:
+        """Return Fmesh object representing a CDGS source.
+        The tally number is the source mesh number.
+
+        Parameters
+        ----------
+        tally : int
+            The source mesh number to retrieve.
+        norm : str | None, optional
+            Normalization option, not used in CDGS meshes.
+        filter : list[int] | None, optional
+            Filter options, not used in CDGS meshes.
+
+        Returns
+        -------
+        Fmesh
+            An Fmesh object containing the mesh data."""
+
+        tally_str = str(tally)
+        if tally_str not in self.srcmeshPos.keys():
+            raise KeyError("bad tally entry")
+        meshPos, dataPos = self.srcmeshPos[tally_str]
         geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, meshPos)
 
         nx1 = len(meshbins[0]) - 1
@@ -196,29 +308,49 @@ class CDGSMeshParser(Parser):
         data = _get_CDGSmesh_data(self.fic, dataPos, shape)
 
         mesh = MeshData(geom, *meshbins, data)
-        fm = Fmesh(mesh, tally, trsf)
+        fm = Fmesh(mesh, tally_str, trsf)
         fm.type = "CDGS"
         fm.particle = None
         fm.cooling_time, fm.strength, fm.comments = _get_cdgsheader(self.fic, meshPos)
 
         return fm
 
-    def get_boundaries(self, tally):
-        """return mesh information type, boundaries, ..."""
-        tally = str(tally)
-        if tally not in self.srcmeshPos.keys():
-            print("bad tally entry")
-            return
-        boundPos = self.srcmeshPos[tally][1]
-        geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, boundPos, cuv=True)
+    def get_boundaries(self, tally: int):
+        """Return mesh information type, boundaries, ...
+
+        Parameters
+        ----------
+        tally : int
+            The source mesh number to retrieve boundaries for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the geometry, transformation, and mesh bins.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.srcmeshPos.keys():
+            raise KeyError("bad tally entry")
+        boundPos = self.srcmeshPos[tally_str][1]
+        geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, boundPos)
         return geom, trsf, meshbins
 
-    def get_header(self, tally):
-        """return mesh header information"""
-        tally = str(tally)
-        if tally not in self.srcmeshPos.keys():
-            print("bad tally entry")
-            return
-        tallyPos = self.srcmeshPos[tally][0]
-        particle, comments = _get_cdgsheader(self.fic, tallyPos)
-        return particle, comments
+    def get_header(self, tally: int):
+        """Return mesh header information.
+
+        Parameters
+        ----------
+        tally : int
+            The source mesh number to retrieve header information for.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the cooling time, strength, and comments.
+        """
+        tally_str = str(tally)
+        if tally_str not in self.srcmeshPos.keys():
+            raise KeyError("bad tally entry")
+        tallyPos = self.srcmeshPos[tally_str][0]
+        cooling, strength, comments = _get_cdgsheader(self.fic, tallyPos)
+        return cooling, strength, comments

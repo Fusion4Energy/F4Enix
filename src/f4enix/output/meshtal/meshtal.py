@@ -43,25 +43,25 @@ class Meshtal:
     def readMesh(
         self,
         mesh: int | list[int] | None = None,
-        cell_filters: list[int] | None = None,
         norm: str | None = None,
+        cell_filters: list[int] | None = None,
     ) -> None:
         """Read the meshtal file and build the mesh dictionary."""
         if not mesh:
-            self.mesh = self._build_mesh_dict()
+            mesh_dict = {}
+            for mesh_id in self._meshtal_parser.get_meshlist():
+                mesh_dict[int(mesh_id)] = self._meshtal_parser.get_FMesh(
+                    mesh_id,
+                    norm,
+                    cell_filters,
+                )
+            self.mesh = mesh_dict
         elif isinstance(mesh, int):
             self.mesh = {mesh: self._meshtal_parser.get_FMesh(mesh, norm, cell_filters)}
         elif isinstance(mesh, list):
             self.mesh = {
                 m: self._meshtal_parser.get_FMesh(m, norm, cell_filters) for m in mesh
             }
-
-    def _build_mesh_dict(self) -> dict[int, Fmesh]:
-        """Build a dictionary of meshes from the meshtal file."""
-        mesh_dict = {}
-        for mesh_id in self._meshtal_parser.get_meshlist():
-            mesh_dict[int(mesh_id)] = self._meshtal_parser.get_FMesh(mesh_id)
-        return mesh_dict
 
     def write_all(self, outpath: PathLike, out_format: str = "vtk") -> None:
         """write all fmeshes to the outfolder in the specified format.
@@ -78,7 +78,7 @@ class Meshtal:
         for _, mesh in self.mesh.items():
             mesh.write(outpath, out_format=out_format)
 
-    def collapse_grids(self, name_dict: dict[int, list[str, str]]) -> pv.DataSet:
+    def collapse_grids(self, name_dict: dict[int, list[str]]) -> pv.DataSet:
         """If the all the fmeshes indicated in the dictionary are defined on
         the same
         structured grid, returns a grid onto which all the fmeshes are

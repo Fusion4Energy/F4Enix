@@ -46,8 +46,8 @@ class TestMeshtal:
     @pytest.mark.parametrize(
         "norm",
         [
-            "vtot",
-            "celf",
+            "total",
+            "fraction",
         ],
     )
     def test_read_mesh_cuv(self, norm):
@@ -59,6 +59,7 @@ class TestMeshtal:
         for i in meshtally.mesh.items():
             meshtally.readMesh(norm=norm)
             meshtally.readMesh(cell_filters=[1, 2], norm=norm)
+            meshtally.readMesh(cell_filters=[1], norm=norm)
 
     # TODO: Reimplement
     # @pytest.mark.parametrize("input_meshtal", ["1D_mesh", "1D_mesh_energyonly"])
@@ -179,6 +180,12 @@ class TestMeshtal:
         filetype = "MCNP"
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
             Meshtal(inp, filetype)
+
+    def test_read_list(self, tmpdir):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtally = Meshtal(inp)
+        meshtally.readMesh([4, 14])
+        meshtally.write_all(tmpdir)
 
     def test_write_all(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:

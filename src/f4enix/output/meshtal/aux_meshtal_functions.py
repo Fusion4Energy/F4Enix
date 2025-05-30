@@ -8,6 +8,7 @@ import math
 import numpy as np
 import vtk
 from vtk.util import numpy_support
+from pathlib import Path
 
 VALUE_LABEL = "Value - Total"
 ERROR_LABEL = "Error - Total"
@@ -15,7 +16,7 @@ COLUMN_LABELS = (VALUE_LABEL, ERROR_LABEL)
 
 
 class myOpen:
-    def __init__(self, filename: str, mode: str):
+    def __init__(self, filename: str | Path, mode: str):
         self._file = open(filename, mode)
 
     def _readline(self):
@@ -307,7 +308,7 @@ def _get_mean_value(
 
 
 def _get_cuv_element(
-    fic: myOpen, norm: str, filter: list[int]
+    fic: myOpen, norm: str | None, filter: list[int] | None
 ) -> tuple[np.ndarray, np.ndarray]:
     line = fic._readline().split()
     volume = float(line[4])
@@ -342,7 +343,7 @@ def _get_cuv_element(
 
 
 def _get_cdgs_element(
-    fic: myOpen, ne: int, norm: str = None, filter: list[int] = None
+    fic: myOpen, ne: int, norm: str | None = None, filter: list[int] | None = None
 ) -> (
     tuple[int, np.ndarray, np.ndarray]
     | tuple[np.ndarray, np.ndarray]
@@ -627,7 +628,7 @@ def _get_etbin_tag(line: str) -> str | None:
         return "cel"
 
 
-def _scan_meshfile(fic: myOpen) -> "Fmesh":
+def _scan_meshfile(fic: myOpen) -> dict[str, tuple[int, int, int]]:
     tally = dict()
     while True:
         pos = fic._tell()
@@ -642,7 +643,7 @@ def _scan_meshfile(fic: myOpen) -> "Fmesh":
     return tally
 
 
-def _scan_cuvfile(fic: myOpen) -> "Fmesh":
+def _scan_cuvfile(fic: myOpen) -> dict[str, tuple[int, int, int]]:
     cuvmesh = dict()
     while True:
         pos = fic._tell()
@@ -656,7 +657,7 @@ def _scan_cuvfile(fic: myOpen) -> "Fmesh":
     return cuvmesh
 
 
-def _scan_cdgsfile(fic: myOpen) -> dict[str, list[int]]:
+def _scan_cdgsfile(fic: myOpen) -> dict[str, list]:
     srcmesh = dict()
     line = fic._readline().split()
     nmesh = int(float(line[1]))
@@ -736,7 +737,7 @@ def _get_header(fic: myOpen, position: int) -> tuple[str, str | None]:
     if comments == "":
         comments = None
 
-    part = None
+    part = ""
     for p in particle_list:
         if p in line:
             part = p
@@ -792,7 +793,9 @@ def _get_mesh_type(
             return "bad"
 
 
-def _get_mesh_boundaries(fic: myOpen, position: int = None, cuv=None):
+def _get_mesh_boundaries(
+    fic: myOpen, position: int | None = None, cuv: bool | None = None
+):
     if position is not None:
         fic._seek(position)
         fic._skipline()
@@ -899,8 +902,8 @@ def _get_CUVmesh_data(
     fic: myOpen,
     position,
     shape: tuple[int, int, int, int, int, int],
-    norm: str = None,
-    filter: list[int] = None,
+    norm: str | None = None,
+    filter: list[int] | None = None,
 ) -> np.ndarray:
     fic._seek(position)
     fic._skipline()
