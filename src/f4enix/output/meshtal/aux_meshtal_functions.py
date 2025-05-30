@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from f4enix.output.meshtal.fmesh import Fmesh
 
 import math
+from typing import Any
 
 import numpy as np
 import vtk
@@ -401,18 +402,18 @@ def _get_labels(
         for it in range(nt - 1):
             ie_label = []
             for ie in range(ne - 1):
-                val_label = f"{valstr}_t{it+1:03d}_e{ie+1:03d}"
-                err_label = f"{errstr}_t{it+1:03d}_e{ie+1:03d}"
+                val_label = f"{valstr}_t{it + 1:03d}_e{ie + 1:03d}"
+                err_label = f"{errstr}_t{it + 1:03d}_e{ie + 1:03d}"
                 ie_label.append((val_label, err_label))
-            val_label = f"{valstr}_t{it+1:03d}_eTot"
-            err_label = f"{errstr}_t{it+1:03d}_eTot"
+            val_label = f"{valstr}_t{it + 1:03d}_eTot"
+            err_label = f"{errstr}_t{it + 1:03d}_eTot"
             ie_label.append((val_label, err_label))
             it_label.append(ie_label)
 
         ie_label = []
         for ie in range(ne - 1):
-            val_label = f"{valstr}_tTot_e{ie+1:03d}"
-            err_label = f"{errstr}_tTot_e{ie+1:03d}"
+            val_label = f"{valstr}_tTot_e{ie + 1:03d}"
+            err_label = f"{errstr}_tTot_e{ie + 1:03d}"
             ie_label.append((val_label, err_label))
         val_label = f"{valstr}_tTot_eTot"
         err_label = f"{errstr}_tTot_eTot"
@@ -421,8 +422,8 @@ def _get_labels(
 
     elif nt > 1:
         for it in range(nt - 1):
-            val_label = f"{valstr}_t{it+1:03d}"
-            err_label = f"{errstr}_t{it+1:03d}"
+            val_label = f"{valstr}_t{it + 1:03d}"
+            err_label = f"{errstr}_t{it + 1:03d}"
             ie_label = [(val_label, err_label)]
             it_label.append(ie_label)
 
@@ -434,8 +435,8 @@ def _get_labels(
     elif ne > 1:
         ie_label = []
         for ie in range(ne - 1):
-            val_label = f"{valstr}_e{ie+1:03d}"
-            err_label = f"{errstr}_e{ie+1:03d}"
+            val_label = f"{valstr}_e{ie + 1:03d}"
+            err_label = f"{errstr}_e{ie + 1:03d}"
             ie_label.append((val_label, err_label))
 
         val_label = f"{valstr}_eTot"
@@ -556,6 +557,15 @@ def _get_rotation_matrix(axs, vec):
     return rotmat
 
 
+class CustomTuple(tuple):
+    origin: Any
+    vec: Any
+    axis: Any
+
+    def __new__(cls, *args):
+        return super().__new__(cls, args)
+
+
 def _get_transformation(line: str, cyl=True) -> tuple[np.ndarray, np.ndarray] | None:
     if cyl:
         if "VEC direction" in line:
@@ -612,7 +622,11 @@ def _get_transformation(line: str, cyl=True) -> tuple[np.ndarray, np.ndarray] | 
         return None
     if rotmat is None:
         rotmat = np.identity(3)
-    return (origin, rotmat)
+    result = CustomTuple(origin, rotmat)
+    result.origin = origin
+    result.vec = vec
+    result.axis = axis
+    return result
 
 
 def _get_etbin_tag(line: str) -> str | None:
@@ -846,7 +860,9 @@ def _get_mesh_boundaries(
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def _get_cdgsmesh_boundaries(fic: myOpen, position: int) -> tuple[
+def _get_cdgsmesh_boundaries(
+    fic: myOpen, position: int
+) -> tuple[
     str,
     tuple[np.ndarray, np.ndarray] | None,
     tuple[np.ndarray, np.ndarray, np.ndarray, ExtraBin, ExtraBin],

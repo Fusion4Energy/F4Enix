@@ -185,12 +185,12 @@ def _read_block_3(infile: TextIO, header: WWHeader) -> tuple[NestedList, NestedL
 
 def read_meshtally_file(path: Path, tally_id: int = 0) -> ParseResult:
     meshtal = Meshtal(path)
-    meshtal.readMesh()
 
     # If no tally id is provided, select the first meshtally
     if tally_id == 0:
-        tally_id = next(iter(meshtal.mesh.keys()))
+        tally_id = meshtal.mesh_ids[0]
 
+    meshtal.readMesh(mesh=tally_id)
     mesh = meshtal.mesh[tally_id]
 
     header = _read_header_from_meshtally_file(mesh)
@@ -198,7 +198,7 @@ def read_meshtally_file(path: Path, tally_id: int = 0) -> ParseResult:
     b2_vectors = _calculate_b2_vectors_from_meshtally(mesh)
 
     energies = [[100.0]]  # Only one particle and one energy bin
-    values = [list(mesh.dat.flatten())]
+    values = [list(mesh.data[0, 0, :, :, :, 0].flatten())]
 
     return ParseResult(
         header=header,
@@ -212,18 +212,21 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     if_ = 1  # It is always 1
     iv = 1  # It is always 1, time-dependent windows not supported
     ni = 1  # Number of particle types, always 1 when reading a meshtally
-    nr = 10 if mesh.cart else 16
-    if len(mesh.ener) - 1 > ALLOWED_NUMBER_OF_ENERGIES_IN_GVR:
+    nr = 10 if mesh.geom == "rec" else 16
+    if len(mesh.ebin) - 1 > ALLOWED_NUMBER_OF_ENERGIES_IN_GVR:
         raise ValueError("The meshtally file has more than one energy group.")
     ne = [1]  # Number of energy bins of each particle, always 1 for a meshtally
 
     # When reading a meshtally we consider that there are no regular intervals between
     # coarse vectors. This means that the length of a coarse vector is equal to the
     # total amount of fine ints at that dimension
-    nfx = ncx = len(mesh.dims[3]) - 1
-    nfy = ncy = len(mesh.dims[2]) - 1
-    nfz = ncz = len(mesh.dims[1]) - 1
-    origin = [mesh.origin[3], mesh.origin[2], mesh.origin[1]]
+    nfx = ncx = len(mesh.x1bin) - 1
+    nfy = ncy = len(mesh.x2bin) - 1
+    nfz = ncz = len(mesh.x3bin) - 1
+    if mesh.trsf and any(mesh.trsf.origin):
+        origin = [mesh.trsf.origin[2], mesh.trsf.origin[1], mesh.trsf.origin[0]]
+    else:
+        origin = [0.0, 0.0, 0.0]
 
     header_args: Dict[str, Any] = {
         "if_": if_,
@@ -246,14 +249,14 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
         header_args["origin"] = [0, 0, 0]
         header = WWHeader(**header_args)
     else:  # Cylindrical coordinates
-        director_1 = mesh.axis.tolist()
-        if mesh.vec is None:  # MCNP5 Meshtally have no info about vec
+        director_1 = mesh.trsf.axis.tolist()
+        if mesh.trsf.vec is None:  # MCNP5 Meshtally have no info about vec
             if director_1[0] != 1:
                 director_2 = [1.0, 0.0, 0.0]  # Default MCNP vec
             else:
                 director_2 = [0.0, 1.0, 0.0]  # Cant be the same as the axis
         else:
-            director_2 = mesh.vec.tolist()
+            director_2 = mesh.trsf.vec.tolist()
         header_args.update(
             {
                 "director_1": director_1,
@@ -266,23 +269,16 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
 
 
 def _calculate_b2_vectors_from_meshtally(mesh: Fmesh) -> Vectors:
-    if mesh.cart:  # In cartesian coordinates the vectors start at the origin
-        coarse_vectors = Vectors(
-            vector_i=np.array(mesh.dims[3]) + np.array(mesh.origin[3]),
-            vector_j=np.array(mesh.dims[2]) + np.array(mesh.origin[2]),
-            vector_k=np.array(mesh.dims[1]) + np.array(mesh.origin[1]),
-        )
-    else:  # In cylindrical the vectors are not modified by the origin
-        coarse_vectors = Vectors(
-            vector_i=np.array(mesh.dims[3]),
-            vector_j=np.array(mesh.dims[2]),
-            vector_k=np.array(mesh.dims[1]),
-        )
+    coarse_vectors = Vectors(
+        vector_i=np.array(mesh.x1bin),
+        vector_j=np.array(mesh.x2bin),
+        vector_k=np.array(mesh.x3bin),
+    )
 
     fine_vectors = Vectors(
-        vector_i=np.ones(len(mesh.dims[3])),
-        vector_j=np.ones(len(mesh.dims[2])),
-        vector_k=np.ones(len(mesh.dims[1])),
+        vector_i=np.ones(mesh.nx1),
+        vector_j=np.ones(mesh.nx2),
+        vector_k=np.ones(mesh.nx3),
     )
 
     return compose_b2_vectors(coarse_vectors, fine_vectors)
