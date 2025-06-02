@@ -24,6 +24,22 @@ PARSER_SELECTOR: dict[str, type[Parser]] = {
 
 class Meshtal:
     def __init__(self, filename: PathLike, filetype: str = "MCNP"):
+        """Meshtal class to read and handle meshtal files.
+
+        Parameters
+        ----------
+        filename : PathLike
+            path to the meshtal file to be read.
+        filetype : str, optional
+            Output type of the file, by default "MCNP". Other options are "CDGS" and "CUV".
+
+        Attributes
+        ----------
+        filetype : str
+            Type of the meshtal file, can be "MCNP", "CDGS", or "CUV".
+        mesh : dict[int, Fmesh]
+            Dictionary containing Fmesh objects indexed by their mesh ID.
+        """
         self.filetype = filetype
 
         self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
@@ -36,6 +52,26 @@ class Meshtal:
         ebin: int | None = None,
         tbin: int | None = None,
     ) -> Fmesh:
+        """Create a filtered mesh based on the specified mesh ID and bin labels. That
+        is, it returns a new Fmesh object with the data filtered only according to the
+        time and energy bins requested.
+
+        Parameters
+        ----------
+        mesh_id : int
+            ID of the mesh to filter.
+        binlabels : tuple[str]
+            labels for the bins to be used in the filtered mesh.
+        ebin : int | None, optional
+            Specific energy bin to extract, by default None
+        tbin : int | None, optional
+            specific time bin to extract, by default None
+
+        Returns
+        -------
+        Fmesh
+            Filtered Fmesh object containing only the specified bins.
+        """
         etbin_data = self.mesh[mesh_id].get_etbin_data(ebin=ebin, tbin=tbin)
         etbin_mesh = Fmesh(etbin_data, str(mesh_id), trsf=None, binlabels=binlabels)
         return etbin_mesh
@@ -46,7 +82,20 @@ class Meshtal:
         norm: str | None = None,
         cell_filters: list[int] | None = None,
     ) -> None:
-        """Read the meshtal file and build the mesh dictionary."""
+        """Read the meshtal file and build the mesh dictionary.
+
+        Parameters
+        ----------
+        mesh : int | list[int] | None, optional
+            If None, all meshes are read. If an integer, only the mesh with that ID is
+            read. If a list of integers, only the meshes with those IDs are read.
+        norm : str | None, optional
+            Normalization option for CUV meshes. Default is None. Valid options are
+            'ctot' or 'celf'. See D1SUNED manual for additional details
+        cell_filters : list[int] | None, optional
+            List of cells with which voxels in CUV meshes are filtered. Default is None.
+
+        """
         if not mesh:
             mesh_dict = {}
             for mesh_id in self._meshtal_parser.get_meshlist():

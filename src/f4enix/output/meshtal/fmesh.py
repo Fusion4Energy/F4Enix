@@ -4,6 +4,7 @@ import os
 import re
 
 import numpy as np
+import pandas as pd
 import pyvista as pv
 from numjuggler import parser
 from tqdm import tqdm
@@ -151,7 +152,9 @@ class MeshData:
         """
         return self._data
 
-    def get_etbin_data(self, ebin: int | None = None, tbin: int | None = None):
+    def get_etbin_data(
+        self, ebin: int | None = None, tbin: int | None = None
+    ) -> "MeshData":
         """Return a sub mesh with only data of selected energy and time bins"""
 
         if ebin is None:
@@ -233,9 +236,13 @@ class MeshData:
 
 
 class Fmesh(MeshData):
-    """class storing all kind of mesh Fmesh, CuV, CDGS"""
-
-    def __init__(self, mesh: MeshData, meshLabel: str, trsf=None, binlabels=None):
+    def __init__(
+        self,
+        mesh: MeshData,
+        meshLabel: str,
+        trsf: None | tuple = None,
+        binlabels: tuple[str] | None = None,
+    ):
         super().__init__(
             mesh.geom,
             mesh.x1bin,
@@ -245,6 +252,28 @@ class Fmesh(MeshData):
             mesh.tbin,
             mesh.data,
         )
+        """""Class storing all kind of mesh Fmesh, CuV, CDGS.
+
+        Parameters
+        ----------
+        mesh : MeshData
+            MeshData object containing the mesh geometry, bins, and data.
+        meshLabel : str
+            Label for the mesh, typically the tally number.
+        trsf : tuple | None
+            Mesh transformation, if any. It can be a tuple of transformation parameters
+            (Origin vector, rotation matrix) or None if no transformation is applied.
+        binlabels : tuple[str] | None, optional
+            Labels for the bins in the mesh. If None, default labels are used.
+            Default is None.
+
+        
+        Attributes
+        ----------
+        grid : pv.DataSet
+            PyVista grid object wrapping the mesh data.
+
+        """
 
         self._trsf = trsf
         self._tally = meshLabel
@@ -337,6 +366,13 @@ class Fmesh(MeshData):
         self._cooling_time = value
 
     def print_info(self) -> dict:
+        """Print mesh information in a dictionary format.
+
+        Returns
+        -------
+        dict
+            fmesh infos
+        """
         info = {
             "tally": self.tally,
             "type": self.type,
@@ -351,8 +387,63 @@ class Fmesh(MeshData):
         }
         return info
 
-    def convert2tally(self):
-        raise NotImplementedError()
+    def convert2tally(self) -> tuple[int, pd.DataFrame, str]:
+        """In case the mesh is 1D (only one spatial binning is higher than 1), convert
+        the tally data into a pandas DataFrame.
+
+        Returns
+        -------
+        tuple[int, pd.DataFrame, str]
+            A tuple containing the tally number, a pandas DataFrame with the
+            converted data, and a comment string.
+        """
+        val = None
+        err = None
+        # Check if the mesh is 1D
+        if self.nx1 == 1 and self.nx2 == 1 and len(self.ebin) > 2:  # 1D Energy mesh
+            if (self.geom == "cyl" and self.nx3 == 2) or self.nx3 == 1:
+                col = "Energy"
+                idx_vals = self.ebin[1:]
+                val = self.data[0, : self.ne - 1, 0, 0, 0, 0]
+                err = self.data[0, : self.ne - 1, 0, 0, 0, 1]
+        elif self.nx1 == self.nx2 == 1:  # z axis
+            col = "Cor C"
+            idx = self.nx3
+            idx_vals = self.x3bin[1:]
+        elif self.nx1 == self.nx3 == 1:  # y axis
+            col = "Cor B"
+            idx = self.nx2
+            idx_vals = self.x2bin[1:]
+        elif self.nx2 == self.nx3 == 1:  # x axis
+            col = "Cor A"
+            idx = self.nx1
+            idx_vals = self.x1bin[1:]
+        elif self.nx1 == 1 and self.nx3 == 2 and self.geom == "cyl":  # y axis
+            col = "Cor B"
+            idx = self.nx2
+            idx_vals = self.x2bin[1:]
+        elif self.nx2 == 1 and self.nx3 == 2 and self.geom == "cyl":  # x axis
+            col = "Cor A"
+            idx = self.nx1
+            idx_vals = self.x1bin[1:]
+        else:
+            raise RuntimeError(
+                (
+                    "convert2tally can only be used for 1D meshes",
+                    f"Axis lengths x:{len(self.x1bin)}, y:{len(self.x2bin)}, z:{len(self.x3bin)}",
+                )
+            )
+        if val is None:
+            val = self.grid["Value - Total"][:idx]
+            err = self.grid["Error - Total"][:idx]
+        data = {
+            col: idx_vals,
+            "Value": val,
+            "Error": err,
+        }
+        df = pd.DataFrame(data)
+
+        return int(self.tally), df, str(self.comments)
 
     def _create_grid(self, binlabels=None) -> pv.PolyData:
         if self._geom == "rec" and self._trsf is None:
@@ -479,7 +570,7 @@ class Fmesh(MeshData):
     ) -> None:
         for array_name in list_array_names:
             values = self.grid[array_name]
-            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
             with open(new_name, "w") as outfile:
                 outfile.write("x, y, z, value\n")
                 # TODO this can probably be optmized using
@@ -496,7 +587,7 @@ class Fmesh(MeshData):
     ) -> None:
         for array_name in list_array_names:
             values = self.grid[array_name]
-            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
             with open(new_name, "w") as outfile:
                 guion1 = "3"
                 n_coord = f_points.shape[1]  # self.n_coordinates
@@ -528,6 +619,18 @@ class Fmesh(MeshData):
             logging.info(f"{new_name} created successfully!")
 
     def sameMesh(self, other_mesh: MeshData) -> bool:
+        """Check if two meshes are the same based on their geometry and bins.
+
+        Parameters
+        ----------
+        other_mesh : MeshData
+            The other mesh to compare with.
+
+        Returns
+        -------
+        bool
+            True if the meshes are the same, False otherwise.
+        """
         if self.geom != other_mesh.geom:
             return False
         if self.data.shape != other_mesh.data.shape:
@@ -628,7 +731,7 @@ class Fmesh(MeshData):
         self.grid = self.grid.transform(transform_matrix, inplace=False)
 
 
-def clean_path(name: str) -> str:
+def _clean_path(name: str) -> str:
     """Remove special characters from the path to make it a valid file name."""
     pat_wrong_file_char = re.compile(r"[\[\]\\\/]")
     fixed_name = pat_wrong_file_char.sub("", name)
