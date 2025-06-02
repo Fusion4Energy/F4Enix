@@ -103,46 +103,6 @@ class MeshtalParser(Parser):
 
         return fm
 
-    def get_boundaries(self, tally: int):
-        """Return mesh information type, boundaries, ...
-
-        Parameters
-        ----------
-        tally : int
-            The source mesh number to retrieve boundaries for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the geometry, transformation, and mesh bins.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.tallyPos.keys():
-            raise KeyError("bad tally entry")
-        boundPos = self.tallyPos[tally_str][1]
-        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos)
-        return geom, trsf, meshbins
-
-    def get_header(self, tally: int):
-        """Return mesh header information.
-
-        Parameters
-        ----------
-        tally : int
-            The mesh tally number to retrieve header information for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the particle type and comments associated with the mesh tally.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.tallyPos.keys():
-            raise KeyError("bad tally entry")
-        tallyPos = self.tallyPos[tally_str][0]
-        particle, comments = _get_header(self.fic, tallyPos)
-        return particle, comments
-
 
 class CUVMeshParser(Parser):
     """Read CUV formatted file."""
@@ -207,46 +167,6 @@ class CUVMeshParser(Parser):
         fm.particle, fm.comments = _get_header(self.fic, tallyPos)
 
         return fm
-
-    def get_boundaries(self, tally: int):
-        """Return mesh information type, boundaries, ...
-
-        Parameters
-        ----------
-        tally : int
-            The source mesh number to retrieve boundaries for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the geometry, transformation, and mesh bins.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.tallyPos.keys():
-            raise KeyError("bad tally entry")
-        boundPos = self.tallyPos[tally_str][1]
-        geom, trsf, meshbins = _get_mesh_boundaries(self.fic, boundPos, cuv=True)
-        return geom, trsf, meshbins
-
-    def get_header(self, tally: int):
-        """Return mesh header information.
-
-        Parameters
-        ----------
-        tally : int
-            The mesh tally number to retrieve header information for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the particle type and comments associated with the mesh tally.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.tallyPos.keys():
-            raise KeyError("bad tally entry")
-        tallyPos = self.tallyPos[tally_str][0]
-        particle, comments = _get_header(self.fic, tallyPos)
-        return particle, comments
 
 
 class CDGSMeshParser(Parser):
@@ -314,43 +234,3 @@ class CDGSMeshParser(Parser):
         fm.cooling_time, fm.strength, fm.comments = _get_cdgsheader(self.fic, meshPos)
 
         return fm
-
-    def get_boundaries(self, tally: int):
-        """Return mesh information type, boundaries, ...
-
-        Parameters
-        ----------
-        tally : int
-            The source mesh number to retrieve boundaries for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the geometry, transformation, and mesh bins.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.srcmeshPos.keys():
-            raise KeyError("bad tally entry")
-        boundPos = self.srcmeshPos[tally_str][1]
-        geom, trsf, meshbins = _get_cdgsmesh_boundaries(self.fic, boundPos)
-        return geom, trsf, meshbins
-
-    def get_header(self, tally: int):
-        """Return mesh header information.
-
-        Parameters
-        ----------
-        tally : int
-            The source mesh number to retrieve header information for.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the cooling time, strength, and comments.
-        """
-        tally_str = str(tally)
-        if tally_str not in self.srcmeshPos.keys():
-            raise KeyError("bad tally entry")
-        tallyPos = self.srcmeshPos[tally_str][0]
-        cooling, strength, comments = _get_cdgsheader(self.fic, tallyPos)
-        return cooling, strength, comments

@@ -4,12 +4,12 @@ if TYPE_CHECKING:
     from f4enix.output.meshtal.fmesh import Fmesh
 
 import math
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import vtk
 from vtk.util import numpy_support
-from pathlib import Path
 
 VALUE_LABEL = "Value - Total"
 ERROR_LABEL = "Error - Total"

@@ -26,6 +26,7 @@ class TestMeshtal:
             # ("test_srcimp", "CUV"),
             ("assembly_meshtal_test", "MCNP"),
             ("1D_mesh_no_code", "MCNP"),
+            ("cdgs_test", "CDGS"),
         ],
     )
     def test_mesh_print_tally_info(self, input_meshtal, filetype):
@@ -36,6 +37,7 @@ class TestMeshtal:
 
         for _mesh_id, mesh in meshtally.mesh.items():
             mesh.print_info()
+            meshtally.
 
     def test_same_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
