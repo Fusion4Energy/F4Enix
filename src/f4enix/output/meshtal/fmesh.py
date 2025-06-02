@@ -4,6 +4,7 @@ import os
 import re
 
 import numpy as np
+import pandas as pd
 import pyvista as pv
 from numjuggler import parser
 from tqdm import tqdm
@@ -386,8 +387,63 @@ class Fmesh(MeshData):
         }
         return info
 
-    def convert2tally(self):
-        raise NotImplementedError()
+    def convert2tally(self) -> tuple[int, pd.DataFrame, str]:
+        """In case the mesh is 1D (only one spatial binning is higher than 1), convert
+        the tally data into a pandas DataFrame.
+
+        Returns
+        -------
+        tuple[int, pd.DataFrame, str]
+            A tuple containing the tally number, a pandas DataFrame with the
+            converted data, and a comment string.
+        """
+        val = None
+        err = None
+        # Check if the mesh is 1D
+        if self.nx1 == 1 and self.nx2 == 1 and len(self.ebin) > 2:  # 1D Energy mesh
+            if (self.geom == "cyl" and self.nx3 == 2) or self.nx3 == 1:
+                col = "Energy"
+                idx_vals = self.ebin[1:]
+                val = self.data[0, : self.ne - 1, 0, 0, 0, 0]
+                err = self.data[0, : self.ne - 1, 0, 0, 0, 1]
+        elif self.nx1 == self.nx2 == 1:  # z axis
+            col = "Cor C"
+            idx = self.nx3
+            idx_vals = self.x3bin[1:]
+        elif self.nx1 == self.nx3 == 1:  # y axis
+            col = "Cor B"
+            idx = self.nx2
+            idx_vals = self.x2bin[1:]
+        elif self.nx2 == self.nx3 == 1:  # x axis
+            col = "Cor A"
+            idx = self.nx1
+            idx_vals = self.x1bin[1:]
+        elif self.nx1 == 1 and self.nx3 == 2 and self.geom == "cyl":  # y axis
+            col = "Cor B"
+            idx = self.nx2
+            idx_vals = self.x2bin[1:]
+        elif self.nx2 == 1 and self.nx3 == 2 and self.geom == "cyl":  # x axis
+            col = "Cor A"
+            idx = self.nx1
+            idx_vals = self.x1bin[1:]
+        else:
+            raise RuntimeError(
+                (
+                    "convert2tally can only be used for 1D meshes",
+                    f"Axis lengths x:{len(self.x1bin)}, y:{len(self.x2bin)}, z:{len(self.x3bin)}",
+                )
+            )
+        if val is None:
+            val = self.grid["Value - Total"][:idx]
+            err = self.grid["Error - Total"][:idx]
+        data = {
+            col: idx_vals,
+            "Value": val,
+            "Error": err,
+        }
+        df = pd.DataFrame(data)
+
+        return int(self.tally), df, str(self.comments)
 
     def _create_grid(self, binlabels=None) -> pv.PolyData:
         if self._geom == "rec" and self._trsf is None:
