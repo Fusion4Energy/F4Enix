@@ -45,7 +45,7 @@ def test_calculate_volume_sampling_error(
 def test_add_sampling_error_to_vtk(tmpdir):
     # Read a meshtal and create a VTK file
     meshtal = Meshtal(PATH_TO_CUV_FILE, filetype="CUV")
-    meshtal.readMesh()
+    meshtal.readMesh(norm="ctot")
     meshtal.mesh[44].write(tmpdir)
     grid = pv.read(tmpdir / "Tally_44_vtk.vtr")
     assert type(grid) == pv.RectilinearGrid
