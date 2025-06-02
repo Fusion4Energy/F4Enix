@@ -198,7 +198,7 @@ def test_read_meshtally_file_cyl():
     expected_energies = [[100]]
 
     result = read_meshtally_file(
-        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl"
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl",  tally_id=4
     )
 
     assert expected_ww_header == result.header
