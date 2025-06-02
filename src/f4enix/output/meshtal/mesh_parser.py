@@ -29,12 +29,6 @@ class Parser(ABC):
         self, tally: int, norm: str | None = None, filter: list[int] | None = None
     ) -> Fmesh: ...
 
-    @abstractmethod
-    def get_boundaries(self, tally: int): ...
-
-    @abstractmethod
-    def get_header(self, tally: int): ...
-
 
 class MeshtalParser(Parser):
     """Read meshtal formatted file (support block, column or CuV format)."""
