@@ -33,7 +33,7 @@ class TestMeshtal:
         """To check if the meshtal can be read without any problem"""
         with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
             meshtally = Meshtal(filename=inp, filetype=filetype)
-            meshtally.readMesh()
+            meshtally.readMesh(norm="ctot")
 
         for _mesh_id, mesh in meshtally.mesh.items():
             mesh.print_info()
@@ -47,8 +47,8 @@ class TestMeshtal:
     @pytest.mark.parametrize(
         "norm",
         [
-            "total",
-            "fraction",
+            "ctot",
+            "celf",
         ],
     )
     def test_read_mesh_cuv(self, norm):

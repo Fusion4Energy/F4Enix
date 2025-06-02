@@ -151,7 +151,9 @@ class MeshData:
         """
         return self._data
 
-    def get_etbin_data(self, ebin: int | None = None, tbin: int | None = None):
+    def get_etbin_data(
+        self, ebin: int | None = None, tbin: int | None = None
+    ) -> "MeshData":
         """Return a sub mesh with only data of selected energy and time bins"""
 
         if ebin is None:
@@ -233,9 +235,13 @@ class MeshData:
 
 
 class Fmesh(MeshData):
-    """class storing all kind of mesh Fmesh, CuV, CDGS"""
-
-    def __init__(self, mesh: MeshData, meshLabel: str, trsf=None, binlabels=None):
+    def __init__(
+        self,
+        mesh: MeshData,
+        meshLabel: str,
+        trsf: None | tuple = None,
+        binlabels: tuple[str] | None = None,
+    ):
         super().__init__(
             mesh.geom,
             mesh.x1bin,
@@ -245,6 +251,28 @@ class Fmesh(MeshData):
             mesh.tbin,
             mesh.data,
         )
+        """""Class storing all kind of mesh Fmesh, CuV, CDGS.
+
+        Parameters
+        ----------
+        mesh : MeshData
+            MeshData object containing the mesh geometry, bins, and data.
+        meshLabel : str
+            Label for the mesh, typically the tally number.
+        trsf : tuple | None
+            Mesh transformation, if any. It can be a tuple of transformation parameters
+            (Origin vector, rotation matrix) or None if no transformation is applied.
+        binlabels : tuple[str] | None, optional
+            Labels for the bins in the mesh. If None, default labels are used.
+            Default is None.
+
+        
+        Attributes
+        ----------
+        grid : pv.DataSet
+            PyVista grid object wrapping the mesh data.
+
+        """
 
         self._trsf = trsf
         self._tally = meshLabel
@@ -337,6 +365,13 @@ class Fmesh(MeshData):
         self._cooling_time = value
 
     def print_info(self) -> dict:
+        """Print mesh information in a dictionary format.
+
+        Returns
+        -------
+        dict
+            fmesh infos
+        """
         info = {
             "tally": self.tally,
             "type": self.type,
@@ -479,7 +514,7 @@ class Fmesh(MeshData):
     ) -> None:
         for array_name in list_array_names:
             values = self.grid[array_name]
-            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
             with open(new_name, "w") as outfile:
                 outfile.write("x, y, z, value\n")
                 # TODO this can probably be optmized using
@@ -496,7 +531,7 @@ class Fmesh(MeshData):
     ) -> None:
         for array_name in list_array_names:
             values = self.grid[array_name]
-            new_name = str(filepath) + f"_{clean_path(array_name)}.txt"
+            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
             with open(new_name, "w") as outfile:
                 guion1 = "3"
                 n_coord = f_points.shape[1]  # self.n_coordinates
@@ -528,6 +563,18 @@ class Fmesh(MeshData):
             logging.info(f"{new_name} created successfully!")
 
     def sameMesh(self, other_mesh: MeshData) -> bool:
+        """Check if two meshes are the same based on their geometry and bins.
+
+        Parameters
+        ----------
+        other_mesh : MeshData
+            The other mesh to compare with.
+
+        Returns
+        -------
+        bool
+            True if the meshes are the same, False otherwise.
+        """
         if self.geom != other_mesh.geom:
             return False
         if self.data.shape != other_mesh.data.shape:
@@ -628,7 +675,7 @@ class Fmesh(MeshData):
         self.grid = self.grid.transform(transform_matrix, inplace=False)
 
 
-def clean_path(name: str) -> str:
+def _clean_path(name: str) -> str:
     """Remove special characters from the path to make it a valid file name."""
     pat_wrong_file_char = re.compile(r"[\[\]\\\/]")
     fixed_name = pat_wrong_file_char.sub("", name)

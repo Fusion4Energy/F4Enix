@@ -335,10 +335,14 @@ def _get_cuv_element(
     else:
         values = values[0]
         errors = errors[0]
-    if norm == "total":
+    if norm == "ctot":
         values = values * volume
-    elif norm == "fraction":
+    elif norm == "celf":
         values = values / sumf
+    else:
+        raise ValueError(
+            f"Unknown normalization option: {norm}. Allowed options are 'ctot' or 'celf'."
+        )
 
     return values, errors
 
