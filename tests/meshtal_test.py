@@ -37,7 +37,6 @@ class TestMeshtal:
 
         for _mesh_id, mesh in meshtally.mesh.items():
             mesh.print_info()
-            meshtally.
 
     def test_same_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
