@@ -535,6 +535,21 @@ class TestInput:
             text == "635 0 ( ( -22 ) : ( #21 #22 ) )  : ( -1 ) imp:n=1\n        U=125\n"
         )
 
+    def test_delete_fill_cards(self):
+        with as_file(resources_inp.joinpath("test_universe2.i")) as inp_file:
+            newinp = Input.from_input(inp_file)
+        newinp.delete_fill_cards()
+        assert newinp.cells["1"].get_f() is None
+        assert (
+            newinp.cells["1"].card().replace("\r", "")
+            == """1 0 -1 
+      imp:n=1               
+C a breaking comment
+                         $ some dollar comment
+                          VOL=1
+"""
+        )
+
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
         sur = 180
@@ -648,6 +663,18 @@ class TestInput:
         assert new_cell.card(wrap=False, comment=False).split()[3] == "-22"
         assert new_cell.card(wrap=False, comment=False).split()[0] == "50"
         assert mcnp_input.cells["22"].card(wrap=False, comment=False).split()[0] == "50"
+
+    def test_get_density_range(self):
+        with as_file(resources_inp.joinpath("test_rho_range.i")) as FILE1:
+            inp = Input.from_input(FILE1)
+        d_range = inp.get_densities_range()
+        assert d_range.loc[30]["Min density [g/cc]"] == 0.945
+        assert d_range.loc[30]["Max density [g/cc]"] == 0.946
+        assert (
+            d_range.loc[7]["Min density [g/cc]"]
+            == d_range.loc[7]["Max density [g/cc]"]
+            == pytest.approx(0.999978)
+        )
 
 
 class TestD1S_Input:

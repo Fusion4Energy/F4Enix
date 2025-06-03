@@ -7,7 +7,7 @@
 # F4Enix
 Parser for Monte Carlo simulations input and output files
 
-**Python >3.9!**
+**Python >3.10!**
 
 Both Windows and Linux supported.
 
@@ -27,6 +27,6 @@ If any unexpected issue is encountered during installation, the first step for
 its resolution would be to create a new fresh virtual environment.
 In conda this would be done with:
 ```
-conda create -n <env_name> python=3.9
+conda create -n <env_name> python=3.10
 ```
-Please remember that python versions lower than 3.9 are not supported.
+Please remember that python versions lower than 3.10 are not supported.

@@ -1,4 +1,5 @@
 import numpy as np
+
 from f4enix.input.ww_gvr.utils import (
     Vectors,
     build_1d_vectors,
