@@ -426,8 +426,10 @@ class TestInput:
         assert keys == expected
 
     def test_get_tally_summary(self):
-        summary = self.testInput.get_tally_summary()
-        assert len(summary) == 7
+        with as_file(resources_inp.joinpath("test_complex_fm.i")) as FILE1:
+            testInput = Input.from_input(FILE1)
+        summary = testInput.get_tally_summary()
+        assert len(summary) == 8
         assert summary.loc[194].values.tolist() == [
             "N",
             "T in Li pt2 appm/FPY",
@@ -435,8 +437,9 @@ class TestInput:
             ["25", "205"],
         ]
         assert summary.loc[204].values.tolist() == ["N", pd.NA, pd.NA, pd.NA]
+        assert len(summary.loc[704]["Other multipliers"]) == 12
 
-        summary = self.testInput.get_tally_summary(fmesh=True)
+        summary = testInput.get_tally_summary(fmesh=True)
         assert len(summary) == 5
         assert summary.loc[224].values.tolist() == [
             "P",
