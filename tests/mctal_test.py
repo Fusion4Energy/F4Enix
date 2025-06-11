@@ -1,4 +1,3 @@
-from copy import deepcopy
 from importlib.resources import as_file, files
 
 import numpy as np
@@ -59,3 +58,13 @@ class TestMctal:
         assert "Dir" in mctal.tallydata[5].columns
         assert len(mctal.tallydata[5]) == 462 * 2 - 1
         assert len(mctal.tallydata[15]) == 703 * 2 - 1
+
+    def test_fm(self):
+        """This tally makes sure that the Mctal class can handle tallies with a complex
+        tally multiplier card even when several results are zero. Tally 704 has 14
+        different tally segments and a FM card with 106 reaction rates. This test checks
+        that the resulting tallydata has 14*106 = 1484 rows.
+        """
+        with as_file(mctal_resources.joinpath("mctal_fm")) as inp:
+            mctal = Mctal(inp)
+        assert mctal.tallydata[704].shape == (1484, 4)
