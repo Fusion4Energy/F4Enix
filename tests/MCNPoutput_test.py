@@ -79,6 +79,17 @@ class TestOutput:
         df = outp.get_table(table)
         assert df.shape == shape
 
+    def test_get_table_multiple_with_same_index(self):
+        with as_file(RESOURCES.joinpath("test_multiple_tables.o")) as file:
+            outp = Output(file)
+        df_0 = outp.get_table(126, instance_idx=0)
+        df_1 = outp.get_table(126, instance_idx=1)
+        df_second_last = outp.get_table(126, instance_idx=-2)
+
+        assert int(df_0.iloc[0][2]) == 2500000
+        assert int(df_1.iloc[0][2]) == 0
+        assert int(df_second_last.iloc[0][2]) == 10000000
+
     def test_get_fwf_format_from_string(self):
         stringa = "   sdasdaas     scdcsdc    dscds  csc"
         specs = Output._get_fwf_format_from_string(stringa)

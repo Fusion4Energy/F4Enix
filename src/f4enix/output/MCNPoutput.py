@@ -22,6 +22,7 @@ and limitations under the Licence.
 import logging
 import os
 import re
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -537,7 +538,7 @@ class Output:
 
         return new_stat_check
 
-    def get_table(self, table_num: int) -> pd.DataFrame:
+    def get_table(self, table_num: int, instance_idx: int = 0) -> pd.DataFrame:
         """Extract a printed table from the MCNP output file.
 
         All tables should be accessible from their MCNP index.
@@ -546,6 +547,12 @@ class Output:
         ----------
         table_num : int
             MCNP table index
+
+        instance_idx : int, optional
+            Some tables with the same table_num may appear multiple times in the output
+            file. This parameter allows to select which instance of the table to return.
+            It allows negative indexing, where the numbering starts from the end of the
+            file. For example, -1 will return the last instance of the table.
 
         Returns
         -------
@@ -559,10 +566,16 @@ class Output:
         """
         pat_table = re.compile("table " + str(table_num))
 
-        skip = None
-        look_total = False
-        nrows = None
+        @dataclass
+        class TableInstance:
+            skip: int | None
+            nrows: int | None
 
+        all_instances: list[TableInstance] = []
+
+        skip = None
+        nrows = None
+        look_total = False
         # look for the trigger
         for i, line in enumerate(self.lines):
             if look_total:
@@ -572,17 +585,24 @@ class Output:
                     infer_line = self.lines[i - 2]
                     widths = self._get_fwf_format_from_string(infer_line)
                     nrows = i - skip - 2
-                    break
+                    all_instances.append(TableInstance(skip, nrows))
+                    skip = None
+                    nrows = None
+                    look_total = False
 
             if pat_table.search(line) is not None:
                 skip = i + 1
                 look_total = True
 
-        if skip is None or nrows is None:
-            raise ValueError("Table {} not found or does not exists".format(table_num))
+        if len(all_instances) == 0:
+            raise ValueError(f"Table {table_num} not found or does not exists")
 
         df = pd.read_fwf(
-            self.filepath, skiprows=skip, nrows=nrows, widths=widths, header=None
+            self.filepath,
+            skiprows=all_instances[instance_idx].skip,
+            nrows=all_instances[instance_idx].nrows,
+            widths=widths,
+            header=None,
         )
         # the first n rows will actually be the title of the columns.
         # Check the first column to understand where the data starts
