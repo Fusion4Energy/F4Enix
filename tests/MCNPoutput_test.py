@@ -86,9 +86,9 @@ class TestOutput:
         df_1 = outp.get_table(126, instance_idx=1)
         df_second_last = outp.get_table(126, instance_idx=-2)
 
-        assert int(df_0.iloc[0][2]) == 2500000
-        assert int(df_1.iloc[0][2]) == 0
-        assert int(df_second_last.iloc[0][2]) == 10000000
+        assert int(df_0.iloc[0][2]) == 2500000  # First dump (neutrons)
+        assert int(df_1.iloc[0][2]) == 0  # First dump (photons)
+        assert int(df_second_last.iloc[0][2]) == 10000000  # Last dump (neutrons)
 
     def test_get_fwf_format_from_string(self):
         stringa = "   sdasdaas     scdcsdc    dscds  csc"
