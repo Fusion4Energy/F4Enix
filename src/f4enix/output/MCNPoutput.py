@@ -198,33 +198,10 @@ class Output:
         lp = self.get_tot_lp()
         return lp / nps
 
-    def print_lp_debug(
-        self,
-        outpath: os.PathLike,
-        print_video: bool = False,
-        get_cosine: bool = True,
-        input_mcnp: Input = None,
-    ) -> None:
-        """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
-        ['LPdebug_{}.vtp'] containing information about the lost particles
-        registered in an MCNP run. A .csv file is also printed with origin
-        and flight direction of each lost particle.
-
-        Parameters
-        ----------
-        outpath : os.PathLike
-            path to the folder where outputs will be dumped.
-        print_video : bool, optional
-            if True print the LP to video. deafult is False
-        get_cosine : bool, optional
-            if True recover also the cosines of the flight direction of each
-            lost particle. By default is True
-        input_mcnp : Input, optional
-            Input file that generated the MCNP output. Providing this will
-            ensure that also the universe in which the particles are
-            lost will be tracked. By default is None.
-        """
-
+    def get_lp_debug_df(
+        self, get_cosine: bool = True, input_mcnp: Input | None = None
+    ) -> pd.DataFrame:
+        """Generates a pandas DataFrame with the lost particles information."""
         # -- Variables --
         surfaces = []
         cells = []
@@ -259,34 +236,6 @@ class Output:
                     v.append(float(cosines[1]))
                     w.append(float(cosines[2]))
 
-            # if line.find(CELL_ID) != -1 and input_mcnp is not None:
-            #     # LP is in cell
-            #     cells.append(PAT_DIGIT.search(line).group())
-
-            # if line.find(POINT_ID) != -1:  # LP in cell
-            #     point = SCIENTIFIC_PAT.findall(line)  # [0:3]
-            #     x.append(float(point[0]))
-            #     y.append(float(point[1]))
-            #     z.append(float(point[2]))
-
-            #     if '***' in self.lines[i-10]:
-            #         gp = SCIENTIFIC_PAT.findall(self.lines[i-9])[0:3]
-            #     else:
-            #         gp = SCIENTIFIC_PAT.findall(self.lines[i-10])[0:3]
-            #     try:
-            #         gp[2]
-            #         for i in range(len(gp)):
-            #             gp[i] = gp[i][0:-3]+'E'+gp[i][-3:]
-            #         gp = '   '.join(gp)
-            #         globalpointList.append(gp)
-            #     except:
-            #         globalpointList.append('NO')
-
-        # Don't do nothing if no particles are lost
-        if len(surfaces) == 0:
-            logging.info("No particles were lost, no dumps to be done")
-            return
-
         # Building the df
         df = pd.DataFrame()
         df["Surface"] = surfaces
@@ -300,6 +249,37 @@ class Output:
             df["w"] = w
         if len(universes) > 0:
             df["Universe"] = universes
+
+        return df
+
+    def print_lp_debug(
+        self,
+        outpath: os.PathLike,
+        print_video: bool = False,
+        get_cosine: bool = True,
+        input_mcnp: Input = None,
+    ) -> None:
+        """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
+        ['LPdebug_{}.vtp'] containing information about the lost particles
+        registered in an MCNP run. A .csv file is also printed with origin
+        and flight direction of each lost particle.
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the folder where outputs will be dumped.
+        print_video : bool, optional
+            if True print the LP to video. deafult is False
+        get_cosine : bool, optional
+            if True recover also the cosines of the flight direction of each
+            lost particle. By default is True
+        input_mcnp : Input, optional
+            Input file that generated the MCNP output. Providing this will
+            ensure that also the universe in which the particles are
+            lost will be tracked. By default is None.
+        """
+
+        df = self.get_lp_debug_df(get_cosine=get_cosine, input_mcnp=input_mcnp)
 
         # Get a complete set of locations
         loc = df.drop_duplicates().set_index(["Surface", "Cell"]).sort_index()
