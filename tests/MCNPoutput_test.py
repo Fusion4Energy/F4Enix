@@ -49,6 +49,19 @@ class TestOutput:
         )
         assert df["count"].values[-1] == 42
 
+    def test_get_lp_debug_df(self):
+        with as_file(RESOURCES.joinpath("out_lp.txt")) as file:
+            outp = Output(file)
+            df = outp.get_lp_debug_df()
+        assert (df["Cell"] == 1).count() == 10
+
+        with as_file(RESOURCES.joinpath("test_lp_u.o")) as file:
+            outp = Output(file)
+        with as_file(RESOURCES.joinpath("test_lp_u.i")) as file:
+            inp = Input.from_input(file)
+        df = outp.get_lp_debug_df(input_mcnp=inp)
+        assert (df["Cell"] == 1).count() == 677
+
     def test_get_tot_lp(self):
         with as_file(RESOURCES.joinpath("test_o")) as file:
             outp = Output(file)

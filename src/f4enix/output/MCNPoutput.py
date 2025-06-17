@@ -198,6 +198,60 @@ class Output:
         lp = self.get_tot_lp()
         return lp / nps
 
+    def get_lp_debug_df(
+        self, get_cosine: bool = True, input_mcnp: Input | None = None
+    ) -> pd.DataFrame:
+        """Generates a pandas DataFrame with the lost particles information."""
+        # -- Variables --
+        surfaces = []
+        cells = []
+        universes = []
+        x = []
+        y = []
+        z = []
+        u = []
+        v = []
+        w = []
+
+        logging.info("Recovering lost particles surfaces and cells in " + self.name)
+
+        for i, line in enumerate(self.lines):
+            if line.find(SURFACE_ID) != -1:  # LP in surface
+                surfaces.append(PAT_DIGIT.search(line).group())
+
+                cell_ID = PAT_DIGIT.search(self.lines[i + 1]).group()
+                cells.append(cell_ID)
+                # add the universe if requested
+                if input_mcnp is not None:
+                    universe = input_mcnp.cells[cell_ID].get_u()
+                    universes.append(universe)
+
+                point = SCIENTIFIC_PAT.findall(self.lines[i + 6])  # [0:3]
+                cosines = SCIENTIFIC_PAT.findall(self.lines[i + 7])  # [0:3]
+                x.append(float(point[0]))
+                y.append(float(point[1]))
+                z.append(float(point[2]))
+                if get_cosine:
+                    u.append(float(cosines[0]))
+                    v.append(float(cosines[1]))
+                    w.append(float(cosines[2]))
+
+        # Building the df
+        df = pd.DataFrame()
+        df["Surface"] = surfaces
+        df["Cell"] = cells
+        df["x"] = x
+        df["y"] = y
+        df["z"] = z
+        if get_cosine:
+            df["u"] = u
+            df["v"] = v
+            df["w"] = w
+        if len(universes) > 0:
+            df["Universe"] = universes
+
+        return df
+
     def print_lp_debug(
         self,
         outpath: os.PathLike,
