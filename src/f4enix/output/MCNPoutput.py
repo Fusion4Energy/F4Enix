@@ -22,6 +22,7 @@ and limitations under the Licence.
 import logging
 import os
 import re
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -197,33 +198,10 @@ class Output:
         lp = self.get_tot_lp()
         return lp / nps
 
-    def print_lp_debug(
-        self,
-        outpath: os.PathLike,
-        print_video: bool = False,
-        get_cosine: bool = True,
-        input_mcnp: Input = None,
-    ) -> None:
-        """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
-        ['LPdebug_{}.vtp'] containing information about the lost particles
-        registered in an MCNP run. A .csv file is also printed with origin
-        and flight direction of each lost particle.
-
-        Parameters
-        ----------
-        outpath : os.PathLike
-            path to the folder where outputs will be dumped.
-        print_video : bool, optional
-            if True print the LP to video. deafult is False
-        get_cosine : bool, optional
-            if True recover also the cosines of the flight direction of each
-            lost particle. By default is True
-        input_mcnp : Input, optional
-            Input file that generated the MCNP output. Providing this will
-            ensure that also the universe in which the particles are
-            lost will be tracked. By default is None.
-        """
-
+    def get_lp_debug_df(
+        self, get_cosine: bool = True, input_mcnp: Input | None = None
+    ) -> pd.DataFrame:
+        """Generates a pandas DataFrame with the lost particles information."""
         # -- Variables --
         surfaces = []
         cells = []
@@ -258,34 +236,6 @@ class Output:
                     v.append(float(cosines[1]))
                     w.append(float(cosines[2]))
 
-            # if line.find(CELL_ID) != -1 and input_mcnp is not None:
-            #     # LP is in cell
-            #     cells.append(PAT_DIGIT.search(line).group())
-
-            # if line.find(POINT_ID) != -1:  # LP in cell
-            #     point = SCIENTIFIC_PAT.findall(line)  # [0:3]
-            #     x.append(float(point[0]))
-            #     y.append(float(point[1]))
-            #     z.append(float(point[2]))
-
-            #     if '***' in self.lines[i-10]:
-            #         gp = SCIENTIFIC_PAT.findall(self.lines[i-9])[0:3]
-            #     else:
-            #         gp = SCIENTIFIC_PAT.findall(self.lines[i-10])[0:3]
-            #     try:
-            #         gp[2]
-            #         for i in range(len(gp)):
-            #             gp[i] = gp[i][0:-3]+'E'+gp[i][-3:]
-            #         gp = '   '.join(gp)
-            #         globalpointList.append(gp)
-            #     except:
-            #         globalpointList.append('NO')
-
-        # Don't do nothing if no particles are lost
-        if len(surfaces) == 0:
-            logging.info("No particles were lost, no dumps to be done")
-            return
-
         # Building the df
         df = pd.DataFrame()
         df["Surface"] = surfaces
@@ -299,6 +249,37 @@ class Output:
             df["w"] = w
         if len(universes) > 0:
             df["Universe"] = universes
+
+        return df
+
+    def print_lp_debug(
+        self,
+        outpath: os.PathLike,
+        print_video: bool = False,
+        get_cosine: bool = True,
+        input_mcnp: Input = None,
+    ) -> None:
+        """prints both an excel ['LPdebug_{}.vtp'] and a vtk cloud point file
+        ['LPdebug_{}.vtp'] containing information about the lost particles
+        registered in an MCNP run. A .csv file is also printed with origin
+        and flight direction of each lost particle.
+
+        Parameters
+        ----------
+        outpath : os.PathLike
+            path to the folder where outputs will be dumped.
+        print_video : bool, optional
+            if True print the LP to video. deafult is False
+        get_cosine : bool, optional
+            if True recover also the cosines of the flight direction of each
+            lost particle. By default is True
+        input_mcnp : Input, optional
+            Input file that generated the MCNP output. Providing this will
+            ensure that also the universe in which the particles are
+            lost will be tracked. By default is None.
+        """
+
+        df = self.get_lp_debug_df(get_cosine=get_cosine, input_mcnp=input_mcnp)
 
         # Get a complete set of locations
         loc = df.drop_duplicates().set_index(["Surface", "Cell"]).sort_index()
@@ -537,7 +518,7 @@ class Output:
 
         return new_stat_check
 
-    def get_table(self, table_num: int) -> pd.DataFrame:
+    def get_table(self, table_num: int, instance_idx: int = 0) -> pd.DataFrame:
         """Extract a printed table from the MCNP output file.
 
         All tables should be accessible from their MCNP index.
@@ -546,6 +527,12 @@ class Output:
         ----------
         table_num : int
             MCNP table index
+
+        instance_idx : int, optional
+            Some tables with the same table_num may appear multiple times in the output
+            file. This parameter allows to select which instance of the table to return.
+            It allows negative indexing, where the numbering starts from the end of the
+            file. For example, -1 will return the last instance of the table.
 
         Returns
         -------
@@ -559,10 +546,16 @@ class Output:
         """
         pat_table = re.compile("table " + str(table_num))
 
-        skip = None
-        look_total = False
-        nrows = None
+        @dataclass
+        class TableInstance:
+            skip: int | None
+            nrows: int | None
 
+        all_instances: list[TableInstance] = []
+
+        skip = None
+        nrows = None
+        look_total = False
         # look for the trigger
         for i, line in enumerate(self.lines):
             if look_total:
@@ -572,17 +565,24 @@ class Output:
                     infer_line = self.lines[i - 2]
                     widths = self._get_fwf_format_from_string(infer_line)
                     nrows = i - skip - 2
-                    break
+                    all_instances.append(TableInstance(skip, nrows))
+                    skip = None
+                    nrows = None
+                    look_total = False
 
             if pat_table.search(line) is not None:
                 skip = i + 1
                 look_total = True
 
-        if skip is None or nrows is None:
-            raise ValueError("Table {} not found or does not exists".format(table_num))
+        if len(all_instances) == 0:
+            raise ValueError(f"Table {table_num} not found or does not exists")
 
         df = pd.read_fwf(
-            self.filepath, skiprows=skip, nrows=nrows, widths=widths, header=None
+            self.filepath,
+            skiprows=all_instances[instance_idx].skip,
+            nrows=all_instances[instance_idx].nrows,
+            widths=widths,
+            header=None,
         )
         # the first n rows will actually be the title of the columns.
         # Check the first column to understand where the data starts

@@ -1185,6 +1185,7 @@ class Mctal:
                 "cor A": t.cora,
                 "cor B": t.corb,
                 "cor C": t.corc,
+                "multi": range(t.nMul),
             }
 
             # Cells may have a series of zeros, the last one may be for the
@@ -1206,10 +1207,10 @@ class Mctal:
                     binnings[name] = [np.nan]
             # Start iteration
             for f, fn in enumerate(binnings["cells"]):
-                for d, dn in enumerate(binnings["dir"]):  # Unused
+                for d, dn in enumerate(binnings["dir"]):
                     for u, un in enumerate(binnings["user"]):
                         for sn in range(1, nSeg + 1):
-                            for m in range(nMul):  # (unused)
+                            for m, mn in enumerate(binnings["multi"]):
                                 for c, cn in enumerate(binnings["cosine"]):
                                     for e, en in enumerate(binnings["energy"]):
                                         for nt, ntn in enumerate(binnings["time"]):
@@ -1254,7 +1255,7 @@ class Mctal:
                                                                 dn,
                                                                 un,
                                                                 sn,
-                                                                m,
+                                                                mn,
                                                                 cn,
                                                                 en,
                                                                 ntn,
@@ -1298,6 +1299,11 @@ class Mctal:
                         [fn, dn, "total", sn, m, cn, en, ntn, ina, jn, kn, val, err]
                     )
                     total = "User"
+                elif t.mulTC is not None:
+                    rows.append(
+                        [fn, dn, un, sn, "total", cn, en, ntn, ina, jn, kn, val, err]
+                    )
+                    total = "Multiplier"
 
             # --- Build the tally DataFrame ---
             columns = [
@@ -1317,9 +1323,6 @@ class Mctal:
             ]
             df = pd.DataFrame(rows, columns=columns)
 
-            # Default drop of multiplier and Dir
-            # del df["Dir"]
-            del df["Multiplier"]
             # --- Keep only meaningful binning ---
             # Drop NA
             df.dropna(axis=1, inplace=True)

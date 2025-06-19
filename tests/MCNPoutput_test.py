@@ -49,6 +49,19 @@ class TestOutput:
         )
         assert df["count"].values[-1] == 42
 
+    def test_get_lp_debug_df(self):
+        with as_file(RESOURCES.joinpath("out_lp.txt")) as file:
+            outp = Output(file)
+            df = outp.get_lp_debug_df()
+        assert (df["Cell"] == 1).count() == 10
+
+        with as_file(RESOURCES.joinpath("test_lp_u.o")) as file:
+            outp = Output(file)
+        with as_file(RESOURCES.joinpath("test_lp_u.i")) as file:
+            inp = Input.from_input(file)
+        df = outp.get_lp_debug_df(input_mcnp=inp)
+        assert (df["Cell"] == 1).count() == 677
+
     def test_get_tot_lp(self):
         with as_file(RESOURCES.joinpath("test_o")) as file:
             outp = Output(file)
@@ -78,6 +91,17 @@ class TestOutput:
 
         df = outp.get_table(table)
         assert df.shape == shape
+
+    def test_get_table_multiple_with_same_index(self):
+        with as_file(RESOURCES.joinpath("test_multiple_tables.o")) as file:
+            outp = Output(file)
+        df_0 = outp.get_table(126, instance_idx=0)
+        df_1 = outp.get_table(126, instance_idx=1)
+        df_second_last = outp.get_table(126, instance_idx=-2)
+
+        assert int(df_0.iloc[0][2]) == 2500000  # First dump (neutrons)
+        assert int(df_1.iloc[0][2]) == 0  # First dump (photons)
+        assert int(df_second_last.iloc[0][2]) == 10000000  # Last dump (neutrons)
 
     def test_get_fwf_format_from_string(self):
         stringa = "   sdasdaas     scdcsdc    dscds  csc"

@@ -1164,6 +1164,24 @@ class Input:
         inp = inp.replace(tag.lower(), "").strip()
         return inp
 
+    def _retrieve_FM(self, tag: str) -> list[str]:
+        # get the FM comment excluding the FM tag
+        card = self.other_data[tag]
+        first_line = self._retrieve_input(tag).split()
+        if len(card.input) == 1:
+            return first_line
+        else:
+            # more than one FM line
+            multi = ["N.A."]
+            if first_line != []:
+                multi.append(str(first_line))
+            for line in card.input[1:]:
+                if line.startswith("C") or line.startswith("c"):
+                    continue
+                # Simply append the different multipliers
+                multi.append(line.strip())
+        return multi
+
     def get_tally_summary(self, fmesh: bool = False) -> pd.DataFrame:
         """Get a summary of the tallies defined in the input
 
@@ -1203,7 +1221,7 @@ class Input:
                     line = self.other_data[aux_key].input[0]
                     particle = PAT_NP.search(line).group().upper().strip(":")
                 elif aux_key[:2] == "FM":
-                    multiplier = self._retrieve_input(aux_key).split()
+                    multiplier = self._retrieve_FM(aux_key)
 
             row = {"Tally": key, "Particle": particle, "Description": desc}
 
