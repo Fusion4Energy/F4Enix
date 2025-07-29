@@ -1,6 +1,4 @@
-"""This module is related to the parsing of D1S-UNED meshinfo files.
-
-"""
+"""This module is related to the parsing of D1S-UNED meshinfo files."""
 
 from __future__ import annotations
 
@@ -17,11 +15,12 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import numpy as np
 import os
 from typing import BinaryIO, Dict
-import matplotlib.pyplot as plt
+
 import matplotlib.colors as colors
+import matplotlib.pyplot as plt
+import numpy as np
 
 BYTE = np.byte
 CHAR = np.char
@@ -130,7 +129,6 @@ class RSSA:
         value_range: tuple[float, float] = None,
         mask: np.ndarray = None,
     ) -> tuple[plt.Figure, plt.Figure]:
-
         particle_mask = self._get_particle_mask(particle)
         if mask is not None:  # Apply to the mask a geom filter done earlier
             particle_mask = np.intersect1d(particle_mask, mask)
@@ -305,7 +303,7 @@ class RSSA:
     def _get_info(self) -> str:
         info = f"RSSA file {self.filename} was recorded using the following surfaces:\n"
         for surface in self.parameters["surfaces"]:
-            info += f'  Surface id: {surface["id"]}\n'
+            info += f"  Surface id: {surface['id']}\n"
 
         sur_type = self.type
         if sur_type == "cyl":
@@ -316,13 +314,13 @@ class RSSA:
         n_tracks = self.tracks[self.mask_neutron_tracks].shape[0]
         p_tracks = self.tracks[self.mask_photon_tracks].shape[0]
         info += (
-            f'The total amount of tracks recorded is {self.parameters["nrss"]}, of which {n_tracks} were neutrons'
+            f"The total amount of tracks recorded is {self.parameters['nrss']}, of which {n_tracks} were neutrons"
             f" and {p_tracks} were photons.\n"
         )
 
         info += (
-            f'The simulation that produced this RSSA run {np.abs(self.parameters["np1"])} histories\n'
-            f'The amount of independent histories that reached the RSSA surfaces was {self.parameters["niss"]}.\n'
+            f"The simulation that produced this RSSA run {np.abs(self.parameters['np1'])} histories\n"
+            f"The amount of independent histories that reached the RSSA surfaces was {self.parameters['niss']}.\n"
         )
         return info
 
@@ -435,7 +433,9 @@ def _read_header(file: BinaryIO) -> Dict:
     if "d1suned" in format_record_id:
         # TODO: we could parse and store information like datetime and title
         _last_dump = np.frombuffer(data[-4:], INT)
-        pass
+    elif "SF_00001" in format_record_id:
+        _header = _read_fortran_record(file)  # code version and other info
+
     else:
         raise NotImplementedError(
             f"The code that generated this RSSA file has not been implemented"
@@ -449,7 +449,7 @@ def _read_header(file: BinaryIO) -> Dict:
     nrcd = np.frombuffer(data, INT, 1, 16)[0]
     njsw = np.frombuffer(data, INT, 1, 20)[0]
     niss = np.frombuffer(data, LONG, 1, 24)[0]
-    if nrcd != 11:
+    if abs(nrcd) != 11:
         raise NotImplementedError(
             f"The amount of values recorded for each particle should be 11 instead of {nrcd}..."
         )
