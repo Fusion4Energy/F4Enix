@@ -331,8 +331,11 @@ class RSSA:
         """
         # Get all the bitarrays and don't pay attention to the sign
         bitarrays = np.abs(self.tracks[:, 1])
+        bitarrays = np.floor(bitarrays / 10 ** np.floor(np.log10(bitarrays))).astype(
+            int
+        )
         # Neutrons start with 8 and photons with 16 followed by 1e8
-        n_tracks = np.where(bitarrays < 9e8)[0]
+        n_tracks = np.where(bitarrays == 8)[0]
         return n_tracks
 
     @property
@@ -342,8 +345,11 @@ class RSSA:
         """
         # Get all the bitarrays and don't pay attention to the sign
         bitarrays = np.abs(self.tracks[:, 1])
+        bitarrays = np.floor(bitarrays / 10 ** np.floor(np.log10(bitarrays))).astype(
+            int
+        )
         # Neutrons start with 8 and photons with 16 followed by 1e8
-        p_tracks = np.where(bitarrays >= 9e8)[0]
+        p_tracks = np.where(bitarrays == 1)[0]
         return p_tracks
 
     def _get_particle_mask(self, particle: str):
