@@ -13,6 +13,7 @@ from f4enix.input.d1suned import (
 from f4enix.input.libmanager import LibManager
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
+from f4enix.input.irradiation import Nuclide
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)
@@ -21,7 +22,6 @@ PKG_RESOURCES = files(pkg_res)
 
 
 class TestIrradiationFile:
-
     @pytest.mark.parametrize("file", ["irr_test", "irr_test2"])
     def test_fromtext(self, file):
         """
@@ -162,7 +162,6 @@ class TestIrradiationFile:
 
 
 class TestIrradiation:
-
     def test_reading(self):
         """
         Test the reading of irradiation line
@@ -201,16 +200,15 @@ class TestIrradiation:
 
 
 class TestReaction:
-
     def test_fromtext1(self):
         """
         Test different formatting possibilities
         """
         text = "   26054.99c  102  26055     Fe55"
         reaction = Reaction.from_text(text)
-        assert reaction.parent == "26054.99c"
+        assert reaction.parent.write_to_int_string() == "26054.99c"
         assert reaction.MT == "102"
-        assert reaction.daughter == "26055"
+        assert reaction.daughter.write_to_int_string() == "26055"
         assert reaction.comment == "Fe55"
 
     def test_fromtext2(self):
@@ -219,18 +217,20 @@ class TestReaction:
         """
         text = "26054.99c 102   26055 Fe55  and some"
         reaction = Reaction.from_text(text)
-        assert reaction.parent == "26054.99c"
+        assert reaction.parent.write_to_int_string() == "26054.99c"
         assert reaction.MT == "102"
-        assert reaction.daughter == "26055"
+        assert reaction.daughter.write_to_int_string() == "26055"
         assert reaction.comment == "Fe55 and some"
 
     def test_changelib(self):
         """
         Test change library tag
         """
-        rec = Reaction("26054.99c", "102", "26055")
+        parent = Nuclide.from_int_string("26054.99c")
+        daughter = Nuclide.from_int_string("26055")
+        rec = Reaction(parent, "102", daughter)
         rec.change_lib("31c")
-        assert rec.parent == "26054.31c"
+        assert rec.parent.write_to_int_string() == "26054.31c"
 
     def test_write(self):
         """
@@ -244,7 +244,6 @@ class TestReaction:
 
 
 class TestReactionFile:
-
     @pytest.fixture
     def lm(self):
         xsdirpath = os.path.join(PKG_RESOURCES, "xsdir.txt")
@@ -316,5 +315,5 @@ class TestReactionFile:
     def test_get_parents(self):
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
-        parents = reac_file.get_parents()
+        parents = reac_file.get_zaids_parents()
         assert parents == ["26054", "26056", "26057", "26058"]

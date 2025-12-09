@@ -28,6 +28,7 @@ and limitations under the Licence.
 import os
 import re
 from pathlib import Path
+from enum import Enum
 
 # --- Typing ---
 PathLike = Path | str | os.PathLike
@@ -224,3 +225,24 @@ FAULTY_ISOTOPES = [
 ]
 
 AVOGADRO_NUMBER = 6.0220434469282e23
+
+
+class TIME_UNITS(Enum):
+    """Enumeration for time units used in F4Enix"""
+
+    SECOND = "s"
+    MINUTE = "min"
+    HOUR = "h"
+    DAY = "d"
+    MONTH = "m"
+    YEAR = "y"
+
+
+TIME_UNITS_CONVERSION = {
+    TIME_UNITS.SECOND: 1,
+    TIME_UNITS.MINUTE: 60,
+    TIME_UNITS.HOUR: 60 * 60,
+    TIME_UNITS.DAY: 60 * 60 * 24,
+    TIME_UNITS.MONTH: 60 * 60 * 24 * 30,
+    TIME_UNITS.YEAR: 60 * 60 * 24 * 30 * 12,
+}

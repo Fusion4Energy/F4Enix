@@ -26,7 +26,8 @@ import re
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
-
+from f4enix.input.irradiation import Nuclide
+from copy import deepcopy
 # PAT_COMMENT = re.compile('[Cc]+')
 
 REACFORMAT = "{:>13s}{:>7s}{:>12s}{:>40s}"
@@ -169,6 +170,15 @@ class IrradiationFile:
                 return irradiation
 
         return None
+
+    @classmethod
+    def from_irradiation_schedules(
+        cls,
+        daughter_list: list[Nuclide],
+        irr_scenarios: list[IrradiationScenario],
+        scale_IRS: dict[Nuclide, list] | None = None,
+    ) -> IrradiationFile:
+        pass
 
     @classmethod
     def from_text(cls, filepath: os.PathLike | str) -> IrradiationFile:
@@ -518,9 +528,7 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(
-            self.daughter, self.lambd, self.times, self.comment
-        )
+""".format(self.daughter, self.lambd, self.times, self.comment)
 
         return text
 
@@ -550,11 +558,6 @@ class ReactionFile:
         >>> from f4enix.input.d1suned import ReactionFile
         ... reac_file = ReactionFile.from_text('reac_fe')
         ... reac_file.change_lib('98c')
-
-        and obtain a list of the parents
-
-        >>> reac_file.get_parents()
-        ['26054', '26056', '26057', '26058']
 
         Returns
         -------
@@ -596,21 +599,23 @@ class ReactionFile:
 
         return cls(reactions)  # , name=os.path.basename(filepath))
 
-    def get_parents(self) -> set[str]:
+    def get_zaids_parents(self) -> set[str]:
         """
         Get a list of all parents
 
         Returns
         -------
         set[str]
-            list of parents from all reactions
+            list of parents nuclides from all reactions
 
         """
         parents = []
         for reaction in self.reactions:
-            parent = reaction.parent.split(".")[0]
-            if parent not in parents:
-                parents.append(parent)
+            parent = deepcopy(reaction.parent)
+            parent.lib = None
+            parent_str = parent.write_to_int_string()
+            if parent_str not in parents:
+                parents.append(parent_str)
         return sorted(set(parents))
 
     def change_lib(self, newlib: str, libmanager: LibManager = None):
@@ -647,8 +652,8 @@ class ReactionFile:
                 reaction.change_lib(lib)
             else:
                 # get the available libraries for the parent
-                zaid = reaction.parent.split(".")[0]
-                libs = libmanager.check4zaid(zaid)
+                zaid = reaction.parent.zaid
+                libs = libmanager.check4zaid(str(zaid))
                 if newlib in libs:
                     reaction.change_lib(lib)
                 else:
@@ -690,40 +695,34 @@ class ReactionFile:
 
 class Reaction:
     def __init__(
-        self, parent: str, MT: int | str, daughter: str, comment: str = None
+        self,
+        parent: Nuclide,
+        MT: int | str,
+        daughter: Nuclide,
+        comment: str | None = None,
     ) -> None:
         """
         Represents a single reaction of the reaction file
 
         Parameters
         ----------
-        parent : str
-            parent nuclide ZZAAA.XXc representing stable isotope to be
-            activated. ZZ and AAA represent the atomic and mass number and
-            extension XX, is the extension number of the modified D1S library.
+        parent : Nuclide
+            parent nuclide of the reaction.
         MT : int | str
             integer, reaction type (ENDF definition, e.g. 102).
-        daughter : str
-            integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
-            state. Theoretically, any other identification type
-            (with integer value) can be used.
+        daughter : Nuclide
+            daughter nuclide of the reaction.
         comment : str, optional
             comment to the reaction. The default is None.
 
         Attributes
         ----------
-        parent : str
-            parent nuclide ZZAAA.XXc representing stable isotope to be
-            activated. ZZ and AAA represent the atomic and mass number and
-            extension XX, is the extension number of the modified D1S library.
+        parent : Nuclide
+            parent nuclide of the reaction.
         MT : str
             integer, reaction type (ENDF definition, e.g. '102').
-        daughter : str
-            integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
-            state. Theoretically, any other identification type
-            (with integer value) can be used.
+        daughter : Nuclide
+            daughter nuclide of the reaction.
         comment : str, optional
             comment to the reaction. The default is None.
 
@@ -751,9 +750,7 @@ class Reaction:
         None.
 
         """
-        pieces = self.parent.split(".")
-        # Override lib
-        self.parent = pieces[0] + "." + newlib
+        self.parent.lib = newlib
 
     def _get_text(self) -> list[str]:
         """
@@ -766,7 +763,11 @@ class Reaction:
 
         """
         # compute text
-        textpieces = [self.parent, self.MT, self.daughter]
+        textpieces = [
+            self.parent.write_to_int_string(),
+            self.MT,
+            self.daughter.write_to_int_string(),
+        ]
         if self.comment is None:
             comment = ""
         else:
@@ -782,7 +783,10 @@ MT channel: {}
 daughter: {}
 comment: {}
 """.format(
-            self.parent, self.MT, self.daughter, self.comment
+            self.parent.write_to_formula(),
+            self.MT,
+            self.daughter.write_to_formula(),
+            self.comment,
         )
         return text
 
@@ -806,9 +810,9 @@ comment: {}
         """
         # Split the reaction in its components
         pieces = PAT_SPACE.split(text.strip())
-        parent = pieces[0].strip()
+        parent = Nuclide.from_int_string(pieces[0].strip())
         MT = pieces[1]
-        daughter = pieces[2]
+        daughter = Nuclide.from_int_string(pieces[2].strip())
         # the rest is comments
         comment = ""
         if len(pieces) > 3:

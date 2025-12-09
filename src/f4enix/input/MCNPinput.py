@@ -2146,7 +2146,7 @@ class D1S_Input(Input):
             return
         key = "PIKMT"
         lines = [key + "\n"]
-        for parent in self.reac_file.get_parents():
+        for parent in self.reac_file.get_zaids_parents():
             lines.append("         {}    {}\n".format(parent, 0))
 
         card = parser.Card(lines, 5, -1)
@@ -2230,7 +2230,7 @@ class D1S_Input(Input):
 
         if self.reac_file is None:
             raise ValueError("No reaction file has been assigned to the input")
-        parents = list(self.reac_file.get_parents())
+        parents = list(self.reac_file.get_zaids_parents())
         self.add_track_contribution(tallykey, parents, who="parent")
 
     def add_SDDR_dose_function(self, tallykey: str) -> None:

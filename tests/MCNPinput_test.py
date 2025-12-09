@@ -808,7 +808,7 @@ class TestD1S_Input:
 
         lib = "99c"
         reacfile = newinp.get_reaction_file(self.lm, lib)
-        assert ["24050", "78195"] == reacfile.get_parents()
+        assert ["24050", "78195"] == reacfile.get_zaids_parents()
         reacfile.reactions[1].daughter == "78195900"
 
     def test_get_potential_paths(self):
@@ -852,7 +852,7 @@ class TestD1S_Input:
         inp.write(tmpfile)
         newinp = D1S_Input.from_input(tmpfile)
         # get the new injected card
-        parents = inp.reac_file.get_parents()
+        parents = inp.reac_file.get_zaids_parents()
         for line in newinp.other_data["FU124"].lines:
             if line.startswith("FU124"):
                 assert line.strip() == "FU124 0"
