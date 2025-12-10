@@ -236,6 +236,7 @@ class TIME_UNITS(Enum):
     DAY = "d"
     MONTH = "m"
     YEAR = "y"
+    WEEK = "w"
 
 
 TIME_UNITS_CONVERSION = {
@@ -243,6 +244,7 @@ TIME_UNITS_CONVERSION = {
     TIME_UNITS.MINUTE: 60,
     TIME_UNITS.HOUR: 60 * 60,
     TIME_UNITS.DAY: 60 * 60 * 24,
-    TIME_UNITS.MONTH: 60 * 60 * 24 * 30,
-    TIME_UNITS.YEAR: 60 * 60 * 24 * 30 * 12,
+    TIME_UNITS.WEEK: 60 * 60 * 24 * 7,
+    TIME_UNITS.MONTH: 60 * 60 * 24 * 365.25 / 12,
+    TIME_UNITS.YEAR: 60 * 60 * 24 * 365.25,
 }

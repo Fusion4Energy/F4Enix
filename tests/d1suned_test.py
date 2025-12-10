@@ -1,4 +1,3 @@
-import sys
 import os
 import pytest
 from importlib.resources import files, as_file
@@ -8,7 +7,6 @@ from f4enix.input.d1suned import (
     ReactionFile,
     Irradiation,
     IrradiationFile,
-    REACFORMAT,
 )
 from f4enix.input.libmanager import LibManager
 import tests.resources.d1suned as res
@@ -73,7 +71,7 @@ class TestIrradiationFile:
         assert irradiation is None
         # Check true value
         irradiation = irrfile.get_irrad("26055")
-        assert irradiation.daughter == "26055"
+        assert irradiation.daughter.write_to_int_string() == "26055"
 
     def test_select_daughters_irradiation_file(self):
         """
@@ -91,8 +89,8 @@ class TestIrradiationFile:
         # Keep only useful irradiations
         assert ans is True
         assert len(irrfile.irr_schedules) == 2
-        assert irrfile.irr_schedules[0].daughter == "24051"
-        assert irrfile.irr_schedules[1].daughter == "26055"
+        assert irrfile.irr_schedules[0].daughter.write_to_int_string() == "24051"
+        assert irrfile.irr_schedules[1].daughter.write_to_int_string() == "26055"
 
     def test_multiple_irradiations(self, tmpdir):
         """
@@ -175,7 +173,7 @@ class TestIrradiation:
         """
         Assert irradiation
         """
-        assert irr.daughter == "24051"
+        assert irr.daughter.write_to_int_string() == "24051"
         assert irr.lambd == "2.896e-07"
         assert irr.times[0] == "5.982e+00"
         assert irr.times[1] == "5.697e+00"
@@ -276,9 +274,9 @@ class TestReactionFile:
         assert len(newfile.reactions) == 11
         # Check also first line
         rx = newfile.reactions[0]
-        assert rx.parent == "26054.31c"
+        assert rx.parent.write_to_int_string() == "26054.31c"
         assert rx.MT == "102"
-        assert rx.daughter == "26055"
+        assert rx.daughter.write_to_int_string() == "26055"
         assert rx.comment == "Fe55"
 
     def test_translation(self, lm: LibManager):
@@ -294,7 +292,7 @@ class TestReactionFile:
         reac_file.change_lib(newlib, libmanager=lm)
 
         for reaction in reac_file.reactions:
-            assert reaction.parent[-3:] == newlib
+            assert reaction.parent.write_to_int_string()[-3:] == newlib
 
     def test_translation2(self, lm: LibManager):
         """
@@ -310,7 +308,7 @@ class TestReactionFile:
         reac_file.change_lib(newlib, libmanager=lm)
 
         for reaction in reac_file.reactions:
-            assert reaction.parent[-3:] != newlib
+            assert reaction.parent.write_to_int_string()[-3:] != newlib
 
     def test_get_parents(self):
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:

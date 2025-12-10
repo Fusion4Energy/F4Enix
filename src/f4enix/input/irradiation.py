@@ -1,27 +1,130 @@
-from typing import Any
-from f4enix.constants import PathLike, TIME_UNITS, TIME_UNITS_CONVERSION
+import re
+from pathlib import Path
+from importlib.resources import files, as_file
+from pypact.input.inputdata import InputData
+from pypact.input.serialization import from_file
+import pandas as pd
+
+from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION, PathLike
 from f4enix.input.libmanager import LibManager
+from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
+from f4enix import resources
 
 LM = LibManager()
+RES = files(resources)
+
+# D1STIME PATTERNS
+PAT_NORM = re.compile(r"^\s*norm", flags=re.IGNORECASE)
+PAT_IRRADIATION = re.compile(r"^\s*irradiation", flags=re.IGNORECASE)
 
 
 class Pulse:
     def __init__(self, time: float, intensity: float, unit=TIME_UNITS.SECOND) -> None:
-        pass
+        """An object representing a single pulse
+
+        Parameters
+        ----------
+        time : float
+            time duration of the pulse
+        intensity : float
+            intensity (flux) of the pulse
+        unit : TIME_UNITS, optional
+            preferred time unit for the pulse, by default TIME_UNITS.SECOND.
+            time will always be stored in seconds internally.
+        """
+        self.time = time * TIME_UNITS_CONVERSION[unit]  # Always store in seconds
+        self.intensity = intensity
+        self.unit = unit  # preferred unit for display
+
+    def get_time(self, unit: TIME_UNITS) -> float:
+        """Get the irradiation time in a specific time unit
+
+        Parameters
+        ----------
+        unit : TIME_UNITS
+            desired time unit
+
+        Returns
+        -------
+        float
+            irradiation time in the desired unit
+        """
+        return self.time / TIME_UNITS_CONVERSION[unit]
+
+    def __repr__(self) -> str:
+        time = self.get_time(self.unit)
+        return f"Pulse(time={time} {self.unit}, intensity={self.intensity})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 class IrradiationScenario:
-    def __init__(self, pulses: list[Pulse], name: str | None = None):
+    def __init__(
+        self, pulses: list[Pulse], name: str | None = None, norm: float = 1.0
+    ) -> None:
         self.name = name
         self.pulses = pulses
+        self.norm = norm
 
     @classmethod
     def from_legacy_d1stime(cls, path_to_file: PathLike) -> "IrradiationScenario":
-        pass
+        """Create an Irradiation Scenario object from a legacy d1stime input format.
+
+        Parameters
+        ----------
+        path_to_file : PathLike
+            path to the input file (d1stime legacy format).
+
+        Returns
+        -------
+        IrradiationScenario
+            The irradiation scenario object.
+        """
+        with open(path_to_file, "r") as f:
+            lines = f.readlines()
+        name = Path(path_to_file).stem
+        flag_irradiation = False
+        pulses = []
+        for line in lines:
+            irr_line = line
+            if PAT_NORM.match(line):
+                norm_value = float(line.split(":")[1].strip())
+            elif PAT_IRRADIATION.match(line):
+                flag_irradiation = True
+                irr_line = line.split(":", 1)[1].strip()
+            elif flag_irradiation and line.strip() == "":
+                flag_irradiation = False
+
+            # read irradiation lines only when inside the proper block
+            if flag_irradiation:
+                pulses.extend(_process_irr_line(irr_line))
+
+        return cls(pulses=pulses, name=name, norm=norm_value)
 
     @classmethod
     def from_fispact(cls, path_to_file: PathLike) -> "IrradiationScenario":
-        pass
+        """Create an irradiation scenario from a fispact II input file.
+
+        Parameters
+        ----------
+        path_to_file : PathLike
+            path to the fispact II input file.
+
+        Returns
+        -------
+        IrradiationScenario
+            The irradiation scenario object.
+        """
+        fisp_inp = InputData()
+        from_file(fisp_inp, path_to_file)
+        name = Path(path_to_file).stem
+        pulses = []
+        for time, flux in fisp_inp._irradschedule:
+            # time is already converted into seconds by pypact
+            pulses.append(Pulse(time=time, intensity=flux, unit=TIME_UNITS.SECOND))
+
+        return cls(pulses=pulses, name=name)
 
 
 class Nuclide:
@@ -184,17 +287,75 @@ class Nuclide:
         )
 
 
-class TimeCorrectionFactorComputer:
-    def __init__(self, decay_lib: PathLike) -> None:
-        pass
+class TCF_Computer:
+    def __init__(self) -> None:
+        with as_file(RES.joinpath("ground_states.csv")) as decay_file:
+            self.decay_data = pd.read_csv(decay_file).set_index("zaid")
+
+    def get_lambda(self, nuclide: Nuclide) -> float:
+        """Get the decay constant (lambda) for a given nuclide.
+
+        Parameters
+        ----------
+        nuclide : Nuclide
+            The nuclide for which to get the decay constant.
+
+        Returns
+        -------
+        float
+            The decay constant in 1/seconds.
+        """
+        zaid = nuclide.zaid
+        if zaid not in self.decay_data.index:
+            raise ValueError(f"Decay data for ZAID {zaid} not found.")
+
+        half_life_sec = self.decay_data.at[zaid, "half_life_sec"]
+        if half_life_sec is None or pd.isna(half_life_sec):
+            # then the nuclide is stable
+            return 0.0
+
+        lambda_value = 0.69314718056 / float(half_life_sec)  # ln(2) / half-life
+        return lambda_value
 
     def compute_correction_factor(
         self,
         scenario: IrradiationScenario,
         nuclides: list[Nuclide],
-        scale_factors: float = 1,
+        norm: float = 1,
     ) -> float:
         pass
 
-    def get_lambda(nuclide: Nuclide) -> float:
-        pass
+
+def _process_irr_line(line: str) -> list[Pulse]:
+    pulses = []
+    # remove spaces and tabs
+    inline = line.replace(" ", "").replace("\t", "").replace("\n", "").replace("\r", "")
+    # check for parentheses
+    if inline.startswith("("):
+        multiplier = inline.split(")*")[-1]
+        inline = inline[1 : -(len(multiplier) + 2)]  # remove parentheses and multiplier
+        pulses.extend(_process_pulses(inline) * int(multiplier))
+    else:
+        pulses.extend(_process_pulses(inline))
+
+    return pulses
+
+
+def _process_pulses(pulse_str: str) -> list[Pulse]:
+    pieces = pulse_str.split("/")
+    pulses = []
+    for i in range(len(pieces) // 2):
+        flux = float(pieces[2 * i])
+        time_str = pieces[2 * i + 1]
+        # In time, separate number and unit
+        val = SCIENTIFIC_PAT.search(time_str)
+        if not val:
+            val = PAT_DIGIT.search(time_str)
+            if not val:
+                raise ValueError(f"Cannot parse time value from string '{time_str}'")
+
+        val = val.group()
+        unit = TIME_UNITS(time_str.replace(val, "").strip().lower())
+        pulses.append(Pulse(time=float(val), intensity=flux, unit=unit))
+
+    return pulses

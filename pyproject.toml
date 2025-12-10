@@ -28,7 +28,8 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "tables",
-    "endf"
+    "endf",
+    "pypact",
 ]
 [project.optional-dependencies]
 tests = [

@@ -145,7 +145,7 @@ class IrradiationFile:
         # Get the list of daughters
         daughters = []
         for irradiation in self.irr_schedules:
-            daughters.append(irradiation.daughter)
+            daughters.append(irradiation.daughter.write_to_int_string())
 
         return daughters
 
@@ -166,7 +166,7 @@ class IrradiationFile:
 
         """
         for irradiation in self.irr_schedules:
-            if daughter == irradiation.daughter:
+            if daughter == irradiation.daughter.write_to_int_string():
                 return irradiation
 
         return None
@@ -279,7 +279,7 @@ class IrradiationFile:
         # Keep only useful irradiations
         new_irradiations = []
         for irradiation in self.irr_schedules:
-            if irradiation.daughter in daughters:
+            if irradiation.daughter.write_to_int_string() in daughters:
                 new_irradiations.append(irradiation)
 
         if len(new_irradiations) != len(daughters):
@@ -319,7 +319,8 @@ class IrradiationFile:
             )
         # Ensure all daughters in `self.irr_schedules` have a corresponding entry in `times_dict`
         daughters_in_schedules = {
-            irradiation.daughter for irradiation in self.irr_schedules
+            irradiation.daughter.write_to_int_string()
+            for irradiation in self.irr_schedules
         }
         # Ensure there are no extra keys in `times_dict` that are not in the daughters
         for key in times_dict:
@@ -336,7 +337,9 @@ class IrradiationFile:
 
         # Add the new times to each daughter
         for irradiation in self.irr_schedules:
-            irradiation._times.extend(times_dict[irradiation.daughter])
+            irradiation._times.extend(
+                times_dict[irradiation.daughter.write_to_int_string()]
+            )
 
         # Ensure all times lists have the same length
         max_length = max(len(irradiation.times) for irradiation in self.irr_schedules)
@@ -378,16 +381,19 @@ class IrradiationFile:
 
 class Irradiation:
     def __init__(
-        self, daughter: str, lambd: str, times: list[str], comment: str | None = None
+        self,
+        daughter: Nuclide,
+        lambd: str,
+        times: list[str],
+        comment: str | None = None,
     ) -> None:
         """
         Irradiation object
 
         Parameters
         ----------
-        daughter : str
-            daughter nuclide (e.g. 24051). If metastable, it will have an
-            additional '900' appended to the zaid number.
+        daughter : Nuclide
+            daughter nuclide for which coefficients are provided.
         lambd : str
             disintegration constant [1/s].
         times : list of strings
@@ -492,7 +498,7 @@ class Irradiation:
         if pieces[0] == "":
             pieces.pop(0)
 
-        daughter = pieces[0]
+        daughter = Nuclide.from_int_string(pieces[0])
         lambd = pieces[1]
         times = []
         # Get all decay times
@@ -516,7 +522,7 @@ class Irradiation:
         return cls(daughter, lambd, times, comment=comment)
 
     def _get_format_args(self) -> list:
-        args = [self.daughter, self.lambd]
+        args = [self.daughter.write_to_int_string(), self.lambd]
         for time in self.times:
             args.append(time)
         args.append(self.comment)
@@ -528,7 +534,7 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(self.daughter, self.lambd, self.times, self.comment)
+""".format(self.daughter.write_to_formula(), self.lambd, self.times, self.comment)
 
         return text
 
