@@ -23,10 +23,12 @@ and limitations under the Licence.
 import logging
 import os
 import re
+import numpy as np
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
-from f4enix.input.irradiation import Nuclide
+from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer, Pulse
+from f4enix.constants import TIME_UNITS
 from copy import deepcopy
 # PAT_COMMENT = re.compile('[Cc]+')
 
@@ -39,7 +41,7 @@ class IrradiationFile:
         nsc: int,
         irr_schedules: list[Irradiation],
         header: str | None = None,
-        formatting: list[int] = [11, 14, 13, 9],
+        formatting: list[int] = [14, 14, 13, 11],
         name: str = "irrad",
     ) -> None:
         """
@@ -176,9 +178,73 @@ class IrradiationFile:
         cls,
         daughter_list: list[Nuclide],
         irr_scenarios: list[IrradiationScenario],
-        scale_IRS: dict[Nuclide, list] | None = None,
+        scale_IRS: dict[str, list[float]] | None = None,
+        norm: float = 1,
     ) -> IrradiationFile:
-        pass
+        # verify that either scale_IRS is None or only one irr scenario is provided
+        if scale_IRS is not None:
+            if len(irr_scenarios) > 1:
+                raise ValueError(
+                    "If scale_IRS is provided, only one irradiation scenario can be used."
+                )
+            nsc = len(list(scale_IRS.values())[0])
+        else:
+            nsc = len(irr_scenarios)
+
+        # ensure that TCFs are computed at shutdown as d1suned expects
+        new_irr_scenarios = []
+        for irr_scenario in irr_scenarios:
+            new_irr_scenario = deepcopy(irr_scenario)
+            new_irr_scenario.set_cooling_times([(0, TIME_UNITS.SECOND)])
+            new_irr_scenarios.append(new_irr_scenario)
+
+        # compute the TFCs for all daughter at all scenarios
+        tfc_computer = TCF_Computer()
+        factor_matrix = []
+        for irr_scenario in new_irr_scenarios:
+            factors = tfc_computer.compute_correction_factors(
+                irr_scenario,
+                daughter_list,
+                norm=norm,
+            )
+            factor_matrix.append(factors[0])  # get only the first cooling time (0)
+        factor_matrix = np.array(factor_matrix)  # shape (n_scenarios, n_daughters)
+
+        # build the irradiation schedules
+        irr_schedules = []
+        for j, daughter in enumerate(daughter_list):
+            # get lambda
+            lambd = tfc_computer.get_lambda(daughter)
+            lambd_str = "{:.3e}".format(lambd)
+
+            # get TCFs for all scenarios
+            times = []
+
+            # normal case
+            if scale_IRS is None:
+                for i in range(len(new_irr_scenarios)):
+                    tcf_value = factor_matrix[i, j]
+                    times.append("{:.3e}".format(tcf_value))
+            # IRS case
+            else:
+                for i in range(nsc):
+                    try:
+                        scale_IRS_factor = scale_IRS[daughter.write_to_formula()][i]
+                    except KeyError:
+                        scale_IRS_factor = 1.0
+                    tcf_value = factor_matrix[0, j] * scale_IRS_factor
+                    times.append("{:.3e}".format(tcf_value))
+
+            # build irradiation
+            irradiation = Irradiation(
+                daughter, lambd_str, times, comment=daughter.write_to_formula()
+            )
+            irr_schedules.append(irradiation)
+        return cls(
+            nsc,
+            irr_schedules,
+            header=_get_irradiation_header(new_irr_scenarios, norm),
+        )
 
     @classmethod
     def from_text(cls, filepath: os.PathLike | str) -> IrradiationFile:
@@ -834,3 +900,20 @@ comment: {}
 
     def __str__(self) -> str:
         return self._nice_print()
+
+
+def _get_irradiation_header(
+    irr_scenarios: list[IrradiationScenario], norm: float
+) -> str:
+    header = """
+# *******************************
+#     Irradiation Scenarios
+# *******************************    
+"""
+    header += f"# norm: {norm}\n\n"
+    for irr_scenario in irr_scenarios:
+        header += f"# Scenario: {irr_scenario.name}\n"
+        for pulse in irr_scenario.pulses:
+            header += f"#   - {pulse}\n"
+        header += "\n"
+    return header

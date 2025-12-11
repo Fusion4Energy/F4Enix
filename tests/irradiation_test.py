@@ -1,6 +1,5 @@
 import pytest
 import math
-import numpy as np
 from importlib.resources import as_file, files
 from f4enix.input.irradiation import (
     Nuclide,
@@ -66,7 +65,6 @@ class TestIrradiationScenario:
         with as_file(RES.joinpath("inp_d1stime")) as d1s_file:
             irr_scenario = IrradiationScenario.from_legacy_d1stime(d1s_file)
 
-        assert pytest.approx(irr_scenario.norm) == 1.111111e16
         assert len(irr_scenario.pulses) == 62
 
 
@@ -74,7 +72,7 @@ class TestTFC_Computer:
     def test_get_lambda(self):
         tcf_computer = TCF_Computer()
         decay_constant = tcf_computer.get_lambda(Nuclide.from_formula("Co60m"))
-        assert pytest.approx(decay_constant) == math.log(2) / 166344192
+        assert pytest.approx(decay_constant) == math.log(2) / 628.02
 
         assert tcf_computer.get_lambda(Nuclide.from_formula("H1")) == 0.0
 
@@ -91,7 +89,7 @@ class TestTFC_Computer:
         for irrad in irr_file.irr_schedules:
             nuclide = irrad.daughter
             factors = tcf.compute_correction_factors(
-                irr_scenario, [nuclide], norm=irr_scenario.norm
+                irr_scenario, [nuclide], norm=2.0e19
             )
             print(nuclide)
             assert pytest.approx(factors[0][0], rel=5e-2) == float(irrad.times[0])

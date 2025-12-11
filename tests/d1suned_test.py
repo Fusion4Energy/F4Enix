@@ -12,6 +12,7 @@ from f4enix.input.libmanager import LibManager
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
 from f4enix.input.irradiation import Nuclide
+from f4enix.input.irradiation import IrradiationScenario, Pulse
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)
@@ -56,6 +57,50 @@ class TestIrradiationFile:
             self._assert_file1(irrfile)
         elif file == "irr_test2":
             self._assert_file2(irrfile)
+
+    def test_from_irrad_schedules(self, tmpdir):
+        pulses = [Pulse(10, 5), Pulse(50, 0)] * 2 + [Pulse(100, 10)]
+        irr_scenario1 = IrradiationScenario(pulses, name="Scenario 1")
+
+        pulses2 = [Pulse(20, 10), Pulse(40, 0)] * 2 + [Pulse(80, 5)]
+        irr_scenario2 = IrradiationScenario(pulses2, name="Scenario 2")
+
+        # multiple scenarios case
+        daughter_list = [
+            Nuclide.from_formula("Co62"),
+            Nuclide.from_formula("Co62m"),
+        ]
+        irrfile = IrradiationFile.from_irradiation_schedules(
+            daughter_list, [irr_scenario1, irr_scenario2], norm=2
+        )
+        irrfile.write(tmpdir)
+        assert len(irrfile.irr_schedules) == 2
+
+        # raise ValueError
+        daughter_list = [
+            Nuclide.from_formula("Co62"),
+            Nuclide.from_formula("Co62m"),
+            Nuclide.from_formula("irsCo62m"),
+        ]
+        with pytest.raises(ValueError):
+            irrfile = IrradiationFile.from_irradiation_schedules(
+                daughter_list,
+                [irr_scenario1, irr_scenario2],
+                norm=2,
+                scale_IRS={"irsCo62m": [2, 3]},
+            )
+
+        # IRS case
+        irrfile = IrradiationFile.from_irradiation_schedules(
+            daughter_list, [irr_scenario1], norm=2, scale_IRS={"irsCo62m": [1, 2]}
+        )
+        irrfile.name = "irs_test"
+        irrfile.write(tmpdir)
+        assert len(irrfile.irr_schedules) == 3
+        assert len(irrfile.irr_schedules[0].times) == 2
+        assert irrfile.nsc == 2
+        assert irrfile.irr_schedules[0].times[0] == irrfile.irr_schedules[0].times[1]
+        assert irrfile.irr_schedules[-1].times[0] != irrfile.irr_schedules[-1].times[1]
 
     def test_get_daughters(self):
         with as_file(RESOURCES.joinpath("irr_test")) as inp:

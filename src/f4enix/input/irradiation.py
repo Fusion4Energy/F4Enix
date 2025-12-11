@@ -15,7 +15,6 @@ LM = LibManager()
 RES = files(resources)
 
 # D1STIME PATTERNS
-PAT_NORM = re.compile(r"^\s*norm", flags=re.IGNORECASE)
 PAT_IRRADIATION = re.compile(r"^\s*irradiation", flags=re.IGNORECASE)
 
 
@@ -61,9 +60,7 @@ class Pulse:
 
 
 class IrradiationScenario:
-    def __init__(
-        self, pulses: list[Pulse], name: str | None = None, norm: float = 1.0
-    ) -> None:
+    def __init__(self, pulses: list[Pulse], name: str | None = None) -> None:
         """Object representing an irradiation scenario which is characterized by
         a sequence of pulses and cooling times.
 
@@ -73,8 +70,6 @@ class IrradiationScenario:
             list of irradiation pulses
         name : str | None, optional
             irradiation scenario name, by default None
-        norm : float, optional
-            normalization factor to compute correction times, by default 1.0
 
         Attributes
         ----------
@@ -82,8 +77,6 @@ class IrradiationScenario:
             list of irradiation pulses
         name : str | None, optional
             irradiation scenario name, by default None
-        norm : float, optional
-            normalization factor to compute correction times, by default 1.0
         cooling_times : list[Pulse]
             list of cooling time pulses
         cooling_labels : list[str]
@@ -91,7 +84,6 @@ class IrradiationScenario:
         """
         self.name = name
         self.pulses = pulses
-        self.norm = norm
         self._cooling_times = [Pulse(time=0.0, intensity=0.0, unit=TIME_UNITS.SECOND)]
         self._cooling_labels = ["0s"]
 
@@ -160,9 +152,7 @@ class IrradiationScenario:
         pulses = []
         for line in lines:
             irr_line = line
-            if PAT_NORM.match(line):
-                norm_value = float(line.split(":")[1].strip())
-            elif PAT_IRRADIATION.match(line):
+            if PAT_IRRADIATION.match(line):
                 flag_irradiation = True
                 irr_line = line.split(":", 1)[1].strip()
             elif flag_irradiation and line.strip() == "":
@@ -172,7 +162,7 @@ class IrradiationScenario:
             if flag_irradiation:
                 pulses.extend(_process_irr_line(irr_line))
 
-        return cls(pulses=pulses, name=name, norm=norm_value)
+        return cls(pulses=pulses, name=name)
 
     @classmethod
     def from_fispact(cls, path_to_file: PathLike) -> "IrradiationScenario":
