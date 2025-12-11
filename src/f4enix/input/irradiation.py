@@ -3,7 +3,8 @@ from pathlib import Path
 from importlib.resources import files, as_file
 from pypact.input.inputdata import InputData
 from pypact.input.serialization import from_file
-import pandas as pd
+import numpy as np
+import json
 
 from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION, PathLike
 from f4enix.input.libmanager import LibManager
@@ -63,9 +64,80 @@ class IrradiationScenario:
     def __init__(
         self, pulses: list[Pulse], name: str | None = None, norm: float = 1.0
     ) -> None:
+        """Object representing an irradiation scenario which is characterized by
+        a sequence of pulses and cooling times.
+
+        Parameters
+        ----------
+        pulses : list[Pulse]
+            list of irradiation pulses
+        name : str | None, optional
+            irradiation scenario name, by default None
+        norm : float, optional
+            normalization factor to compute correction times, by default 1.0
+
+        Attributes
+        ----------
+        pulses : list[Pulse]
+            list of irradiation pulses
+        name : str | None, optional
+            irradiation scenario name, by default None
+        norm : float, optional
+            normalization factor to compute correction times, by default 1.0
+        cooling_times : list[Pulse]
+            list of cooling time pulses
+        cooling_labels : list[str]
+            list of cooling time labels
+        """
         self.name = name
         self.pulses = pulses
         self.norm = norm
+        self._cooling_times = [Pulse(time=0.0, intensity=0.0, unit=TIME_UNITS.SECOND)]
+        self._cooling_labels = ["0s"]
+
+    @property
+    def cooling_times(self) -> list[Pulse]:
+        """Get the cooling times as a list of Pulse objects."""
+        return self._cooling_times
+
+    @property
+    def cooling_labels(self) -> list[str]:
+        """Get the cooling time labels as a list of strings."""
+        return self._cooling_labels
+
+    def set_cooling_times(
+        self, cooling_times: list[tuple[float, TIME_UNITS]], absolute: bool = True
+    ) -> None:
+        """set a number of cooling times. Time can be expressed relatively to
+        the previous time or absolute after shutdown.
+
+        Parameters
+        ----------
+        cooling_times : list[tuple[float, TIME_UNITS]]
+            list of cooling time durations and their units.
+        absolute : bool, optional
+            if True, cooling times are absolute after shutdown; if False, they are
+            relative to the previous time, by default True
+        """
+        self._cooling_times = []
+        self._cooling_labels = []
+
+        last_time = 0.0
+        for time_val, time_unit in cooling_times:
+            time_sec = time_val * TIME_UNITS_CONVERSION[time_unit]
+            # convert the absolute in relative
+            if absolute:
+                self._cooling_labels.append(f"{time_val}{time_unit.value}")
+                time = time_sec - last_time
+            # keep relatives
+            else:
+                cumulative_time = last_time + time_sec
+                self._cooling_labels.append(f"{cumulative_time}s")
+                time = time_sec
+            last_time = time_sec  # update total time
+            self._cooling_times.append(
+                Pulse(time=time, intensity=0.0, unit=TIME_UNITS.SECOND)
+            )
 
     @classmethod
     def from_legacy_d1stime(cls, path_to_file: PathLike) -> "IrradiationScenario":
@@ -286,11 +358,25 @@ class Nuclide:
             and self.lib == value.lib
         )
 
+    def __repr__(self) -> str:
+        return self.write_to_formula()
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 class TCF_Computer:
     def __init__(self) -> None:
-        with as_file(RES.joinpath("ground_states.csv")) as decay_file:
-            self.decay_data = pd.read_csv(decay_file).set_index("zaid")
+        """Auxiliary class to be used to compute time correction factors.
+
+        Attributes
+        ----------
+        half_lives : dict
+            Dictionary containing half-life data for nuclides.
+        """
+        with as_file(RES.joinpath("half_lives_decay2020.json")) as decay_file:
+            with open(decay_file, "r") as f:
+                self.half_lives = dict(json.load(f))
 
     def get_lambda(self, nuclide: Nuclide) -> float:
         """Get the decay constant (lambda) for a given nuclide.
@@ -305,25 +391,65 @@ class TCF_Computer:
         float
             The decay constant in 1/seconds.
         """
-        zaid = nuclide.zaid
-        if zaid not in self.decay_data.index:
-            raise ValueError(f"Decay data for ZAID {zaid} not found.")
+        nuclide_str = nuclide.write_to_formula()
+        nuclide_str = nuclide_str.strip("irs")  # remove IRS if present
+        half_life_sec = self.half_lives[nuclide_str]
 
-        half_life_sec = self.decay_data.at[zaid, "half_life_sec"]
-        if half_life_sec is None or pd.isna(half_life_sec):
-            # then the nuclide is stable
+        if half_life_sec == "STABLE":
             return 0.0
 
         lambda_value = 0.69314718056 / float(half_life_sec)  # ln(2) / half-life
         return lambda_value
 
-    def compute_correction_factor(
+    def compute_correction_factors(
         self,
         scenario: IrradiationScenario,
         nuclides: list[Nuclide],
         norm: float = 1,
-    ) -> float:
-        pass
+    ) -> np.ndarray:
+        """Compute time correction factors for D1S methodology.
+        N[0] = 0
+        N[m] = N[m-1]*exp(-lambda*dt) + I/norm * (1-exp(-lambda*dt))
+
+        Parameters
+        ----------
+        scenario : IrradiationScenario
+            The irradiation scenario. It must include also the cooling time
+            equivalent pulses.
+        nuclides : list[Nuclide]
+            list of nuclides for which to compute the correction factors.
+        norm : float, optional
+            norm to be used to scale the neutron flux intensity, by default 1
+
+        Returns
+        -------
+        np.ndarray
+            Array of correction factors for each nuclide and each cooling time.
+        """
+        # get lambda vector
+        lambda_vector = np.array(
+            [self.get_lambda(nuclide) for nuclide in nuclides]
+        )  # .reshape((-1, 1))  # column vector
+        N = np.zeros_like(lambda_vector, dtype=float)
+
+        # Compute factor up to the end of irradiation
+        for pulse in scenario.pulses:
+            N = _compute_factor(N, pulse, lambda_vector, norm)
+
+        # Compute factor during cooling times
+        factors = []
+        for pulse in scenario.cooling_times:
+            N = _compute_factor(N, pulse, lambda_vector, norm)
+            factors.append(N.copy())
+        return np.array(factors)
+
+
+def _compute_factor(N, pulse: Pulse, lambda_vector, norm) -> np.ndarray:
+    I = pulse.intensity / norm
+    t = pulse.time
+    exp_term = np.exp(-lambda_vector * t)
+    N = N * exp_term + I * (1 - exp_term)
+    return N
 
 
 def _process_irr_line(line: str) -> list[Pulse]:

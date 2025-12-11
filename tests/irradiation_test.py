@@ -1,5 +1,6 @@
 import pytest
 import math
+import numpy as np
 from importlib.resources import as_file, files
 from f4enix.input.irradiation import (
     Nuclide,
@@ -7,6 +8,7 @@ from f4enix.input.irradiation import (
     _process_irr_line,
     TCF_Computer,
 )
+from f4enix.input.d1suned import IrradiationFile
 from tests.resources import irradiation
 
 RES = files(irradiation)
@@ -75,6 +77,25 @@ class TestTFC_Computer:
         assert pytest.approx(decay_constant) == math.log(2) / 166344192
 
         assert tcf_computer.get_lambda(Nuclide.from_formula("H1")) == 0.0
+
+    def test_compute_correction_factors(self):
+        # test en masse all the correction factors of 93c
+        with as_file(RES.joinpath("irrad_93c.txt")) as infile:
+            irr_file = IrradiationFile.from_text(infile)
+
+        # read the irr scenario
+        with as_file(RES.joinpath("irrad_d1stime.i")) as file:
+            irr_scenario = IrradiationScenario.from_legacy_d1stime(file)
+
+        tcf = TCF_Computer()
+        for irrad in irr_file.irr_schedules:
+            nuclide = irrad.daughter
+            factors = tcf.compute_correction_factors(
+                irr_scenario, [nuclide], norm=irr_scenario.norm
+            )
+            print(nuclide)
+            assert pytest.approx(factors[0][0], rel=5e-2) == float(irrad.times[0])
+            # assert np.allclose(factors, expected_factors, rtol=2e-2)
 
 
 def test_process_irr_line():
