@@ -113,7 +113,13 @@ def _read_block(fic: myOpen, nl: int, array: np.ndarray) -> None:
         fic._skipline(2)
         for i in range(nl):
             line = fic._readline()
-            array[i, :, j] = [float(x) for x in line.split()[1:]]
+            values = []
+            for x in line.split()[1:]:
+                try:
+                    values.append(float(x))
+                except Exception:
+                    values.append(0.0)
+            array[i, :, j] = values
         fic._skipline()
 
 
@@ -339,10 +345,10 @@ def _get_cuv_element(
         values = values * volume
     elif norm == "celf":
         values = values / sumf
-    else:
-        raise ValueError(
-            f"Unknown normalization option: {norm}. Allowed options are 'ctot' or 'celf'."
-        )
+    # else:
+    #     raise ValueError(
+    #         f"Unknown normalization option: {norm}. Allowed options are 'ctot' or 'celf'."
+    #     )
 
     return values, errors
 
@@ -864,9 +870,7 @@ def _get_mesh_boundaries(
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def _get_cdgsmesh_boundaries(
-    fic: myOpen, position: int
-) -> tuple[
+def _get_cdgsmesh_boundaries(fic: myOpen, position: int) -> tuple[
     str,
     tuple[np.ndarray, np.ndarray] | None,
     tuple[np.ndarray, np.ndarray, np.ndarray, ExtraBin, ExtraBin],

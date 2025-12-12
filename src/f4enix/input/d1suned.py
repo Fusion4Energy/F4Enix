@@ -23,6 +23,8 @@ and limitations under the Licence.
 import logging
 import os
 import re
+import numpy as np
+import pandas as pd
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
@@ -364,6 +366,147 @@ class IrradiationFile:
 
         # Update the irradiation format
         self._update_irrformat()
+
+    def irradiation_file_df(self) -> pd.DataFrame:
+        """
+        Convert the irradiation schedules to a pandas DataFrame.
+
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame with columns 'Daughter', 'Lambda', and time correction factors.
+        """
+        data = []
+        for irradiation in self.irr_schedules:
+            row = {
+                "Daughter": int(irradiation.daughter),
+                "Lambda": float(irradiation.lambd),
+            }
+            for i, time in enumerate(irradiation.times):
+                row[f"Time_Factor_{i+1}"] = float(time)
+            data.append(row)
+
+        df = pd.DataFrame(data)
+        return df
+
+    def rescale_dose(
+        self,
+        ref_scenario_num: int,
+        new_irradiation: float | IrradiationFile,
+        new_irradiation_scenario_num: int,
+        df_ref_values: pd.DataFrame,
+    ) -> tuple[float | np.ndarray, pd.DataFrame]:
+        """Given a dose tally binned in daughter contribution (e.g. from a Mctal/Meshtal object)
+        corresponding to a given irradiation scenario, this function rescales the contribution
+        from the daughters to a new irradiation scenario/cooling time of choice, by correcting
+        their contribution according to their time correction factors.
+
+
+        Parameters
+        ----------
+        ref_scenario_num : int
+            The irradiation scenario ID number corresponding to the reference dose tally.
+        new_irradiation : float | IrradiationFile
+            The new cooling time where to rescale the dose (if float) or the new irradiation file
+            where to get the new scenario (if IrradiationFile).
+        new_irradiation_scenario_num : int
+            The irradiation scenario ID number corresponding to the new irradiation file
+            (if IrradiationFile used as new_irradiation).
+        df_ref_values : pd.DataFrame
+            DataFrame containing the reference dose values per daughter.
+            It must contain at least the columns "User" and "Value". "Value" can be a scalar
+            value or a numpy array of values for mesh tallies (e.g. a CellData array from
+            a vtk grid)
+
+        Returns
+        -------
+        tuple[float | np.ndarray, pd.DataFrame]
+            total rescaled dose value and a DataFrame with the rescaled contributions per daughter
+        """
+        # Ensure the daughter column is named "Daughter"
+        if df_ref_values.iloc[-1]["User"] == "total":
+            df_ref_values = df_ref_values.iloc[:-1]
+
+        if "User" in df_ref_values.columns:
+            df_ref_values["Daughter"] = df_ref_values["User"].astype(int)
+
+        total_value = df_ref_values["Value"].sum(skipna=True)
+
+        # Normalize dose contributions (only for present daughters)
+        # column normalized values set to the type of Value (float or np.ndarray)
+        if hasattr(df_ref_values["Value"].iloc[0], "shape"):
+            # np.ndarray case
+            dtype = object
+            df_ref_values["Normalized Value"] = df_ref_values["Value"].apply(
+                lambda v: np.divide(v, total_value)
+            )
+        else:
+            dtype = float
+            df_ref_values["Normalized Value"] = df_ref_values["Value"] / total_value
+
+        df_irr_ref = self.irradiation_file_df()
+        # Keep only the time correction factor columns for the reference scenario
+        tcf_ref = df_irr_ref[["Daughter", f"Time_Factor_{ref_scenario_num}"]]
+
+        new_scenario_num = None
+        if isinstance(new_irradiation, IrradiationFile):
+            df_irr_new = new_irradiation.irradiation_file_df()
+            # Keep only the time correction factor columns for the new scenario
+            tcf_new = df_irr_new[
+                ["Daughter", f"Time_Factor_{new_irradiation_scenario_num}"]
+            ]
+            new_scenario_num = new_irradiation_scenario_num
+        else:
+            df_irr_new = self.irradiation_file_df()
+            tcf_new = df_irr_new[["Daughter", f"Time_Factor_{ref_scenario_num}"]]
+            # Multiply the time corection factor column by e-lambda * new irradiation if float
+            tcf_new[f"Time_Factor_{ref_scenario_num}"] = tcf_new[
+                f"Time_Factor_{ref_scenario_num}"
+            ] * np.exp(-df_irr_new["Lambda"] * new_irradiation)
+            new_scenario_num = ref_scenario_num
+
+        # Merge normalized dose with TCFs (inner join: only present daughters)
+        merged = df_ref_values.merge(
+            tcf_ref[["Daughter", f"Time_Factor_{ref_scenario_num}"]].rename(
+                columns={f"Time_Factor_{ref_scenario_num}": "TCF_ref"}
+            ),
+            on="Daughter",
+            how="left",
+        ).merge(
+            tcf_new[["Daughter", f"Time_Factor_{new_scenario_num}"]].rename(
+                columns={f"Time_Factor_{new_scenario_num}": "TCF_new"}
+            ),
+            on="Daughter",
+            how="left",
+        )
+
+        # Calculate rescaled dose contribution for each daughter
+        merged["Delta Rescaled Contribution"] = (
+            (merged["TCF_new"] - merged["TCF_ref"]) / merged["TCF_ref"]
+        ) * merged["Normalized Value"]
+
+        merged["Rescaled Normalized Contribution"] = (
+            merged["TCF_new"] * merged["Normalized Value"] / merged["TCF_ref"]
+        )
+        if dtype == float:
+            merged["Rescaled Normalized Contribution"] = merged[
+                "Rescaled Normalized Contribution"
+            ] / merged["Rescaled Normalized Contribution"].sum(skipna=True)
+        else:
+            merged["Rescaled Normalized Contribution"] = merged[
+                "Rescaled Normalized Contribution"
+            ].apply(
+                lambda v: np.divide(
+                    v, merged["Rescaled Normalized Contribution"].sum(skipna=True)
+                )
+            )
+
+        # Sum to get total rescaled dose (skip NaNs)
+        rescaled_dose = (
+            total_value
+            + merged["Delta Rescaled Contribution"].sum(skipna=True) * total_value
+        )
+        return rescaled_dose, merged
 
 
 class Irradiation:
