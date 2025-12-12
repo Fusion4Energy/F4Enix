@@ -22,7 +22,7 @@ Source code is hosted on GitHub https://github.com/Fusion4Energy/F4Enix.
 
    usage/installation
 
-   tutorial/tutorial
+   tutorial/tutorial_idx
 
    examples/examples_idx
 
