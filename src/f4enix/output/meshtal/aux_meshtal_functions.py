@@ -117,7 +117,7 @@ def _read_block(fic: myOpen, nl: int, array: np.ndarray) -> None:
             for x in line.split()[1:]:
                 try:
                     values.append(float(x))
-                except Exception:
+                except ValueError:
                     values.append(0.0)
             array[i, :, j] = values
         fic._skipline()
