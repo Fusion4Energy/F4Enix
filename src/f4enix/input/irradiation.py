@@ -117,19 +117,19 @@ class IrradiationScenario:
         self._cooling_times = []
         self._cooling_labels = []
 
-        last_time = 0.0
+        last_cumulative_time = 0.0
         for time_val, time_unit in cooling_times:
             time_sec = time_val * TIME_UNITS_CONVERSION[time_unit]
             # convert the absolute in relative
             if absolute:
                 self._cooling_labels.append(f"{time_val}{time_unit.value}")
-                time = time_sec - last_time
+                time = time_sec - last_cumulative_time
+                last_cumulative_time = time_sec
             # keep relatives
             else:
-                cumulative_time = last_time + time_sec
-                self._cooling_labels.append(f"{cumulative_time}s")
+                last_cumulative_time = last_cumulative_time + time_sec
+                self._cooling_labels.append(f"{last_cumulative_time}s")
                 time = time_sec
-            last_time = time_sec  # update total time
             self._cooling_times.append(
                 Pulse(time=time, intensity=0.0, unit=TIME_UNITS.SECOND)
             )
@@ -383,7 +383,7 @@ class TCF_Computer:
             The half-life in seconds or "STABLE" if the nuclide is stable.
         """
         nuclide_str = nuclide.write_to_formula()
-        nuclide_str = nuclide_str.strip("irs")  # remove IRS if present
+        nuclide_str = nuclide_str.removeprefix("irs")  # remove IRS if present
         half_life_sec = self.half_lives[nuclide_str]
         return half_life_sec
 
