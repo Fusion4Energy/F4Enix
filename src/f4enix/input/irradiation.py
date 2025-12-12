@@ -17,6 +17,9 @@ RES = files(resources)
 # D1STIME PATTERNS
 PAT_IRRADIATION = re.compile(r"^\s*irradiation", flags=re.IGNORECASE)
 
+METASTABLE_TAG = "900"
+IRS_TAG = "999"
+
 
 class Pulse:
     def __init__(self, time: float, intensity: float, unit=TIME_UNITS.SECOND) -> None:
@@ -192,7 +195,7 @@ class IrradiationScenario:
 class Nuclide:
     def __init__(
         self,
-        zaid: int,
+        zaid: int | str,
         metastable: bool = False,
         IRS_active: bool = False,
         lib: str | None = None,
@@ -201,7 +204,7 @@ class Nuclide:
 
         Parameters
         ----------
-        zaid : int
+        zaid : int | str
             ZAID number of the nuclide (e.g. 3003 for Li-3).
         metastable : bool, optional
             true if the nuclide is metastable, by default False
@@ -210,7 +213,7 @@ class Nuclide:
         lib : str | None, optional
             library identifier, by default None
         """
-        self._zaid = zaid
+        self._zaid = int(zaid)
         self.metastable = metastable
         self.IRS_active = IRS_active
         self.lib = lib
@@ -280,18 +283,16 @@ class Nuclide:
         zaid_str = pieces[0]
 
         # check for special cases
-        metastable_tag = "900"
-        irs_tag = "999"
 
         if len(zaid_str) > 5:
             # starts with IRS?
-            if zaid_str.startswith(irs_tag):
+            if zaid_str.startswith(IRS_TAG):
                 zaid_str = zaid_str[3:]
                 IRS_active = True
             else:
                 IRS_active = False
             # ends with metastable?
-            if zaid_str.endswith(metastable_tag):
+            if zaid_str.endswith(METASTABLE_TAG):
                 zaid_str = zaid_str[:-3]
                 metastable = True
             else:
@@ -368,6 +369,24 @@ class TCF_Computer:
             with open(decay_file, "r") as f:
                 self.half_lives = dict(json.load(f))
 
+    def get_half_life(self, nuclide: Nuclide) -> float | str:
+        """Get the half-life for a given nuclide.
+
+        Parameters
+        ----------
+        nuclide : Nuclide
+            The nuclide for which to get the half-life.
+
+        Returns
+        -------
+        float | str
+            The half-life in seconds or "STABLE" if the nuclide is stable.
+        """
+        nuclide_str = nuclide.write_to_formula()
+        nuclide_str = nuclide_str.strip("irs")  # remove IRS if present
+        half_life_sec = self.half_lives[nuclide_str]
+        return half_life_sec
+
     def get_lambda(self, nuclide: Nuclide) -> float:
         """Get the decay constant (lambda) for a given nuclide.
 
@@ -381,9 +400,7 @@ class TCF_Computer:
         float
             The decay constant in 1/seconds.
         """
-        nuclide_str = nuclide.write_to_formula()
-        nuclide_str = nuclide_str.strip("irs")  # remove IRS if present
-        half_life_sec = self.half_lives[nuclide_str]
+        half_life_sec = self.get_half_life(nuclide)
 
         if half_life_sec == "STABLE":
             return 0.0

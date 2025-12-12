@@ -13,6 +13,7 @@ import tests.resources.libmanager as lib_res
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
+from f4enix.input.irradiation import Nuclide
 
 resources_inp = files(input_res)
 resources_lib = files(lib_res)
@@ -788,7 +789,7 @@ class TestD1S_Input:
 
         assert translation.count("98c") == 4
         assert translation.count("00c") == 145
-        assert newinp.reac_file.reactions[0].parent == "24050.98c"
+        assert newinp.reac_file.reactions[0].parent.write_to_int_string() == "24050.98c"
 
     def test_add_PKMT_card(self):
         with as_file(resources_inp.joinpath("d1stest_noPKMT.i")) as inp_file:
@@ -808,8 +809,11 @@ class TestD1S_Input:
 
         lib = "99c"
         reacfile = newinp.get_reaction_file(self.lm, lib)
-        assert ["24050", "78195"] == reacfile.get_zaids_parents()
-        reacfile.reactions[1].daughter == "78195900"
+        assert [
+            Nuclide.from_int_string("24050.99c"),
+            Nuclide.from_int_string("78195.99c"),
+        ] == reacfile.get_parents()
+        reacfile.reactions[1].daughter.write_to_int_string() == "78195900"
 
     def test_get_potential_paths(self):
         reaction_list = self.inp.get_potential_paths(self.lm, "98c")
@@ -852,12 +856,13 @@ class TestD1S_Input:
         inp.write(tmpfile)
         newinp = D1S_Input.from_input(tmpfile)
         # get the new injected card
-        parents = inp.reac_file.get_zaids_parents()
+        parents = inp.reac_file.get_parents()
+        parent_zaids = [p.write_to_int_string() for p in parents]
         for line in newinp.other_data["FU124"].lines:
             if line.startswith("FU124"):
                 assert line.strip() == "FU124 0"
             else:
-                assert line.strip() in [f"-{p}" for p in parents]
+                assert line.strip() in [f"-{p}" for p in parent_zaids]
 
     def test_add_daughter_from_irr(self, tmpdir):
         tallyID = "F124"
@@ -875,7 +880,7 @@ class TestD1S_Input:
             if line.startswith("FU124"):
                 assert line.strip() == "FU124 0"
             else:
-                assert line.strip() in daughters
+                assert Nuclide.from_int_string(line.strip()) in daughters
 
     def test_add_SDDR_dose_function(self):
         tallyID = "F14"

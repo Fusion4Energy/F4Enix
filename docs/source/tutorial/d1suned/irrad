@@ -1,0 +1,24 @@
+
+# *******************************
+#     Irradiation Scenarios
+# *******************************    
+# norm: 10000000000.0
+
+# Scenario: None
+#   - Pulse(time=1.0 TIME_UNITS.DAY, intensity=10000000000.0)
+#   - Pulse(time=2.0 TIME_UNITS.DAY, intensity=0)
+#   - Pulse(time=1.0 TIME_UNITS.DAY, intensity=10000000000.0)
+#   - Pulse(time=2.0 TIME_UNITS.DAY, intensity=0)
+#   - Pulse(time=1.0 TIME_UNITS.YEAR, intensity=0)
+#   - Pulse(time=1.0 TIME_UNITS.DAY, intensity=10000000000.0)
+#   - Pulse(time=2.0 TIME_UNITS.DAY, intensity=0)
+#   - Pulse(time=1.0 TIME_UNITS.DAY, intensity=10000000000.0)
+#   - Pulse(time=2.0 TIME_UNITS.DAY, intensity=0)
+
+nsc 1
+C        Daught.   lambda(1/s)  time_fact_1   comments
+         25054     2.570e-08    6.331e-03       Mn54
+         27058     1.132e-07    1.932e-02       Co58
+         27060     4.167e-09    1.348e-03       Co60
+         28057     5.363e-06    1.834e-01       Ni57
+         73182     6.994e-08    1.305e-02      Ta182

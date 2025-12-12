@@ -106,7 +106,9 @@ class TestIrradiationFile:
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
             irrfile = IrradiationFile.from_text(inp)
         daughters = irrfile.get_daughters()
-        assert daughters == ["24051", "25054", "26055", "26059", "27062", "27062900"]
+        expected = ["24051", "25054", "26055", "26059", "27062", "27062900"]
+        for one, other in zip(daughters, expected):
+            assert one.write_to_int_string() == other
 
     def test_get_irrad(self):
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
@@ -358,5 +360,7 @@ class TestReactionFile:
     def test_get_parents(self):
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
-        parents = reac_file.get_zaids_parents()
-        assert parents == ["26054", "26056", "26057", "26058"]
+        parents = reac_file.get_parents()
+        expected = ["26054", "26056", "26057", "26058"]
+        for one, other in zip(parents, expected):
+            assert one.write_to_int_string().split(".")[0] == other

@@ -134,20 +134,20 @@ class IrradiationFile:
         head += w4 + "s}"
         self._irrformat = head
 
-    def get_daughters(self) -> list[str]:
+    def get_daughters(self) -> list[Nuclide]:
         """
         Get a list of all daughters among all irradiation files
 
         Returns
         -------
-        list[str]
+        list[Nuclide]
             list of daughters.
 
         """
         # Get the list of daughters
         daughters = []
         for irradiation in self.irr_schedules:
-            daughters.append(irradiation.daughter.write_to_int_string())
+            daughters.append(irradiation.daughter)
 
         return daughters
 
@@ -181,6 +181,36 @@ class IrradiationFile:
         scale_IRS: dict[str, list[float]] | None = None,
         norm: float = 1,
     ) -> IrradiationFile:
+        """Create the irradiation files computing the time correction factors
+        according to the irradiation scenarios provided. Supports the use of the IRS
+        card.
+
+        Parameters
+        ----------
+        daughter_list : list[Nuclide]
+            list of nuclides to be included in the irradiation file.
+        irr_scenarios : list[IrradiationScenario]
+            list of irradiation scenarios to be used to compute the time correction
+            factors.
+        scale_IRS : dict[str, list[float]] | None, optional
+            dictionary of scaling factors for IRS nuclides ("irsCo62m"), by default None.
+            The corresponding nuclides must have the irs flag active or the factor
+            will not be applied. Only one irradiation scenario can be used when using
+            this option.
+        norm : float, optional
+            normalization factor to be applied during the computation of the time
+            correction factors, by default 1
+
+        Returns
+        -------
+        IrradiationFile
+            Irradiation file object.
+
+        Raises
+        ------
+        ValueError
+            If scale_IRS is provided and more than one irradiation scenario is used.
+        """
         # verify that either scale_IRS is None or only one irr scenario is provided
         if scale_IRS is not None:
             if len(irr_scenarios) > 1:
@@ -671,7 +701,7 @@ class ReactionFile:
 
         return cls(reactions)  # , name=os.path.basename(filepath))
 
-    def get_zaids_parents(self) -> set[str]:
+    def get_parents(self) -> list[Nuclide]:
         """
         Get a list of all parents
 
@@ -684,11 +714,9 @@ class ReactionFile:
         parents = []
         for reaction in self.reactions:
             parent = deepcopy(reaction.parent)
-            parent.lib = None
-            parent_str = parent.write_to_int_string()
-            if parent_str not in parents:
-                parents.append(parent_str)
-        return sorted(set(parents))
+            if parent not in parents:
+                parents.append(parent)
+        return parents
 
     def change_lib(self, newlib: str, libmanager: LibManager = None):
         """
