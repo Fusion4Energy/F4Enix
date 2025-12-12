@@ -813,7 +813,7 @@ class TestD1S_Input:
             Nuclide.from_int_string("24050.99c"),
             Nuclide.from_int_string("78195.99c"),
         ] == reacfile.get_parents()
-        reacfile.reactions[1].daughter.write_to_int_string() == "78195900"
+        assert reacfile.reactions[1].daughter.write_to_int_string() == "78195900"
 
     def test_get_potential_paths(self):
         reaction_list = self.inp.get_potential_paths(self.lm, "98c")
