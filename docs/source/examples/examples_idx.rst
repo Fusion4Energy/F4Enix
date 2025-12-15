@@ -15,6 +15,7 @@ Pre-Processing
     :caption: F4Enix pre-processing pipeline example
 
     input/jupyters/mcnp_inp
+    input/jupyters/irradiation
     input/jupyters/d1suned
     input/jupyters/e_lite
     input/jupyters/ww

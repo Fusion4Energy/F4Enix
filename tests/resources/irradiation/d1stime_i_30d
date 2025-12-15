@@ -1,0 +1,57 @@
+
+
+norm        :   1.973e19
+
+irradiation :     1.056E+17  /2    y/
+                  8.116E+17  /10    y/
+                  0          /0.667 y/
+                  1.635E+18  /1.325  y/
+                  (0   /3290 s/     1.970E+19 /400 s/)*17
+                  (0   /3290 s/     2.758E+19 /400 s/)*3
+                  0     /30   d/
+
+# Radioactive nuclides  
+nuclides :      Na24
+                Sc46
+                Sc48
+                Cr51
+                Mn54
+                Mn56
+                Co57
+                Ni57
+                Co58
+                Fe59
+                Co60
+                Cu64
+                Ni65
+                Nb92m
+                Mo99
+                Ag110m
+                Sb122
+                Sb124
+                Hf181
+                Ta182
+                Ta182
+                W181
+                Re184
+                W187
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
