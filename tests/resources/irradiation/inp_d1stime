@@ -1,0 +1,46 @@
+########################
+# set library pathname #
+########################
+
+decay_lib : lib/eaf_dec_20070.total # adjust the library path 
+
+########################
+# Irradiation scenario # 
+########################
+
+
+norm        :   1.111111e16 
+
+irradiation : (0   /4381 s/     1.111111e16 /50 s/)*4
+               0   /28800 s/
+              (0   /4381 s/     1.111111e16 /50 s/)*13
+               0   /28800 s/
+              (0   /4381 s/     1.111111e16 /50 s/)*13
+
+########################
+# Radioactive nuclides # 
+########################
+
+nuclides :      Na24
+                Sc46
+                Sc48
+                Cr51
+                Mn54
+                Mn56
+                Co57
+                Ni57
+                Co58
+                Fe59
+                Co60
+                Cu64
+                Ni65
+                Nb92m
+                Mo99
+                Ag110m
+                Sb122
+                Sb124
+                Hf181
+                Ta182
+                W181
+                Re184
+                W187

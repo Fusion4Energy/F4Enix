@@ -1705,6 +1705,7 @@ class MatCardsList(Sequence):
             Newly created material
 
         """
+        mat_name = mat_name.upper()
 
         if re.match(r"^M\d{1,7}$", mat_name) is None:
             print("\nMaterial name not valid, set to M1\n")

@@ -1,6 +1,6 @@
 C Material: M1 Percentage: 50.0% (mass)
 C Material: M2 Percentage: 50.0% (mass)
-M1
+M500
 c    |  materials    section  for FENDL-3.1 benchmark            |
 c    o-----------------------------------------------------------o
 c

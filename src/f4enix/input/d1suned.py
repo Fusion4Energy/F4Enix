@@ -28,6 +28,9 @@ import pandas as pd
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
+from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer, Pulse
+from f4enix.constants import TIME_UNITS
+from copy import deepcopy
 
 # PAT_COMMENT = re.compile('[Cc]+')
 
@@ -40,7 +43,7 @@ class IrradiationFile:
         nsc: int,
         irr_schedules: list[Irradiation],
         header: str | None = None,
-        formatting: list[int] = [11, 14, 13, 9],
+        formatting: list[int] = [14, 14, 13, 11],
         name: str = "irrad",
     ) -> None:
         """
@@ -133,13 +136,13 @@ class IrradiationFile:
         head += w4 + "s}"
         self._irrformat = head
 
-    def get_daughters(self) -> list[str]:
+    def get_daughters(self) -> list[Nuclide]:
         """
         Get a list of all daughters among all irradiation files
 
         Returns
         -------
-        list[str]
+        list[Nuclide]
             list of daughters.
 
         """
@@ -167,10 +170,113 @@ class IrradiationFile:
 
         """
         for irradiation in self.irr_schedules:
-            if daughter == irradiation.daughter:
+            if daughter == irradiation.daughter.write_to_int_string():
                 return irradiation
 
         return None
+
+    @classmethod
+    def from_irradiation_schedules(
+        cls,
+        daughter_list: list[Nuclide],
+        irr_scenarios: list[IrradiationScenario],
+        scale_IRS: dict[str, list[float]] | None = None,
+        norm: float = 1,
+    ) -> IrradiationFile:
+        """Create the irradiation files computing the time correction factors
+        according to the irradiation scenarios provided. Supports the use of the IRS
+        card.
+
+        Parameters
+        ----------
+        daughter_list : list[Nuclide]
+            list of nuclides to be included in the irradiation file.
+        irr_scenarios : list[IrradiationScenario]
+            list of irradiation scenarios to be used to compute the time correction
+            factors.
+        scale_IRS : dict[str, list[float]] | None, optional
+            dictionary of scaling factors for IRS nuclides ("irsCo62m"), by default None.
+            The corresponding nuclides must have the irs flag active or the factor
+            will not be applied. Only one irradiation scenario can be used when using
+            this option.
+        norm : float, optional
+            normalization factor to be applied during the computation of the time
+            correction factors, by default 1
+
+        Returns
+        -------
+        IrradiationFile
+            Irradiation file object.
+
+        Raises
+        ------
+        ValueError
+            If scale_IRS is provided and more than one irradiation scenario is used.
+        """
+        # verify that either scale_IRS is None or only one irr scenario is provided
+        if scale_IRS is not None:
+            if len(irr_scenarios) > 1:
+                raise ValueError(
+                    "If scale_IRS is provided, only one irradiation scenario can be used."
+                )
+            nsc = len(list(scale_IRS.values())[0])
+        else:
+            nsc = len(irr_scenarios)
+
+        # ensure that TCFs are computed at shutdown as d1suned expects
+        new_irr_scenarios = []
+        for irr_scenario in irr_scenarios:
+            new_irr_scenario = deepcopy(irr_scenario)
+            new_irr_scenario.set_cooling_times([(0, TIME_UNITS.SECOND)])
+            new_irr_scenarios.append(new_irr_scenario)
+
+        # compute the TFCs for all daughter at all scenarios
+        tfc_computer = TCF_Computer()
+        factor_matrix = []
+        for irr_scenario in new_irr_scenarios:
+            factors = tfc_computer.compute_correction_factors(
+                irr_scenario,
+                daughter_list,
+                norm=norm,
+            )
+            factor_matrix.append(factors[0])  # get only the first cooling time (0)
+        factor_matrix = np.array(factor_matrix)  # shape (n_scenarios, n_daughters)
+
+        # build the irradiation schedules
+        irr_schedules = []
+        for j, daughter in enumerate(daughter_list):
+            # get lambda
+            lambd = tfc_computer.get_lambda(daughter)
+            lambd_str = "{:.3e}".format(lambd)
+
+            # get TCFs for all scenarios
+            times = []
+
+            # normal case
+            if scale_IRS is None:
+                for i in range(len(new_irr_scenarios)):
+                    tcf_value = factor_matrix[i, j]
+                    times.append("{:.3e}".format(tcf_value))
+            # IRS case
+            else:
+                for i in range(nsc):
+                    try:
+                        scale_IRS_factor = scale_IRS[daughter.write_to_formula()][i]
+                    except KeyError:
+                        scale_IRS_factor = 1.0
+                    tcf_value = factor_matrix[0, j] * scale_IRS_factor
+                    times.append("{:.3e}".format(tcf_value))
+
+            # build irradiation
+            irradiation = Irradiation(
+                daughter, lambd_str, times, comment=daughter.write_to_formula()
+            )
+            irr_schedules.append(irradiation)
+        return cls(
+            nsc,
+            irr_schedules,
+            header=_get_irradiation_header(new_irr_scenarios, norm),
+        )
 
     @classmethod
     def from_text(cls, filepath: os.PathLike | str) -> IrradiationFile:
@@ -271,7 +377,7 @@ class IrradiationFile:
         # Keep only useful irradiations
         new_irradiations = []
         for irradiation in self.irr_schedules:
-            if irradiation.daughter in daughters:
+            if irradiation.daughter.write_to_int_string() in daughters:
                 new_irradiations.append(irradiation)
 
         if len(new_irradiations) != len(daughters):
@@ -311,7 +417,8 @@ class IrradiationFile:
             )
         # Ensure all daughters in `self.irr_schedules` have a corresponding entry in `times_dict`
         daughters_in_schedules = {
-            irradiation.daughter for irradiation in self.irr_schedules
+            irradiation.daughter.write_to_int_string()
+            for irradiation in self.irr_schedules
         }
         # Ensure there are no extra keys in `times_dict` that are not in the daughters
         for key in times_dict:
@@ -328,7 +435,9 @@ class IrradiationFile:
 
         # Add the new times to each daughter
         for irradiation in self.irr_schedules:
-            irradiation._times.extend(times_dict[irradiation.daughter])
+            irradiation._times.extend(
+                times_dict[irradiation.daughter.write_to_int_string()]
+            )
 
         # Ensure all times lists have the same length
         max_length = max(len(irradiation.times) for irradiation in self.irr_schedules)
@@ -511,16 +620,19 @@ class IrradiationFile:
 
 class Irradiation:
     def __init__(
-        self, daughter: str, lambd: str, times: list[str], comment: str | None = None
+        self,
+        daughter: Nuclide,
+        lambd: str,
+        times: list[str],
+        comment: str | None = None,
     ) -> None:
         """
         Irradiation object
 
         Parameters
         ----------
-        daughter : str
-            daughter nuclide (e.g. 24051). If metastable, it will have an
-            additional '900' appended to the zaid number.
+        daughter : Nuclide
+            daughter nuclide for which coefficients are provided.
         lambd : str
             disintegration constant [1/s].
         times : list of strings
@@ -625,7 +737,7 @@ class Irradiation:
         if pieces[0] == "":
             pieces.pop(0)
 
-        daughter = pieces[0]
+        daughter = Nuclide.from_int_string(pieces[0])
         lambd = pieces[1]
         times = []
         # Get all decay times
@@ -649,7 +761,7 @@ class Irradiation:
         return cls(daughter, lambd, times, comment=comment)
 
     def _get_format_args(self) -> list:
-        args = [self.daughter, self.lambd]
+        args = [self.daughter.write_to_int_string(), self.lambd]
         for time in self.times:
             args.append(time)
         args.append(self.comment)
@@ -662,7 +774,7 @@ lambda [1/s]: {}
 times: {}
 comment: {}
 """.format(
-            self.daughter, self.lambd, self.times, self.comment
+            self.daughter.write_to_formula(), self.lambd, self.times, self.comment
         )
 
         return text
@@ -693,11 +805,6 @@ class ReactionFile:
         >>> from f4enix.input.d1suned import ReactionFile
         ... reac_file = ReactionFile.from_text('reac_fe')
         ... reac_file.change_lib('98c')
-
-        and obtain a list of the parents
-
-        >>> reac_file.get_parents()
-        ['26054', '26056', '26057', '26058']
 
         Returns
         -------
@@ -739,22 +846,22 @@ class ReactionFile:
 
         return cls(reactions)  # , name=os.path.basename(filepath))
 
-    def get_parents(self) -> set[str]:
+    def get_parents(self) -> list[Nuclide]:
         """
         Get a list of all parents
 
         Returns
         -------
         set[str]
-            list of parents from all reactions
+            list of parents nuclides from all reactions
 
         """
         parents = []
         for reaction in self.reactions:
-            parent = reaction.parent.split(".")[0]
+            parent = deepcopy(reaction.parent)
             if parent not in parents:
                 parents.append(parent)
-        return sorted(set(parents))
+        return parents
 
     def change_lib(self, newlib: str, libmanager: LibManager = None):
         """
@@ -790,8 +897,8 @@ class ReactionFile:
                 reaction.change_lib(lib)
             else:
                 # get the available libraries for the parent
-                zaid = reaction.parent.split(".")[0]
-                libs = libmanager.check4zaid(zaid)
+                zaid = reaction.parent.zaid
+                libs = libmanager.check4zaid(str(zaid))
                 if newlib in libs:
                     reaction.change_lib(lib)
                 else:
@@ -833,40 +940,34 @@ class ReactionFile:
 
 class Reaction:
     def __init__(
-        self, parent: str, MT: int | str, daughter: str, comment: str = None
+        self,
+        parent: Nuclide,
+        MT: int | str,
+        daughter: Nuclide,
+        comment: str | None = None,
     ) -> None:
         """
         Represents a single reaction of the reaction file
 
         Parameters
         ----------
-        parent : str
-            parent nuclide ZZAAA.XXc representing stable isotope to be
-            activated. ZZ and AAA represent the atomic and mass number and
-            extension XX, is the extension number of the modified D1S library.
+        parent : Nuclide
+            parent nuclide of the reaction.
         MT : int | str
             integer, reaction type (ENDF definition, e.g. 102).
-        daughter : str
-            integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
-            state. Theoretically, any other identification type
-            (with integer value) can be used.
+        daughter : Nuclide
+            daughter nuclide of the reaction.
         comment : str, optional
             comment to the reaction. The default is None.
 
         Attributes
         ----------
-        parent : str
-            parent nuclide ZZAAA.XXc representing stable isotope to be
-            activated. ZZ and AAA represent the atomic and mass number and
-            extension XX, is the extension number of the modified D1S library.
+        parent : Nuclide
+            parent nuclide of the reaction.
         MT : str
             integer, reaction type (ENDF definition, e.g. '102').
-        daughter : str
-            integer, tag of the daughter nuclide. The value could be
-            defined as ZZAAA of daughter nuclide. 900 is added for a metastable
-            state. Theoretically, any other identification type
-            (with integer value) can be used.
+        daughter : Nuclide
+            daughter nuclide of the reaction.
         comment : str, optional
             comment to the reaction. The default is None.
 
@@ -894,9 +995,7 @@ class Reaction:
         None.
 
         """
-        pieces = self.parent.split(".")
-        # Override lib
-        self.parent = pieces[0] + "." + newlib
+        self.parent.lib = newlib
 
     def _get_text(self) -> list[str]:
         """
@@ -909,7 +1008,11 @@ class Reaction:
 
         """
         # compute text
-        textpieces = [self.parent, self.MT, self.daughter]
+        textpieces = [
+            self.parent.write_to_int_string(),
+            self.MT,
+            self.daughter.write_to_int_string(),
+        ]
         if self.comment is None:
             comment = ""
         else:
@@ -925,7 +1028,10 @@ MT channel: {}
 daughter: {}
 comment: {}
 """.format(
-            self.parent, self.MT, self.daughter, self.comment
+            self.parent.write_to_formula(),
+            self.MT,
+            self.daughter.write_to_formula(),
+            self.comment,
         )
         return text
 
@@ -949,9 +1055,9 @@ comment: {}
         """
         # Split the reaction in its components
         pieces = PAT_SPACE.split(text.strip())
-        parent = pieces[0].strip()
+        parent = Nuclide.from_int_string(pieces[0].strip())
         MT = pieces[1]
-        daughter = pieces[2]
+        daughter = Nuclide.from_int_string(pieces[2].strip())
         # the rest is comments
         comment = ""
         if len(pieces) > 3:
@@ -967,3 +1073,20 @@ comment: {}
 
     def __str__(self) -> str:
         return self._nice_print()
+
+
+def _get_irradiation_header(
+    irr_scenarios: list[IrradiationScenario], norm: float
+) -> str:
+    header = """
+# *******************************
+#     Irradiation Scenarios
+# *******************************    
+"""
+    header += f"# norm: {norm}\n\n"
+    for irr_scenario in irr_scenarios:
+        header += f"# Scenario: {irr_scenario.name}\n"
+        for pulse in irr_scenario.pulses:
+            header += f"#   - {pulse}\n"
+        header += "\n"
+    return header

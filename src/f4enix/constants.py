@@ -28,6 +28,7 @@ and limitations under the Licence.
 import os
 import re
 from pathlib import Path
+from enum import Enum
 
 # --- Typing ---
 PathLike = Path | str | os.PathLike
@@ -44,7 +45,7 @@ PAT_F_TR_CARD_KEY = re.compile(r"(FMESH|TR|F)\d+")
 PAT_DOLLAR_COMMENT = re.compile(r"\$.*\n")
 PAT_MAT = re.compile(r"[\s\t]*[mM]\d+")
 PAT_MX = re.compile(r"[\s\t]*mx\d+", re.IGNORECASE)
-SCIENTIFIC_PAT = re.compile(r"[-+]*\d.\d+E[+-]\d+")
+SCIENTIFIC_PAT = re.compile(r"[-+]?\d*\.\d+(?:[eE][+-]?\d+)?")
 PAT_FMESH_KEY = re.compile(r"^FMESH\d+")
 PAT_NP = re.compile(r"(?<=:)[nN,pP]+")
 PAT_ALL_TALLY_KEYS = re.compile(
@@ -224,3 +225,28 @@ FAULTY_ISOTOPES = [
 ]
 
 AVOGADRO_NUMBER = 6.0220434469282e23
+
+
+class TIME_UNITS(Enum):
+    """Enumeration for time units used in F4Enix"""
+
+    SECOND = "s"
+    MINUTE = "min"
+    HOUR = "h"
+    DAY = "d"
+    MONTH = "m"
+    YEAR = "y"
+    WEEK = "w"
+
+
+years_days = 365.2546296296296
+
+TIME_UNITS_CONVERSION = {
+    TIME_UNITS.SECOND: 1,
+    TIME_UNITS.MINUTE: 60,
+    TIME_UNITS.HOUR: 60 * 60,
+    TIME_UNITS.DAY: 60 * 60 * 24,
+    TIME_UNITS.WEEK: 60 * 60 * 24 * 7,
+    TIME_UNITS.MONTH: 60 * 60 * 24 * years_days / 12,
+    TIME_UNITS.YEAR: 60 * 60 * 24 * years_days,
+}

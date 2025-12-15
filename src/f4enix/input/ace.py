@@ -2,15 +2,11 @@
 from __future__ import annotations
 
 import os
-import typing
 from itertools import chain
-from numbers import Integral, Real
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Sequence
 
 import endf
-import matplotlib.axes
-import matplotlib.figure
 
 # import f4e_ace.checkvalue as cv
 # import f4e_ace.data

@@ -1,79 +1,158 @@
-from __future__ import annotations
-from importlib.resources import files, as_file
+from importlib.resources import files
+from pathlib import Path
+
 import pytest
 
-from f4enix.output.rssa import RSSA
 import tests.resources.rssa as res
+from f4enix.output.rssa import RSSA, PlotParameters
 
 RESOURCES = files(res)
 
 
-class TestRSSA:
-    with as_file(RESOURCES.joinpath("small_cyl.w")) as infile:
-        rssa = RSSA(infile)
+@pytest.fixture
+def rssa():
+    path = Path(RESOURCES.joinpath("small_cyl.w"))  # type: ignore
+    return RSSA(path)
 
-    def test_print(self):
-        print(self.rssa)
 
-    # def test_correct_parsing(self):
-    #     #TODO
-    #     pass
+def test_read_rssa_parameters(rssa):
+    assert isinstance(rssa, RSSA)
+    assert rssa.parameters.np1 == -100_000
+    assert rssa.parameters.nrss == 72083
+    assert rssa.parameters.nrcd == 11
+    assert rssa.parameters.njsw == 1
+    assert rssa.parameters.niss == 70797
+    assert rssa.parameters.niwr == 0
+    assert rssa.parameters.mipts == 3
+    assert rssa.parameters.kjaq == 0
 
-    @pytest.mark.parametrize(
-        [
-            "particle",
-            "z_int",
-            "theta_int",
-            "norm",
-            "value_range",
-            "x_range",
-            "z_range",
-            "outfolder",
-            "filename",
-        ],
-        #
-        [
-            ["n", 10, 10, 1, None, None, None, None, None],
-            ["n", 20, 20, 100, [1e-5, 1e-3], [0, 50], [0, 20], "tmp", "random"],
-        ],
-    )
-    def test_plot_cyl(
-        self,
-        particle,
-        z_int,
-        theta_int,
-        norm,
-        value_range,
-        x_range,
-        z_range,
-        outfolder,
-        filename,
-        tmpdir,
-    ):
-        if outfolder == "tmp":
-            outfolder = tmpdir
+    assert rssa.parameters.surfaces[0].id == 1
+    assert rssa.parameters.surfaces[0].info == -1
+    assert rssa.parameters.surfaces[0].type == 1
+    assert rssa.parameters.surfaces[0].num_parameters == 0
 
-        self.rssa.plot_cyl(
-            particle=particle,
-            z_int=z_int,
-            x_range=x_range,
-            theta_int=theta_int,
-            z_range=z_range,
-            value_range=value_range,
-            norm=norm,
-            outfolder=outfolder,
-            filename=filename,
+
+def test_read_rssa_tracks(rssa):
+    assert rssa.tracks.shape == (72083, 11)
+
+
+def test_neutron_tracks(rssa):
+    neutron_tracks = rssa.neutron_tracks
+    assert neutron_tracks.shape[0] > 0
+
+
+def test_photon_tracks(rssa):
+    photon_tracks = rssa.photon_tracks
+    assert photon_tracks.shape[0] == 0
+
+
+def test_properties(rssa):
+    rssa.x
+    rssa.y
+    rssa.z
+    rssa.energies
+    rssa.histories
+    rssa.wgt
+    rssa.get_summary()
+    str(rssa)
+    rssa.__repr__()
+    assert True
+
+
+def test_plot_cyl(rssa, tmp_path):
+    (
+        rssa.plot_cyl()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_perimeter_limits(-500, 1000)
+        .calculate_bins(bin_width=10)
+        .get_particle_current(1e20)
+        .set_plot_parameters(
+            PlotParameters(
+                vmin=1e6,
+                vmax=1e14,
+                number_of_colors=16,
+                legend_orientation="vertical",
+                title="Neutron current through the surface [#/cm2/s]",
+            )
         )
+        .save_figure(tmp_path / "test_plot_cyl.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_cyl.png").exists()
 
-    def test_properties(self):
-        self.rssa.energies
-        self.rssa.histories
-        self.rssa.mask_neutron_tracks
-        self.rssa.mask_photon_tracks
-        self.rssa.wgt
-        self.rssa.x
-        self.rssa.y
-        self.rssa.z
-        self.rssa.histories
-        self.rssa.type
-        assert True
+    (rssa.plot_cyl().set_particle("p").set_surface_ids([]))
+
+
+def test_plot_cyl_errors(rssa, tmp_path):
+    (
+        rssa.plot_cyl()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_perimeter_limits(-500, 1000)
+        .calculate_bins(bin_width=10)
+        .get_particle_current_errors()
+        .set_plot_parameters(
+            PlotParameters(
+                vmin=1e6,
+                vmax=1e14,
+                number_of_colors=16,
+                legend_orientation="vertical",
+                title="Neutron current error through the surface [#/cm2/s]",
+            )
+        )
+        .save_figure(tmp_path / "test_plot_cyl_error.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_cyl_error.png").exists()
+
+
+def test_get_ratio(rssa, tmp_path):
+    (
+        rssa.plot_cyl()
+        .set_z_limits(-600, 800)
+        .set_perimeter_limits(-500, 1000)
+        .calculate_bins(bin_width=10)
+        .get_particle_current(1)
+        .get_ratio_to(
+            rssa.plot_cyl()
+            .set_z_limits(-600, 800)
+            .set_perimeter_limits(-500, 1000)
+            .calculate_bins(bin_width=10)
+            .get_particle_current(2)
+        )
+        .set_plot_parameters(
+            PlotParameters(
+                vmin=0.1,
+                vmax=10,
+                number_of_colors=16,
+                legend_orientation="vertical",
+                title="Neutron to proton current ratio through the surface",
+            )
+        )
+        .save_figure(tmp_path / "test_get_ratio.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_get_ratio.png").exists()
+
+
+def test_plot_plane(rssa, tmp_path):
+    (
+        rssa.plot_plane()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .calculate_bins(bin_width=10)
+        .get_particle_current(1e20)
+        .set_plot_parameters(
+            PlotParameters(
+                vmin=1e6,
+                vmax=1e14,
+                number_of_colors=16,
+                legend_orientation="vertical",
+                title="Neutron current through the surface [#/cm2/s]",
+            )
+        )
+        .save_figure(tmp_path / "test_plot_plane.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_plane.png").exists()

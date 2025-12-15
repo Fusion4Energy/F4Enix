@@ -21,13 +21,15 @@ dependencies = [
     "numjuggler >= 2.42.37",
     "pyvista >= 0.39.1",
     "pandas",
+    "polars",
     "numba",
     "scipy",
     "tqdm",
     "python-docx",
     "openpyxl",
     "tables",
-    "endf"
+    "endf",
+    "pypact",
 ]
 [project.optional-dependencies]
 tests = [

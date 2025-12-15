@@ -511,7 +511,12 @@ class TestMatCardList:
         # using mass fraction
         fraction_type = "mass"
         newmat = matcard.generate_material(
-            materials, percentages, newlib, LIBMAN, fractiontype=fraction_type
+            materials,
+            percentages,
+            newlib,
+            LIBMAN,
+            fractiontype=fraction_type,
+            mat_name="m500",
         )
         fileB = os.path.join(resources, "newmat_mass")
         text_B = ""

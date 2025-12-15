@@ -1,4 +1,3 @@
-import sys
 import os
 import pytest
 import numpy as np
@@ -9,12 +8,13 @@ from f4enix.input.d1suned import (
     ReactionFile,
     Irradiation,
     IrradiationFile,
-    REACFORMAT,
 )
 from f4enix.input.libmanager import LibManager
 from f4enix.output.mctal import Mctal
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
+from f4enix.input.irradiation import Nuclide
+from f4enix.input.irradiation import IrradiationScenario, Pulse
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)
@@ -23,7 +23,6 @@ PKG_RESOURCES = files(pkg_res)
 
 
 class TestIrradiationFile:
-
     @pytest.mark.parametrize("file", ["irr_test", "irr_test2"])
     def test_fromtext(self, file):
         """
@@ -61,11 +60,57 @@ class TestIrradiationFile:
         elif file == "irr_test2":
             self._assert_file2(irrfile)
 
+    def test_from_irrad_schedules(self, tmpdir):
+        pulses = [Pulse(10, 5), Pulse(50, 0)] * 2 + [Pulse(100, 10)]
+        irr_scenario1 = IrradiationScenario(pulses, name="Scenario 1")
+
+        pulses2 = [Pulse(20, 10), Pulse(40, 0)] * 2 + [Pulse(80, 5)]
+        irr_scenario2 = IrradiationScenario(pulses2, name="Scenario 2")
+
+        # multiple scenarios case
+        daughter_list = [
+            Nuclide.from_formula("Co62"),
+            Nuclide.from_formula("Co62m"),
+        ]
+        irrfile = IrradiationFile.from_irradiation_schedules(
+            daughter_list, [irr_scenario1, irr_scenario2], norm=2
+        )
+        irrfile.write(tmpdir)
+        assert len(irrfile.irr_schedules) == 2
+
+        # raise ValueError
+        daughter_list = [
+            Nuclide.from_formula("Co62"),
+            Nuclide.from_formula("Co62m"),
+            Nuclide.from_formula("irsCo62m"),
+        ]
+        with pytest.raises(ValueError):
+            irrfile = IrradiationFile.from_irradiation_schedules(
+                daughter_list,
+                [irr_scenario1, irr_scenario2],
+                norm=2,
+                scale_IRS={"irsCo62m": [2, 3]},
+            )
+
+        # IRS case
+        irrfile = IrradiationFile.from_irradiation_schedules(
+            daughter_list, [irr_scenario1], norm=2, scale_IRS={"irsCo62m": [1, 2]}
+        )
+        irrfile.name = "irs_test"
+        irrfile.write(tmpdir)
+        assert len(irrfile.irr_schedules) == 3
+        assert len(irrfile.irr_schedules[0].times) == 2
+        assert irrfile.nsc == 2
+        assert irrfile.irr_schedules[0].times[0] == irrfile.irr_schedules[0].times[1]
+        assert irrfile.irr_schedules[-1].times[0] != irrfile.irr_schedules[-1].times[1]
+
     def test_get_daughters(self):
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
             irrfile = IrradiationFile.from_text(inp)
         daughters = irrfile.get_daughters()
-        assert daughters == ["24051", "25054", "26055", "26059", "27062", "27062900"]
+        expected = ["24051", "25054", "26055", "26059", "27062", "27062900"]
+        for one, other in zip(daughters, expected):
+            assert one.write_to_int_string() == other
 
     def test_get_irrad(self):
         with as_file(RESOURCES.joinpath("irr_test")) as inp:
@@ -75,7 +120,7 @@ class TestIrradiationFile:
         assert irradiation is None
         # Check true value
         irradiation = irrfile.get_irrad("26055")
-        assert irradiation.daughter == "26055"
+        assert irradiation.daughter.write_to_int_string() == "26055"
 
     def test_select_daughters_irradiation_file(self):
         """
@@ -93,8 +138,8 @@ class TestIrradiationFile:
         # Keep only useful irradiations
         assert ans is True
         assert len(irrfile.irr_schedules) == 2
-        assert irrfile.irr_schedules[0].daughter == "24051"
-        assert irrfile.irr_schedules[1].daughter == "26055"
+        assert irrfile.irr_schedules[0].daughter.write_to_int_string() == "24051"
+        assert irrfile.irr_schedules[1].daughter.write_to_int_string() == "26055"
 
     def test_multiple_irradiations(self, tmpdir):
         """
@@ -228,7 +273,6 @@ class TestIrradiationFile:
 
 
 class TestIrradiation:
-
     def test_reading(self):
         """
         Test the reading of irradiation line
@@ -242,7 +286,7 @@ class TestIrradiation:
         """
         Assert irradiation
         """
-        assert irr.daughter == "24051"
+        assert irr.daughter.write_to_int_string() == "24051"
         assert irr.lambd == "2.896e-07"
         assert irr.times[0] == "5.982e+00"
         assert irr.times[1] == "5.697e+00"
@@ -267,16 +311,15 @@ class TestIrradiation:
 
 
 class TestReaction:
-
     def test_fromtext1(self):
         """
         Test different formatting possibilities
         """
         text = "   26054.99c  102  26055     Fe55"
         reaction = Reaction.from_text(text)
-        assert reaction.parent == "26054.99c"
+        assert reaction.parent.write_to_int_string() == "26054.99c"
         assert reaction.MT == "102"
-        assert reaction.daughter == "26055"
+        assert reaction.daughter.write_to_int_string() == "26055"
         assert reaction.comment == "Fe55"
 
     def test_fromtext2(self):
@@ -285,18 +328,20 @@ class TestReaction:
         """
         text = "26054.99c 102   26055 Fe55  and some"
         reaction = Reaction.from_text(text)
-        assert reaction.parent == "26054.99c"
+        assert reaction.parent.write_to_int_string() == "26054.99c"
         assert reaction.MT == "102"
-        assert reaction.daughter == "26055"
+        assert reaction.daughter.write_to_int_string() == "26055"
         assert reaction.comment == "Fe55 and some"
 
     def test_changelib(self):
         """
         Test change library tag
         """
-        rec = Reaction("26054.99c", "102", "26055")
+        parent = Nuclide.from_int_string("26054.99c")
+        daughter = Nuclide.from_int_string("26055")
+        rec = Reaction(parent, "102", daughter)
         rec.change_lib("31c")
-        assert rec.parent == "26054.31c"
+        assert rec.parent.write_to_int_string() == "26054.31c"
 
     def test_write(self):
         """
@@ -310,7 +355,6 @@ class TestReaction:
 
 
 class TestReactionFile:
-
     @pytest.fixture
     def lm(self):
         xsdirpath = os.path.join(PKG_RESOURCES, "xsdir.txt")
@@ -343,9 +387,9 @@ class TestReactionFile:
         assert len(newfile.reactions) == 11
         # Check also first line
         rx = newfile.reactions[0]
-        assert rx.parent == "26054.31c"
+        assert rx.parent.write_to_int_string() == "26054.31c"
         assert rx.MT == "102"
-        assert rx.daughter == "26055"
+        assert rx.daughter.write_to_int_string() == "26055"
         assert rx.comment == "Fe55"
 
     def test_translation(self, lm: LibManager):
@@ -361,7 +405,7 @@ class TestReactionFile:
         reac_file.change_lib(newlib, libmanager=lm)
 
         for reaction in reac_file.reactions:
-            assert reaction.parent[-3:] == newlib
+            assert reaction.parent.write_to_int_string()[-3:] == newlib
 
     def test_translation2(self, lm: LibManager):
         """
@@ -377,10 +421,12 @@ class TestReactionFile:
         reac_file.change_lib(newlib, libmanager=lm)
 
         for reaction in reac_file.reactions:
-            assert reaction.parent[-3:] != newlib
+            assert reaction.parent.write_to_int_string()[-3:] != newlib
 
     def test_get_parents(self):
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
         parents = reac_file.get_parents()
-        assert parents == ["26054", "26056", "26057", "26058"]
+        expected = ["26054", "26056", "26057", "26058"]
+        for one, other in zip(parents, expected):
+            assert one.write_to_int_string().split(".")[0] == other

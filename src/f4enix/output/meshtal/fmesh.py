@@ -728,6 +728,10 @@ class Fmesh(MeshData):
                     [0, 0, 0, 1],
                 ]
             )
+        if isinstance(self.grid, pv.RectilinearGrid):
+            # If the grid is a RectilinearGrid, cast it to StructuredGrid to avoid
+            # a bug regarding rotation
+            self.grid = self.grid.cast_to_structured_grid()
         self.grid = self.grid.transform(transform_matrix, inplace=False)
 
 

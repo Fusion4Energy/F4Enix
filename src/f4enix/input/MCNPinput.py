@@ -45,6 +45,7 @@ from f4enix.input.auxiliary import debug_file_unicode
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
+from f4enix.input.irradiation import Nuclide, METASTABLE_TAG
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -1992,18 +1993,15 @@ class D1S_Input(Input):
         # --- Build the reactions and reaction file ---
         reaction_list = []
         for parent, MT, daughter in reactions:
-            parent = parent + "." + lib
+            parent_nuclide = Nuclide(parent, lib=lib)
+            if daughter[-3:] == METASTABLE_TAG:
+                daughter_nuclide = Nuclide(daughter[:-3], metastable=True)
+            else:
+                daughter_nuclide = Nuclide(daughter)
             # Build a comment
-            _, parent_formula = libmanager.get_zaidname(parent)
-            if daughter[-3:] == "900":
-                # Then it is metastable
-                _, daughter_formula = libmanager.get_zaidname(daughter[:-3])
-                daughter_formula += "m"
-            else:  # ground state
-                _, daughter_formula = libmanager.get_zaidname(daughter)
-            comment = "{} -> {}".format(parent_formula, daughter_formula)
+            comment = "{} -> {}".format(parent_nuclide, daughter_nuclide)
 
-            rx = Reaction(parent, MT, daughter, comment=comment)
+            rx = Reaction(parent_nuclide, MT, daughter_nuclide, comment=comment)
             reaction_list.append(rx)
 
         return reaction_list
@@ -2110,8 +2108,8 @@ class D1S_Input(Input):
 
         for reaction in self.reac_file.reactions:
             # strip the lib from the parent
-            parent = reaction.parent.split(".")[0]
-            active_zaids.append(parent)
+            parent = reaction.parent.zaid
+            active_zaids.append(str(parent))
             reaction.change_lib(activation_lib)
 
         # Now check for the remaing materials in the input to be assigned
@@ -2147,7 +2145,7 @@ class D1S_Input(Input):
         key = "PIKMT"
         lines = [key + "\n"]
         for parent in self.reac_file.get_parents():
-            lines.append("         {}    {}\n".format(parent, 0))
+            lines.append("         {}    {}\n".format(parent.zaid, 0))
 
         card = parser.Card(lines, 5, -1)
         self.other_data[key] = card  # should override other PKMT cards
@@ -2211,7 +2209,11 @@ class D1S_Input(Input):
         if self.irrad_file is None:
             raise ValueError("No irradiation file has been assigned to the input")
         daughters = self.irrad_file.get_daughters()
-        self.add_track_contribution(tallykey, daughters, who="daughter")
+        # get the zaid numbers only
+        daughters_zaids = []
+        for daughter in daughters:
+            daughters_zaids.append(daughter.write_to_int_string())
+        self.add_track_contribution(tallykey, daughters_zaids, who="daughter")
 
     def add_parent_contribution_from_reac(self, tallykey: str):
         """Add the parent contribution to the tally. All the parents
@@ -2231,7 +2233,10 @@ class D1S_Input(Input):
         if self.reac_file is None:
             raise ValueError("No reaction file has been assigned to the input")
         parents = list(self.reac_file.get_parents())
-        self.add_track_contribution(tallykey, parents, who="parent")
+        parents_zaids = []
+        for parent in parents:
+            parents_zaids.append(parent.write_to_int_string())
+        self.add_track_contribution(tallykey, parents_zaids, who="parent")
 
     def add_SDDR_dose_function(self, tallykey: str) -> None:
         """Add the SDDR dose function to the tally.
