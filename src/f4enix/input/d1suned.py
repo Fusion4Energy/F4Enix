@@ -488,7 +488,7 @@ class IrradiationFile:
         data = []
         for irradiation in self.irr_schedules:
             row = {
-                "Daughter": int(irradiation.daughter),
+                "Daughter": int(irradiation.daughter.zaid),
                 "Lambda": float(irradiation.lambd),
             }
             for i, time in enumerate(irradiation.times):
@@ -496,126 +496,151 @@ class IrradiationFile:
             data.append(row)
 
         df = pd.DataFrame(data)
+        df["Daughter"] = df["Daughter"].astype(int)
         return df
 
-    def rescale_dose(
-        self,
-        ref_scenario_num: int,
-        new_irradiation: float | IrradiationFile,
-        new_irradiation_scenario_num: int,
-        df_ref_values: pd.DataFrame,
-    ) -> tuple[float | np.ndarray, pd.DataFrame]:
-        """Given a dose tally binned in daughter contribution (e.g. from a Mctal/Meshtal object)
-        corresponding to a given irradiation scenario, this function rescales the contribution
-        from the daughters to a new irradiation scenario/cooling time of choice, by correcting
-        their contribution according to their time correction factors.
+    def get_new_scaling_factors(
+        self, new_irradiation_scenario: IrradiationScenario, new_norm: float = 1.0
+    ) -> pd.DataFrame:
+        """Given a new irradiation scenario and the reference one, compute the scaling factors
+        to be applied to dose tallies binned in daughter nuclides. It automatically computes
+        the new time correction factors for the new scenario and the scaling factors.
 
+        Parameters
+        ----------
+        new_irradiation_scenario : IrradiationScenario
+            new irradiation scenario to be considered for rescaling of dose tallies.
+        new_norm : float, optional
+            norm factor for the calculation of the new time correction factors, by default 1.0
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the scaling factors for each daughter nuclide.
+        """
+        new_irradiation_file = IrradiationFile.from_irradiation_schedules(
+            self.get_daughters(), [new_irradiation_scenario], norm=new_norm
+        )
+        return self.get_scaling_factors_new_scenario(
+            ref_scenario_num=1,
+            new_irradiation_scenario=new_irradiation_file,
+            new_irradiation_scenario_num=1,
+        )
+
+    def get_scaling_factors_new_scenario(
+        self,
+        new_irradiation_scenario: IrradiationFile,
+        ref_scenario_num: int = 1,
+        new_irradiation_scenario_num: int = 1,
+    ) -> pd.DataFrame:
+        """Given a reference irradiation scenario number and a new irradiation file, computes
+        the scaling factors to be applied to dose tallies binned in daughter nuclides.
 
         Parameters
         ----------
         ref_scenario_num : int
-            The irradiation scenario ID number corresponding to the reference dose tally.
-        new_irradiation : float | IrradiationFile
-            The new cooling time where to rescale the dose (if float) or the new irradiation file
-            where to get the new scenario (if IrradiationFile).
-        new_irradiation_scenario_num : int
-            The irradiation scenario ID number corresponding to the new irradiation file
-            (if IrradiationFile used as new_irradiation).
-        df_ref_values : pd.DataFrame
-            DataFrame containing the reference dose values per daughter.
-            It must contain at least the columns "User" and "Value". "Value" can be a scalar
-            value or a numpy array of values for mesh tallies (e.g. a CellData array from
-            a vtk grid)
+            reference irradiation scenario number in the current irradiation file.
+        new_irradiation_scenario : IrradiationFile
+            new irradiation file containing the new scenario.
+        new_irradiation_scenario_num : int, optional
+            new irradiation scenario number in the new irradiation file, by default 1
 
         Returns
         -------
-        tuple[float | np.ndarray, pd.DataFrame]
-            total rescaled dose value and a DataFrame with the rescaled contributions per daughter
+        pd.DataFrame
+            DataFrame containing the scaling factors for each daughter nuclide.
+
+        Raises
+        ------
+        IndexError
+            If the provided scenario numbers are out of range.
+        IndexError
+            If the daughter nuclides in the reference and new irradiation files do not match.
         """
-        # Ensure the daughter column is named "Daughter"
-        if df_ref_values.iloc[-1]["User"] == "total":
-            df_ref_values = df_ref_values.iloc[:-1]
-
-        if "User" in df_ref_values.columns:
-            df_ref_values["Daughter"] = df_ref_values["User"].astype(int)
-
-        total_value = df_ref_values["Value"].sum(skipna=True)
-
-        # Normalize dose contributions (only for present daughters)
-        # column normalized values set to the type of Value (float or np.ndarray)
-        if hasattr(df_ref_values["Value"].iloc[0], "shape"):
-            # np.ndarray case
-            dtype = object
-            df_ref_values["Normalized Value"] = df_ref_values["Value"].apply(
-                lambda v: np.divide(v, total_value)
-            )
-        else:
-            dtype = float
-            df_ref_values["Normalized Value"] = df_ref_values["Value"] / total_value
 
         df_irr_ref = self.irradiation_file_df()
-        # Keep only the time correction factor columns for the reference scenario
-        tcf_ref = df_irr_ref[["Daughter", f"Time_Factor_{ref_scenario_num}"]]
 
-        new_scenario_num = None
-        if isinstance(new_irradiation, IrradiationFile):
-            df_irr_new = new_irradiation.irradiation_file_df()
-            # Keep only the time correction factor columns for the new scenario
-            tcf_new = df_irr_new[
-                ["Daughter", f"Time_Factor_{new_irradiation_scenario_num}"]
-            ]
-            new_scenario_num = new_irradiation_scenario_num
-        else:
-            df_irr_new = self.irradiation_file_df()
-            tcf_new = df_irr_new[["Daughter", f"Time_Factor_{ref_scenario_num}"]]
-            # Multiply the time corection factor column by e-lambda * new irradiation if float
-            tcf_new[f"Time_Factor_{ref_scenario_num}"] = tcf_new[
-                f"Time_Factor_{ref_scenario_num}"
-            ] * np.exp(-df_irr_new["Lambda"] * new_irradiation)
-            new_scenario_num = ref_scenario_num
+        df_new_irr = new_irradiation_scenario.irradiation_file_df()
 
-        # Merge normalized dose with TCFs (inner join: only present daughters)
-        merged = df_ref_values.merge(
-            tcf_ref[["Daughter", f"Time_Factor_{ref_scenario_num}"]].rename(
-                columns={f"Time_Factor_{ref_scenario_num}": "TCF_ref"}
-            ),
-            on="Daughter",
-            how="left",
-        ).merge(
-            tcf_new[["Daughter", f"Time_Factor_{new_scenario_num}"]].rename(
-                columns={f"Time_Factor_{new_scenario_num}": "TCF_new"}
-            ),
-            on="Daughter",
-            how="left",
-        )
-
-        # Calculate rescaled dose contribution for each daughter
-        merged["Delta Rescaled Contribution"] = (
-            (merged["TCF_new"] - merged["TCF_ref"]) / merged["TCF_ref"]
-        ) * merged["Normalized Value"]
-
-        merged["Rescaled Normalized Contribution"] = (
-            merged["TCF_new"] * merged["Normalized Value"] / merged["TCF_ref"]
-        )
-        if dtype == float:
-            merged["Rescaled Normalized Contribution"] = merged[
-                "Rescaled Normalized Contribution"
-            ] / merged["Rescaled Normalized Contribution"].sum(skipna=True)
-        else:
-            merged["Rescaled Normalized Contribution"] = merged[
-                "Rescaled Normalized Contribution"
-            ].apply(
-                lambda v: np.divide(
-                    v, merged["Rescaled Normalized Contribution"].sum(skipna=True)
-                )
+        # --- Check that both irradiation files have the same daughters ---
+        daughters_ref = set(df_irr_ref["Daughter"])
+        daughters_new = set(df_new_irr["Daughter"])
+        if daughters_ref != daughters_new:
+            raise ValueError(
+                f"Daughter nuclides do not match between scenarios.\n"
+                f"Reference daughters: {sorted(daughters_ref)}\n"
+                f"New scenario daughters: {sorted(daughters_new)}"
             )
 
-        # Sum to get total rescaled dose (skip NaNs)
-        rescaled_dose = (
-            total_value
-            + merged["Delta Rescaled Contribution"].sum(skipna=True) * total_value
-        )
-        return rescaled_dose, merged
+        # --- Check that scenario numbers exist ---
+        if not (1 <= ref_scenario_num <= self.nsc):
+            raise IndexError(
+                f"ref_scenario_num {ref_scenario_num} is out of range. "
+                f"Must be between 1 and {self.nsc}."
+            )
+        if not (1 <= new_irradiation_scenario_num <= new_irradiation_scenario.nsc):
+            raise IndexError(
+                f"new_irradiation_scenario_num {new_irradiation_scenario_num} is out of range. "
+                f"Must be between 1 and {new_irradiation_scenario.nsc}."
+            )
+
+        final_df = pd.DataFrame(columns=["Daughter", "Scaling Factor"])
+
+        for _, row in df_irr_ref.iterrows():
+            daughter = row["Daughter"]
+            tcf_ref = row[f"Time_Factor_{ref_scenario_num}"]
+            tcf_new = df_new_irr.loc[
+                df_new_irr["Daughter"] == daughter,
+                f"Time_Factor_{new_irradiation_scenario_num}",
+            ].values[0]
+
+            scaling_factor = tcf_new / tcf_ref
+
+            final_df = pd.concat(
+                [
+                    final_df,
+                    pd.DataFrame(
+                        {"Daughter": [daughter], "Scaling Factor": [scaling_factor]}
+                    ),
+                ],
+                ignore_index=True,
+            )
+        final_df["Daughter"] = final_df["Daughter"].astype(int)
+        return final_df
+
+    def get_scaling_factors_cooling_time(
+        self,
+        ref_scenario_num: int,
+        cooling_time: float = 0.0,
+    ) -> pd.DataFrame:
+
+        df_irr_ref = self.irradiation_file_df()
+
+        # --- Check that scenario numbers exist ---
+        if not (1 <= ref_scenario_num <= self.nsc):
+            raise IndexError(
+                f"ref_scenario_num {ref_scenario_num} is out of range. "
+                f"Must be between 1 and {self.nsc}."
+            )
+
+        final_df = pd.DataFrame(columns=["Daughter", "Scaling Factor"])
+
+        for _, row in df_irr_ref.iterrows():
+            daughter = row["Daughter"]
+            tcf_ref = row[f"Time_Factor_{ref_scenario_num}"]
+            tcf_new = tcf_ref * np.exp(-row["Lambda"] * cooling_time)
+            scaling_factor = tcf_new / tcf_ref
+            final_df = pd.concat(
+                [
+                    final_df,
+                    pd.DataFrame(
+                        {"Daughter": [daughter], "Scaling Factor": [scaling_factor]}
+                    ),
+                ],
+                ignore_index=True,
+            )
+        final_df["Daughter"] = final_df["Daughter"].astype(int)
+        return final_df
 
 
 class Irradiation:
@@ -1090,3 +1115,23 @@ def _get_irradiation_header(
             header += f"#   - {pulse}\n"
         header += "\n"
     return header
+
+
+def rescale_dose(
+    df_ref_values: pd.DataFrame,
+    scaling_factors_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """"""
+
+    # Merge df_ref_values with scaling_factors_df on Daughter (inner join: only present daughters)
+    merged = df_ref_values.merge(
+        scaling_factors_df[["Daughter", "Scaling Factor"]],
+        on="Daughter",
+        how="inner",
+    )
+    # Rescale Normalized Value in place
+    merged["Value"] = merged["Value"] * merged["Scaling Factor"]
+
+    # Drop Scaling Factor column to match original columns
+    result = merged[df_ref_values.columns]
+    return result

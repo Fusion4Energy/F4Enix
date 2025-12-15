@@ -133,7 +133,9 @@ class Tally:
         )  # Array of corc     bin boundaries for mesh tallies (or lattices)
 
         self.tfc_jtf = np.array(())  # List of numbers in the tfc line
-        self.tfc_dat = []  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
+        self.tfc_dat = (
+            []
+        )  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
 
         self.detectorTypeList = {
             -6: "smesh",
@@ -1029,7 +1031,9 @@ class Mctal:
                                                     ):  # f is for Field...again, forgive me
                                                         del Fld
                                                         del self.line
-                                                        self.line = self.mctalFile.readline().strip()
+                                                        self.line = (
+                                                            self.mctalFile.readline().strip()
+                                                        )
                                                         Fld = self.line.split()
                                                         nFld = len(Fld) - 1
                                                         f = 0
@@ -1378,3 +1382,102 @@ class Mctal:
             totalbin[t.tallyNumber] = dftotal
 
         return tallydata, totalbin
+
+    def remove_totals(self, tally_number: int) -> None:
+        """
+        Remove all rows containing 'total' in any column from the tally DataFrame
+        for the specified tally number in self.tallydata.
+
+        Parameters
+        ----------
+        tally_number : int
+            The tally number whose DataFrame should be cleaned.
+        """
+        if tally_number not in self.tallydata:
+            raise KeyError(f"Tally number {tally_number} not found in tallydata.")
+        df = self.tallydata[tally_number]
+        # Remove rows where any column contains 'total'
+        mask = ~df.apply(
+            lambda row: row.astype(str)
+            .str.contains("total", case=False, na=False)
+            .any(),
+            axis=1,
+        )
+        self.tallydata[tally_number] = df[mask].reset_index(drop=True)
+
+    def set_d1s_relative_contribution(
+        self, tally_number: int, user_label: str = "Daughter"
+    ) -> None:
+        """
+        For the given tally number, set the User column to int, rename it to user_label (Parent/Daughter/Cell),
+        and for each unique bin defined by the other columns, add a 'Normalized Value' column representing
+        the relative contribution of each user (Parent/Daughter/Cell) in that bin.
+
+        Parameters
+        ----------
+        tally_number : int
+            The tally number whose DataFrame should be processed.
+        user_label : str
+            The new name for the User column (e.g., 'Parent', 'Daughter', 'Cell').
+        """
+        if tally_number not in self.tallydata:
+            raise KeyError(f"Tally number {tally_number} not found in tallydata.")
+
+        self.remove_totals(tally_number)
+
+        df = self.tallydata[tally_number].copy()
+        if "User" not in df.columns:
+            raise ValueError("No 'User' column found in tally DataFrame.")
+        # 1. Set User column to int
+        df["User"] = df["User"].astype(int)
+        # 2. Rename User column
+        df = df.rename(columns={"User": user_label})
+        # 3. Filter by distinct values of each non-user column
+        df = normalized_dose_contribution(df, user_label=user_label, inplace=False)
+
+        self.tallydata[tally_number] = df
+
+
+def normalized_dose_contribution(
+    df: pd.DataFrame, user_label: str = "Daughter", inplace: bool = True
+) -> pd.DataFrame:
+    """
+    Adds a 'Normalized Value' column to the DataFrame, representing the relative
+    contribution of each user_label in each unique bin defined by the other columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame, must contain a column named as user_label and 'Value'.
+    user_label : str, optional
+        The name of the user column to normalize over (default is "User").
+    inplace : bool, optional
+        If True, modifies the DataFrame in place. If False, returns a new DataFrame.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with an added 'Normalized Value' column.
+    """
+    if user_label not in df.columns:
+        raise ValueError(f"No '{user_label}' column found in DataFrame.")
+    if "Value" not in df.columns:
+        raise ValueError("No 'Value' column found in DataFrame.")
+
+    # Identify columns to group by (all except user_label, Value, Error, Normalized Value)
+    group_cols = [
+        col
+        for col in df.columns
+        if col not in [user_label, "Value", "Error", "Normalized Value"]
+    ]
+
+    def normalize(group):
+        total = group["Value"].sum()
+        group["Normalized Value"] = group["Value"] / total if total != 0 else 0
+        return group
+
+    if inplace:
+        df[:] = df.groupby(group_cols).apply(normalize)
+        return df
+    else:
+        return df.groupby(group_cols).apply(normalize).reset_index(drop=True)

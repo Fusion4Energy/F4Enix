@@ -8,9 +8,10 @@ from f4enix.input.d1suned import (
     ReactionFile,
     Irradiation,
     IrradiationFile,
+    rescale_dose,
 )
 from f4enix.input.libmanager import LibManager
-from f4enix.output.mctal import Mctal
+from f4enix.output.mctal import Mctal, normalized_dose_contribution
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
 from f4enix.input.irradiation import Nuclide
@@ -220,56 +221,69 @@ class TestIrradiationFile:
         with as_file(RESOURCES.joinpath("mctal_daughter")) as inp:
             mctal_file = Mctal(inp)
 
+        mctal_file.set_d1s_relative_contribution(5104)
         input_df = mctal_file.tallydata[5104][
             (mctal_file.tallydata[5104]["Time"] == 1.0)
             & (mctal_file.tallydata[5104]["Segments"] == 1)
-            & (mctal_file.tallydata[5104]["User"] != 0.0)
         ]
         tot_dose_orig = input_df["Value"].sum()
+        old_contrib = input_df[input_df["Daughter"] == 73182][
+            "Normalized Value"
+        ].values[0]
 
-        old_contrib = (
-            input_df[input_df["User"] == 73182.0]["Value"].values[0] / tot_dose_orig
-        )
-        tot_dose, new_contr_df = irrfile_1.rescale_dose(1, irrfile_2, 1, input_df)
+        scaling_factors_df = irrfile_1.get_scaling_factors_new_scenario(irrfile_2)
+        new_df = rescale_dose(input_df, scaling_factors_df)
 
-        assert tot_dose == pytest.approx(10 * tot_dose_orig, rel=1e-4)
+        assert new_df["Value"].sum() == pytest.approx(10 * tot_dose_orig, rel=1e-4)
 
         with as_file(RESOURCES.joinpath("irr_test_rescale_3")) as inp:
             irrfile_3 = IrradiationFile.from_text(inp)
 
-        tot_dose, new_contr_df = irrfile_1.rescale_dose(1, irrfile_3, 1, input_df)
+        scaling_factors_df = irrfile_1.get_scaling_factors_new_scenario(irrfile_3)
+        new_df = rescale_dose(input_df, scaling_factors_df)
+        normalized_dose_contribution(new_df)
 
         # Check double Ta contribution
         assert old_contrib == pytest.approx(
-            0.5
-            * new_contr_df.loc[
-                new_contr_df["Daughter"] == 73182, "Rescaled Normalized Contribution"
-            ].values[0],
+            0.5 * new_df.loc[new_df["Daughter"] == 73182, "Normalized Value"].values[0],
             rel=1e-3,
         )
 
+        # Compute total dose as array
         input_df_array = input_df.copy()
         input_df_array["Value"] = input_df_array["Value"].apply(lambda v: np.full(5, v))
 
-        # Check array handling (e.g. data arrays from vtk)
-        if "Normalized Value" in input_df_array.columns:
-            input_df_array = input_df_array.drop(columns=["Normalized Value"])
-        tot_dose_array, new_contr_df_array = irrfile_1.rescale_dose(
-            1, irrfile_3, 1, input_df_array
-        )
+        new_df_array = rescale_dose(input_df_array, scaling_factors_df)
+
+        tot_dose_array = np.sum(np.stack(input_df_array["Value"].values), axis=0)
         # For the contribution, take the first element of the array for comparison
-        old_contrib_array = (
-            input_df_array[input_df_array["User"] == 73182.0]["Value"].values[0][0]
-            / tot_dose_array[0]
+        old_contrib_array = np.divide(
+            input_df_array[input_df_array["Daughter"] == 73182]["Value"].values[0],
+            tot_dose_array,
         )
-        assert old_contrib_array == pytest.approx(
-            0.5
-            * new_contr_df_array.loc[
-                new_contr_df_array["Daughter"] == 73182,
-                "Rescaled Normalized Contribution",
-            ].values[0][0],
-            rel=1e-3,
+        new_contrib_array = np.divide(
+            new_df_array[new_df_array["Daughter"] == 73182]["Value"].values[0],
+            tot_dose_array,
         )
+        # Use np.allclose for array comparison
+        assert np.allclose(
+            old_contrib_array, 0.5 * new_contrib_array, rtol=1e-3, atol=0
+        )
+
+        # Check cooling time scaling
+        # trick to check only Ta182, considering its half life of 114.4 days
+        # The new relative contribution should be halved
+        for irrad in irrfile_1.irr_schedules:
+            if irrad.daughter.write_to_int_string() != "73182":
+                irrad.lambd = "0.000e+00"
+
+        scaling_factors_df = irrfile_1.get_scaling_factors_cooling_time(1, 9.91e6)
+        new_df = rescale_dose(input_df, scaling_factors_df)
+        normalized_dose_contribution(new_df)
+        # expected_scaling = np.exp(-lambda_Ta * 9.91e+6)
+        assert new_df.loc[new_df["Daughter"] == 73182, "Normalized Value"].values[
+            0
+        ] == pytest.approx(0.5 * old_contrib, rel=1e-3)
 
 
 class TestIrradiation:
