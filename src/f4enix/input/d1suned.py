@@ -1169,7 +1169,21 @@ def rescale_dose(
     df_ref_values: pd.DataFrame,
     scaling_factors_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """"""
+    """Rescales a daughter-binned dose tally by using the scaling factors computed by
+    the methods get_scaling_factors_new_scenario or get_scaling_factors_cooling_time.
+
+    Parameters
+    ----------
+    df_ref_values : pd.DataFrame
+        DataFrame containing the reference daughter-binned dose tally.
+    scaling_factors_df : pd.DataFrame
+        DataFrame containing the scaling factors for each daughter nuclide.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the rescaled daughter-binned dose tally.
+    """
 
     # Merge df_ref_values with scaling_factors_df on Daughter (inner join: only present daughters)
     merged = df_ref_values.merge(
