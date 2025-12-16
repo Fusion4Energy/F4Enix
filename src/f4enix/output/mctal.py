@@ -1433,12 +1433,12 @@ class Mctal:
         # 2. Rename User column
         df = df.rename(columns={"User": user_label})
         # 3. Filter by distinct values of each non-user column
-        df = normalized_dose_contribution(df, user_label=user_label, inplace=False)
+        df = normalize_tally(df, user_label=user_label, inplace=False)
 
         self.tallydata[tally_number] = df
 
 
-def normalized_dose_contribution(
+def normalize_tally(
     df: pd.DataFrame, user_label: str = "Daughter", inplace: bool = True
 ) -> pd.DataFrame:
     """

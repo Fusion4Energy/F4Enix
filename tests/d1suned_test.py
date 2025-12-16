@@ -11,7 +11,7 @@ from f4enix.input.d1suned import (
     rescale_dose,
 )
 from f4enix.input.libmanager import LibManager
-from f4enix.output.mctal import Mctal, normalized_dose_contribution
+from f4enix.output.mctal import Mctal, normalize_tally
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
 from f4enix.input.irradiation import Nuclide
@@ -241,7 +241,7 @@ class TestIrradiationFile:
 
         scaling_factors_df = irrfile_1.get_scaling_factors_new_scenario(irrfile_3)
         new_df = rescale_dose(input_df, scaling_factors_df)
-        normalized_dose_contribution(new_df)
+        normalize_tally(new_df)
 
         # Check double Ta contribution
         assert old_contrib == pytest.approx(
@@ -279,7 +279,7 @@ class TestIrradiationFile:
 
         scaling_factors_df = irrfile_1.get_scaling_factors_cooling_time(1, 9.91e6)
         new_df = rescale_dose(input_df, scaling_factors_df)
-        normalized_dose_contribution(new_df)
+        normalize_tally(new_df)
         # expected_scaling = np.exp(-lambda_Ta * 9.91e+6)
         assert new_df.loc[new_df["Daughter"] == 73182, "Normalized Value"].values[
             0
