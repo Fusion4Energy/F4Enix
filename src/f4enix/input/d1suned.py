@@ -611,8 +611,28 @@ class IrradiationFile:
     def get_scaling_factors_cooling_time(
         self,
         ref_scenario_num: int,
-        cooling_time: float = 0.0,
+        cooling_time: float,
     ) -> pd.DataFrame:
+        """Given a reference irradiation scenario number and a cooling time, computes
+        the scaling factors to be applied to dose tallies binned in daughter nuclides.
+
+        Parameters
+        ----------
+        ref_scenario_num : int
+            reference irradiation scenario number in the current irradiation file.
+        cooling_time : float, optional
+            cooling time in seconds.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the scaling factors for each daughter nuclide.
+
+        Raises
+        ------
+        IndexError
+            If the provided scenario numbers are out of range.
+        """
 
         df_irr_ref = self.irradiation_file_df()
 
@@ -641,6 +661,34 @@ class IrradiationFile:
             )
         final_df["Daughter"] = final_df["Daughter"].astype(int)
         return final_df
+
+    def remove_schedules_below_threshold(
+        self, threshold: float = 1e-12, k: int = 1
+    ) -> bool:
+        """
+        Remove all irradiation schedules where the k-th irradiation time is below the threshold.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            The threshold value for the irradiation time. Default is 1e-12.
+        k : int, optional
+            The scenario number (1-based index) of the irradiation time to check. Default is 1.
+
+        Returns
+        -------
+        bool
+            True if all selected daughters are present after filtering, False otherwise.
+        """
+        # k is 1-based, convert to 0-based index
+        idx = k - 1
+        selected_daughters = []
+        for irradiation in self.irr_schedules:
+            time_val = float(irradiation.times[idx])
+            if time_val >= threshold:
+                selected_daughters.append(irradiation.daughter.write_to_int_string())
+
+        return self.select_daughters_irradiation_file(selected_daughters)
 
 
 class Irradiation:
