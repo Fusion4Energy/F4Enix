@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "f4enix"
-license = {file = "LICENSE.txt"}
+license = { file = "LICENSE.txt" }
 dynamic = ["version"]
 authors = [
-  { name="F4E neutronics team", email="sc-radiationtransport@f4e.europa.eu" },
+    { name = "F4E neutronics team", email = "sc-radiationtransport@f4e.europa.eu" },
 ]
 description = "API for Monte Carlo input and output parsing"
 readme = "README.md"
@@ -29,16 +29,10 @@ dependencies = [
     "openpyxl",
     "tables",
     "endf",
-    "pypact",
+    "pypact >= 1.3.8",
 ]
 [project.optional-dependencies]
-tests = [
-    "pytest",
-    "pytest-cov",
-    "nbformat",
-    "nbconvert",
-    "ipykernel",
-]
+tests = ["pytest", "pytest-cov", "nbformat", "nbconvert", "ipykernel"]
 
 [project.urls]
 Homepage = "https://github.com/fusion4energy"
@@ -49,7 +43,7 @@ Documentation = "https://f4enix.readthedocs.io/en/latest/"
 write_to = "src/_version.py"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
 "f4enix" = ["**/*.xlsx", "**/*.txt", "**/*.csv"]
