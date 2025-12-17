@@ -43,7 +43,7 @@ class IrradiationFile:
         nsc: int,
         irr_schedules: list[Irradiation],
         header: str | None = None,
-        formatting: list[int] = [14, 14, 13, 11],
+        formatting: list[int] | None = None,
         name: str = "irrad",
     ) -> None:
         """
@@ -60,7 +60,7 @@ class IrradiationFile:
         header : str, optional
             Header of the file. The default is None.
         formatting : list of int, optional
-            fwf values for the output columns. The default is [11, 14, 13, 9].
+            fwf values for the output columns. The default (None) is [11, 14, 13, 9].
         name : str, optional
             name of the file. The default is 'irrad'.
 
@@ -105,6 +105,9 @@ class IrradiationFile:
         None.
 
         """
+        if formatting is None:
+            formatting = [11, 14, 13, 9]
+
         self._nsc = nsc
         self.irr_schedules = irr_schedules
         self.header = header

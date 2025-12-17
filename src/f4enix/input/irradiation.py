@@ -63,7 +63,12 @@ class Pulse:
 
 
 class IrradiationScenario:
-    def __init__(self, pulses: list[Pulse], name: str | None = None) -> None:
+    def __init__(
+        self,
+        pulses: list[Pulse],
+        name: str | None = None,
+        cooling_times: list[Pulse] | None = None,
+    ) -> None:
         """Object representing an irradiation scenario which is characterized by
         a sequence of pulses and cooling times.
 
@@ -73,6 +78,9 @@ class IrradiationScenario:
             list of irradiation pulses
         name : str | None, optional
             irradiation scenario name, by default None
+        cooling_times : list[Pulse] | None, optional
+            list of cooling time pulses, by default None. If None, a default cooling
+            time of 0s is set.
 
         Attributes
         ----------
@@ -87,8 +95,16 @@ class IrradiationScenario:
         """
         self.name = name
         self.pulses = pulses
-        self._cooling_times = [Pulse(time=0.0, intensity=0.0, unit=TIME_UNITS.SECOND)]
-        self._cooling_labels = ["0s"]
+        if cooling_times is not None:
+            self._cooling_times = cooling_times
+            self._cooling_labels = [
+                f"{pulse.get_time(TIME_UNITS.SECOND)}s" for pulse in cooling_times
+            ]
+        else:
+            self._cooling_times = [
+                Pulse(time=0.0, intensity=0.0, unit=TIME_UNITS.SECOND)
+            ]
+            self._cooling_labels = ["0s"]
 
     @property
     def cooling_times(self) -> list[Pulse]:
@@ -117,19 +133,19 @@ class IrradiationScenario:
         self._cooling_times = []
         self._cooling_labels = []
 
-        last_time = 0.0
+        last_cumulative_time = 0.0
         for time_val, time_unit in cooling_times:
             time_sec = time_val * TIME_UNITS_CONVERSION[time_unit]
             # convert the absolute in relative
             if absolute:
                 self._cooling_labels.append(f"{time_val}{time_unit.value}")
-                time = time_sec - last_time
+                time = time_sec - last_cumulative_time
+                last_cumulative_time = time_sec
             # keep relatives
             else:
-                cumulative_time = last_time + time_sec
-                self._cooling_labels.append(f"{cumulative_time}s")
+                last_cumulative_time = last_cumulative_time + time_sec
+                self._cooling_labels.append(f"{last_cumulative_time}s")
                 time = time_sec
-            last_time = time_sec  # update total time
             self._cooling_times.append(
                 Pulse(time=time, intensity=0.0, unit=TIME_UNITS.SECOND)
             )
@@ -189,7 +205,13 @@ class IrradiationScenario:
             # time is already converted into seconds by pypact
             pulses.append(Pulse(time=time, intensity=flux, unit=TIME_UNITS.SECOND))
 
-        return cls(pulses=pulses, name=name)
+        cooling_times = []
+        for cool_time in fisp_inp._coolingschedule:  # already relative in fispact
+            cooling_times.append(
+                Pulse(time=cool_time, intensity=0.0, unit=TIME_UNITS.SECOND)
+            )
+
+        return cls(pulses=pulses, cooling_times=cooling_times, name=name)
 
 
 class Nuclide:
@@ -383,7 +405,7 @@ class TCF_Computer:
             The half-life in seconds or "STABLE" if the nuclide is stable.
         """
         nuclide_str = nuclide.write_to_formula()
-        nuclide_str = nuclide_str.strip("irs")  # remove IRS if present
+        nuclide_str = nuclide_str.removeprefix("irs")  # remove IRS if present
         half_life_sec = self.half_lives[nuclide_str]
         return half_life_sec
 

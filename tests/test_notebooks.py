@@ -53,7 +53,7 @@ def test_task_1(filename):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows access error")
 def test_plotting_jupyters():
-    _, errors = _notebook_run(Path("docs/source/tutorial/tutorial.ipynb"))
+    _, errors = _notebook_run(Path("docs/source/tutorial/mcnp/tutorial.ipynb"))
     assert errors == []
 
     _, errors = _notebook_run(
