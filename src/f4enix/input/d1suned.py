@@ -28,8 +28,8 @@ import pandas as pd
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
-from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer, Pulse
-from f4enix.constants import TIME_UNITS
+from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer
+from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION
 from copy import deepcopy
 
 # PAT_COMMENT = re.compile('[Cc]+')
@@ -476,7 +476,7 @@ class IrradiationFile:
         # Update the irradiation format
         self._update_irrformat()
 
-    def irradiation_file_df(self) -> pd.DataFrame:
+    def to_df(self) -> pd.DataFrame:
         """
         Convert the irradiation schedules to a pandas DataFrame.
 
@@ -497,170 +497,100 @@ class IrradiationFile:
 
         df = pd.DataFrame(data)
         df["Daughter"] = df["Daughter"].astype(int)
+        df.set_index("Daughter", inplace=True)
         return df
 
-    def get_new_scaling_factors(
-        self, new_irradiation_scenario: IrradiationScenario, new_norm: float = 1.0
+    def get_scaling_factors_new_scenario(
+        self,
+        ref_scenario_num: int,
+        new_irradiation_scenario: IrradiationScenario,
+        norm: float,
+        # scale_irs: dict[str, list[float]] | None = None,
     ) -> pd.DataFrame:
-        """Given a new irradiation scenario and the reference one, compute the scaling factors
+        """Given a new irradiation scenario and the reference irradiation file, compute the scaling factors
         to be applied to dose tallies binned in daughter nuclides. It automatically computes
         the new time correction factors for the new scenario and the scaling factors.
 
         Parameters
         ----------
-        new_irradiation_scenario : IrradiationScenario
-            new irradiation scenario to be considered for rescaling of dose tallies.
-        new_norm : float, optional
-            norm factor for the calculation of the new time correction factors, by default 1.0
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the scaling factors for each daughter nuclide.
-        """
-        new_irradiation_file = IrradiationFile.from_irradiation_schedules(
-            self.get_daughters(), [new_irradiation_scenario], norm=new_norm
-        )
-        return self.get_scaling_factors_new_scenario(
-            ref_scenario_num=1,
-            new_irradiation_scenario=new_irradiation_file,
-            new_irradiation_scenario_num=1,
-        )
-
-    def get_scaling_factors_new_scenario(
-        self,
-        new_irradiation_scenario: IrradiationFile,
-        ref_scenario_num: int = 1,
-        new_irradiation_scenario_num: int = 1,
-    ) -> pd.DataFrame:
-        """Given a reference irradiation scenario number and a new irradiation file, computes
-        the scaling factors to be applied to dose tallies binned in daughter nuclides.
-
-        Parameters
-        ----------
         ref_scenario_num : int
             reference irradiation scenario number in the current irradiation file.
-        new_irradiation_scenario : IrradiationFile
-            new irradiation file containing the new scenario.
-        new_irradiation_scenario_num : int, optional
-            new irradiation scenario number in the new irradiation file, by default 1
+        new_irradiation_scenario : IrradiationScenario
+            new irradiation scenario to be considered for rescaling of dose tallies.
+        norm : float
+            norm factor for the calculation of the new time correction factors.
 
         Returns
         -------
         pd.DataFrame
-            DataFrame containing the scaling factors for each daughter nuclide.
-
-        Raises
-        ------
-        IndexError
-            If the provided scenario numbers are out of range.
-        IndexError
-            If the daughter nuclides in the reference and new irradiation files do not match.
+            DataFrame containing the scaling factors for each daughter nuclide at all
+            cooling times.
         """
 
-        df_irr_ref = self.irradiation_file_df()
-
-        df_new_irr = new_irradiation_scenario.irradiation_file_df()
-
-        # --- Check that both irradiation files have the same daughters ---
-        daughters_ref = set(df_irr_ref["Daughter"])
-        daughters_new = set(df_new_irr["Daughter"])
-        if daughters_ref != daughters_new:
-            raise ValueError(
-                f"Daughter nuclides do not match between scenarios.\n"
-                f"Reference daughters: {sorted(daughters_ref)}\n"
-                f"New scenario daughters: {sorted(daughters_new)}"
+        new_tfcs = np.transpose(
+            TCF_Computer().compute_correction_factors(
+                new_irradiation_scenario,
+                self.get_daughters(),
+                norm=norm,
             )
+        )
 
-        # --- Check that scenario numbers exist ---
-        if not (1 <= ref_scenario_num <= self.nsc):
-            raise IndexError(
-                f"ref_scenario_num {ref_scenario_num} is out of range. "
-                f"Must be between 1 and {self.nsc}."
-            )
-        if not (1 <= new_irradiation_scenario_num <= new_irradiation_scenario.nsc):
-            raise IndexError(
-                f"new_irradiation_scenario_num {new_irradiation_scenario_num} is out of range. "
-                f"Must be between 1 and {new_irradiation_scenario.nsc}."
-            )
-
-        final_df = pd.DataFrame(columns=["Daughter", "Scaling Factor"])
-
-        for _, row in df_irr_ref.iterrows():
-            daughter = row["Daughter"]
-            tcf_ref = row[f"Time_Factor_{ref_scenario_num}"]
-            tcf_new = df_new_irr.loc[
-                df_new_irr["Daughter"] == daughter,
-                f"Time_Factor_{new_irradiation_scenario_num}",
-            ].values[0]
-
-            scaling_factor = tcf_new / tcf_ref
-
-            final_df = pd.concat(
-                [
-                    final_df,
-                    pd.DataFrame(
-                        {"Daughter": [daughter], "Scaling Factor": [scaling_factor]}
-                    ),
-                ],
-                ignore_index=True,
-            )
-        final_df["Daughter"] = final_df["Daughter"].astype(int)
-        return final_df
+        return self._scaling_factors_df(
+            ref_scenario_num, new_tfcs, new_irradiation_scenario.cooling_labels
+        )
 
     def get_scaling_factors_cooling_time(
         self,
         ref_scenario_num: int,
-        cooling_time: float,
+        cooling_time: tuple[float, TIME_UNITS],
     ) -> pd.DataFrame:
-        """Given a reference irradiation scenario number and a cooling time, computes
-        the scaling factors to be applied to dose tallies binned in daughter nuclides.
+        """Given a cooling time, compute the scaling factors to be applied to dose tallies
+        binned in daughter nuclides. It automatically computes the decay factors for the new cooling time
+        and the scaling factors.
 
         Parameters
         ----------
         ref_scenario_num : int
             reference irradiation scenario number in the current irradiation file.
-        cooling_time : float, optional
-            cooling time in seconds.
+        cooling_time : Pulse
+            cooling time to be considered for rescaling of dose tallies.
 
         Returns
         -------
         pd.DataFrame
             DataFrame containing the scaling factors for each daughter nuclide.
-
-        Raises
-        ------
-        IndexError
-            If the provided scenario numbers are out of range.
         """
 
-        df_irr_ref = self.irradiation_file_df()
+        # Use pandas Series for robust broadcasting and alignment
+        irr_df = self.to_df()
+        decay = np.exp(
+            -1.0
+            * cooling_time[0]
+            * TIME_UNITS_CONVERSION[cooling_time[1]]
+            * np.array(irr_df["Lambda"])
+        ) * np.array(irr_df[f"Time_Factor_{ref_scenario_num}"])
 
-        # --- Check that scenario numbers exist ---
-        if not (1 <= ref_scenario_num <= self.nsc):
-            raise IndexError(
-                f"ref_scenario_num {ref_scenario_num} is out of range. "
-                f"Must be between 1 and {self.nsc}."
-            )
+        return self._scaling_factors_df(
+            ref_scenario_num,
+            decay,
+            [f"{cooling_time[0]}{cooling_time[1].value}"],
+        )
 
-        final_df = pd.DataFrame(columns=["Daughter", "Scaling Factor"])
+    def _scaling_factors_df(
+        self, ref_scenario_num, new_tfcs, cooling_labels
+    ) -> pd.DataFrame:
+        irr_file_df = self.to_df()
+        ref_tcf = irr_file_df[f"Time_Factor_{ref_scenario_num}"].values
 
-        for _, row in df_irr_ref.iterrows():
-            daughter = row["Daughter"]
-            tcf_ref = row[f"Time_Factor_{ref_scenario_num}"]
-            tcf_new = tcf_ref * np.exp(-row["Lambda"] * cooling_time)
-            scaling_factor = tcf_new / tcf_ref
-            final_df = pd.concat(
-                [
-                    final_df,
-                    pd.DataFrame(
-                        {"Daughter": [daughter], "Scaling Factor": [scaling_factor]}
-                    ),
-                ],
-                ignore_index=True,
-            )
-        final_df["Daughter"] = final_df["Daughter"].astype(int)
-        return final_df
+        daughters = irr_file_df.index.tolist()
+        df = pd.DataFrame(new_tfcs)
+        df.index = daughters
+        df.columns = cooling_labels
+
+        for col in df.columns:
+            df[col] = df[col] / ref_tcf
+
+        return df
 
     def remove_schedules_below_threshold(
         self, threshold: float = 1e-12, k: int = 1
@@ -1163,37 +1093,3 @@ def _get_irradiation_header(
             header += f"#   - {pulse}\n"
         header += "\n"
     return header
-
-
-def rescale_dose(
-    df_ref_values: pd.DataFrame,
-    scaling_factors_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Rescales a daughter-binned dose tally by using the scaling factors computed by
-    the methods get_scaling_factors_new_scenario or get_scaling_factors_cooling_time.
-
-    Parameters
-    ----------
-    df_ref_values : pd.DataFrame
-        DataFrame containing the reference daughter-binned dose tally.
-    scaling_factors_df : pd.DataFrame
-        DataFrame containing the scaling factors for each daughter nuclide.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing the rescaled daughter-binned dose tally.
-    """
-
-    # Merge df_ref_values with scaling_factors_df on Daughter (inner join: only present daughters)
-    merged = df_ref_values.merge(
-        scaling_factors_df[["Daughter", "Scaling Factor"]],
-        on="Daughter",
-        how="inner",
-    )
-    # Rescale Normalized Value in place
-    merged["Value"] = merged["Value"] * merged["Scaling Factor"]
-
-    # Drop Scaling Factor column to match original columns
-    result = merged[df_ref_values.columns]
-    return result
