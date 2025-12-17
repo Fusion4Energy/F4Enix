@@ -1,6 +1,7 @@
 from importlib.resources import as_file, files
 
 import numpy as np
+import pytest
 
 import tests.resources.mctal as mctal_res
 from f4enix.output.mctal import Mctal
@@ -68,3 +69,12 @@ class TestMctal:
         with as_file(mctal_resources.joinpath("mctal_fm")) as inp:
             mctal = Mctal(inp)
         assert mctal.tallydata[704].shape == (1484, 4)
+
+    def test_d1s_relative_contribution(self):
+        with as_file(mctal_resources.joinpath("mctal_daughter")) as inp:
+            mctal = Mctal(inp)
+        mctal.set_d1s_relative_contribution(124)
+        assert (
+            pytest.approx(mctal.tallydata[124].loc[16, "Normalized Value"])
+            == 0.18430563795291874
+        )
