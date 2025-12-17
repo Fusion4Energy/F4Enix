@@ -78,3 +78,19 @@ class TestMctal:
             pytest.approx(mctal.tallydata[124].loc[16, "Normalized Value"])
             == 0.18430563795291874
         )
+        # test normalization with many bins
+        with as_file(mctal_resources.joinpath("mctal_daughter_2")) as inp:
+            mctal = Mctal(inp)
+
+        # with pytest.raises(KeyError):
+        #     mctal.set_d1s_relative_contribution(124)
+        mctal.set_d1s_relative_contribution(5104)
+        df = mctal.tallydata[5104]
+        assert (
+            pytest.approx(
+                df[(df["Time"] == 1.0) & (df["Segments"] == 1)][
+                    "Normalized Value"
+                ].sum()
+            )
+            == 1.0
+        )
