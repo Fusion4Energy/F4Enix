@@ -217,15 +217,14 @@ class TestIrradiationFile:
         df_scaling = irrfile_1.get_scaling_factors_cooling_time(
             1, (9.91e6, TIME_UNITS.SECOND)
         )
-        assert (
-            pytest.approx(df_scaling.loc[73182, "9910000.0s"], rel=1e-2) == 0.5
-        )  # Manually set expected value
+        assert pytest.approx(df_scaling.loc[73182, "9910000.0s"], rel=1e-2) == 0.5
 
         irr_scenario = IrradiationScenario(pulses=[Pulse(10, 1e10)])
         irr_scenario.set_cooling_times(
             [(3600, TIME_UNITS.SECOND), (100, TIME_UNITS.DAY)]
         )
         df_scaling_2 = irrfile_1.get_scaling_factors_new_scenario(1, irr_scenario, 1e10)
+        assert pytest.approx(df_scaling_2.loc[73182, "3600s"], rel=1e-2) == 6.704e-3
 
 
 class TestIrradiation:
