@@ -398,7 +398,7 @@ class WW:
         # This line will trigger the setter, which will update the ratios and geometry
         self.values = values
 
-    def write_to_ww_file(self, file_path: Optional[Pathlike] = None) -> None:
+    def write_to_ww_file(self, file_path: Pathlike | None = None) -> None:
         """
         Write the weight window to a file.
 

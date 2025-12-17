@@ -369,8 +369,15 @@ def _write_block_3(f: TextIO, energies: NestedList, values: NestedList) -> None:
             f.write("\n")
 
         particle_vals = values[particle_index]
-        packs_val = [particle_vals[i : i + 6] for i in range(0, len(particle_vals), 6)]
-        for value_pack in packs_val:
-            for value in value_pack:
-                f.write(f"{value:>#13.4E}")
-            f.write("\n")
+        values_divided_by_energies = [
+            particle_vals[i : i + len(particle_ergs)]
+            for i in range(0, len(particle_vals), len(particle_ergs))
+        ]
+        for value_set in values_divided_by_energies:
+            packs_val = [value_set[i : i + 6] for i in range(0, len(value_set), 6)]
+            for value_pack in packs_val:
+                for value in value_pack:
+                    f.write(f"{value:>#13.4E}")
+                f.write("\n")
+            if len(value_set) % 6 == 0:
+                f.write("\n")  # Extra new line after each energy set
