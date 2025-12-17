@@ -1476,8 +1476,14 @@ def normalize_tally(
         group["Normalized Value"] = group["Value"] / total if total != 0 else 0
         return group
 
-    if inplace:
-        df[:] = df.groupby(group_cols).apply(normalize)
-        return df
+    if len(group_cols) == 0:
+        # No group keys: normalize the whole column
+        total = df["Value"].sum()
+        df["Normalized Value"] = df["Value"] / total if total != 0 else 0
+        return df if inplace else df.copy()
     else:
-        return df.groupby(group_cols).apply(normalize).reset_index(drop=True)
+        if inplace:
+            df[:] = df.groupby(group_cols).apply(normalize)
+            return df
+        else:
+            return df.groupby(group_cols).apply(normalize).reset_index(drop=True)
