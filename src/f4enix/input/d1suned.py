@@ -24,12 +24,14 @@ import logging
 import os
 import re
 import numpy as np
+import pandas as pd
 
 from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
 from f4enix.input.libmanager import LibManager
-from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer, Pulse
-from f4enix.constants import TIME_UNITS
+from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer
+from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION
 from copy import deepcopy
+
 # PAT_COMMENT = re.compile('[Cc]+')
 
 REACFORMAT = "{:>13s}{:>7s}{:>12s}{:>40s}"
@@ -477,6 +479,150 @@ class IrradiationFile:
         # Update the irradiation format
         self._update_irrformat()
 
+    def to_df(self) -> pd.DataFrame:
+        """
+        Convert the irradiation schedules to a pandas DataFrame.
+
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame with columns 'Daughter', 'Lambda', and time correction factors.
+        """
+        data = []
+        for irradiation in self.irr_schedules:
+            row = {
+                "Daughter": int(irradiation.daughter.zaid),
+                "Lambda": float(irradiation.lambd),
+            }
+            for i, time in enumerate(irradiation.times):
+                row[f"Time_Factor_{i+1}"] = float(time)
+            data.append(row)
+
+        df = pd.DataFrame(data)
+        df["Daughter"] = df["Daughter"].astype(int)
+        df.set_index("Daughter", inplace=True)
+        return df
+
+    def get_scaling_factors_new_scenario(
+        self,
+        ref_scenario_num: int,
+        new_irradiation_scenario: IrradiationScenario,
+        norm: float,
+        # scale_irs: dict[str, list[float]] | None = None,
+    ) -> pd.DataFrame:
+        """Given a new irradiation scenario and the reference irradiation file, compute the scaling factors
+        to be applied to dose tallies binned in daughter nuclides. It automatically computes
+        the new time correction factors for the new scenario and the scaling factors.
+
+        Parameters
+        ----------
+        ref_scenario_num : int
+            reference irradiation scenario number in the current irradiation file.
+        new_irradiation_scenario : IrradiationScenario
+            new irradiation scenario to be considered for rescaling of dose tallies.
+        norm : float
+            norm factor for the calculation of the new time correction factors.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the scaling factors for each daughter nuclide at all
+            cooling times.
+        """
+
+        new_tfcs = np.transpose(
+            TCF_Computer().compute_correction_factors(
+                new_irradiation_scenario,
+                self.get_daughters(),
+                norm=norm,
+            )
+        )
+
+        return self._scaling_factors_df(
+            ref_scenario_num, new_tfcs, new_irradiation_scenario.cooling_labels
+        )
+
+    def get_scaling_factors_cooling_time(
+        self,
+        ref_scenario_num: int,
+        cooling_time: tuple[float, TIME_UNITS],
+    ) -> pd.DataFrame:
+        """Given a cooling time, compute the scaling factors to be applied to dose tallies
+        binned in daughter nuclides. It automatically computes the decay factors for the new cooling time
+        and the scaling factors.
+
+        Parameters
+        ----------
+        ref_scenario_num : int
+            reference irradiation scenario number in the current irradiation file.
+        cooling_time : Pulse
+            cooling time to be considered for rescaling of dose tallies.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the scaling factors for each daughter nuclide.
+        """
+
+        # Use pandas Series for robust broadcasting and alignment
+        irr_df = self.to_df()
+        decay = np.exp(
+            -1.0
+            * cooling_time[0]
+            * TIME_UNITS_CONVERSION[cooling_time[1]]
+            * np.array(irr_df["Lambda"])
+        ) * np.array(irr_df[f"Time_Factor_{ref_scenario_num}"])
+
+        return self._scaling_factors_df(
+            ref_scenario_num,
+            decay,
+            [f"{cooling_time[0]}{cooling_time[1].value}"],
+        )
+
+    def _scaling_factors_df(
+        self, ref_scenario_num, new_tfcs, cooling_labels
+    ) -> pd.DataFrame:
+        irr_file_df = self.to_df()
+        ref_tcf = irr_file_df[f"Time_Factor_{ref_scenario_num}"].values
+
+        daughters = irr_file_df.index.tolist()
+        df = pd.DataFrame(new_tfcs)
+        df.index = daughters
+        df.columns = cooling_labels
+
+        for col in df.columns:
+            df[col] = df[col] / ref_tcf
+
+        return df
+
+    def remove_schedules_below_threshold(
+        self, threshold: float = 1e-12, k: int = 1
+    ) -> bool:
+        """
+        Remove all irradiation schedules where the k-th irradiation time is below the threshold.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            The threshold value for the irradiation time. Default is 1e-12.
+        k : int, optional
+            The scenario number (1-based index) of the irradiation time to check. Default is 1.
+
+        Returns
+        -------
+        bool
+            True if all selected daughters are present after filtering, False otherwise.
+        """
+        # k is 1-based, convert to 0-based index
+        idx = k - 1
+        selected_daughters = []
+        for irradiation in self.irr_schedules:
+            time_val = float(irradiation.times[idx])
+            if time_val >= threshold:
+                selected_daughters.append(irradiation.daughter.write_to_int_string())
+
+        return self.select_daughters_irradiation_file(selected_daughters)
+
 
 class Irradiation:
     def __init__(
@@ -633,7 +779,9 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(self.daughter.write_to_formula(), self.lambd, self.times, self.comment)
+""".format(
+            self.daughter.write_to_formula(), self.lambd, self.times, self.comment
+        )
 
         return text
 

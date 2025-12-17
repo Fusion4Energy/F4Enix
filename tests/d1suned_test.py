@@ -1,7 +1,9 @@
 import os
 import pytest
+import numpy as np
 from importlib.resources import files, as_file
 
+from f4enix.constants import TIME_UNITS
 from f4enix.input.d1suned import (
     Reaction,
     ReactionFile,
@@ -204,6 +206,25 @@ class TestIrradiationFile:
         assert new_irrfile.irr_schedules[0].times[-1] == "5.982e+00"
         irrfile.irr_schedules[0].modify_time_val(3, 4.56)
         assert float(irrfile.irr_schedules[0].times[3]) == 4.56
+
+    def test_rescale_dose(self):
+        """
+        Test rescaling of dose with different irradiation scenarios
+        """
+        with as_file(RESOURCES.joinpath("irr_test_rescale")) as inp:
+            irrfile_1 = IrradiationFile.from_text(inp)
+
+        df_scaling = irrfile_1.get_scaling_factors_cooling_time(
+            1, (9.91e6, TIME_UNITS.SECOND)
+        )
+        assert pytest.approx(df_scaling.loc[73182, "9910000.0s"], rel=1e-2) == 0.5
+
+        irr_scenario = IrradiationScenario(pulses=[Pulse(10, 1e10)])
+        irr_scenario.set_cooling_times(
+            [(3600, TIME_UNITS.SECOND), (100, TIME_UNITS.DAY)]
+        )
+        df_scaling_2 = irrfile_1.get_scaling_factors_new_scenario(1, irr_scenario, 1e10)
+        assert pytest.approx(df_scaling_2.loc[73182, "3600s"], rel=1e-2) == 6.704e-3
 
 
 class TestIrradiation:
