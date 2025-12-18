@@ -314,7 +314,7 @@ def write(
     with open(file_path, "w") as infile:
         _write_header(infile, header)
         _write_block_2(infile, b2_vectors)
-        _write_block_3(infile, energies, values)
+        _write_block_3(infile, energies, values, header.nfx * header.nfy * header.nfz)
 
 
 def _write_header(f: TextIO, header: WWHeader) -> None:
@@ -357,7 +357,9 @@ def _write_block_2(f: TextIO, b2_vectors: Vectors) -> None:
             f.write("\n")
 
 
-def _write_block_3(f: TextIO, energies: NestedList, values: NestedList) -> None:
+def _write_block_3(
+    f: TextIO, energies: NestedList, values: NestedList, number_of_voxels: int
+) -> None:
     for particle_index in range(len(energies)):
         particle_ergs = energies[particle_index]
         packs_of_6 = [particle_ergs[i : i + 6] for i in range(0, len(particle_ergs), 6)]
@@ -369,11 +371,11 @@ def _write_block_3(f: TextIO, energies: NestedList, values: NestedList) -> None:
             f.write("\n")
 
         particle_vals = values[particle_index]
-        values_divided_by_energies = [
-            particle_vals[i : i + len(particle_ergs)]
-            for i in range(0, len(particle_vals), len(particle_ergs))
+        values_divided_by_voxels = [
+            particle_vals[i : i + number_of_voxels]
+            for i in range(0, len(particle_vals), number_of_voxels)
         ]
-        for value_set in values_divided_by_energies:
+        for value_set in values_divided_by_voxels:
             packs_val = [value_set[i : i + 6] for i in range(0, len(value_set), 6)]
             for value_pack in packs_val:
                 for value in value_pack:

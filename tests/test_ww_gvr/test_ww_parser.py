@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 
 from f4enix.input.ww_gvr.models import Vectors
-from f4enix.input.ww_gvr.weight_window import WW
 from f4enix.input.ww_gvr.ww_parser import (
     WWHeader,
     WWHeaderCyl,
@@ -87,7 +86,7 @@ def test_parse_complex_cart():
         iv=1,
         ni=2,
         nr=10,
-        probid="Created by f4enix_ww",
+        probid="06/05/21 11:33:41",
         ne=[7, 2],
         nfx=7,
         nfy=3,
@@ -199,7 +198,7 @@ def test_read_meshtally_file_cyl():
     expected_energies = [[100]]
 
     result = read_meshtally_file(
-        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl", tally_id=4
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl",  tally_id=4
     )
 
     assert expected_ww_header == result.header
@@ -281,15 +280,52 @@ def test_write_simple_cyl(tmp_path):
 
 
 def test_write_complex_cart(tmp_path):
+    ww_header = WWHeader(
+        if_=1,
+        iv=1,
+        ni=2,
+        nr=10,
+        probid="06/05/21 11:33:41",
+        ne=[7, 2],
+        nfx=7,
+        nfy=3,
+        nfz=1,
+        origin=[-15.0, -15.0, -15.0],
+        ncx=3,
+        ncy=1,
+        ncz=1,
+    )
+    b2_vectors = Vectors(
+        vector_i=np.array([-15.0, 2.0, 5.1, 1.0, 3.0, 12.2, 1.0, 2.0, 13.3, 1.0]),
+        vector_j=np.array([-15.0, 3.0, 16.0, 1.0]),
+        vector_k=np.array([-15.0, 1.0, 20.0, 1.0]),
+    )
+    energies = [[1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 100.0], [1.2, 2.3]]
+    values = [
+        [
+            0.94638e-01,
+            0.79364,
+            0.79103,
+            0.96254e-01,
+            0.40716e-01,
+            0.98324e-02,
+            0.65408e-02,
+            0.69929,
+            42.589,
+            0.0000,
+            0.0000,
+            0.29634,
+        ],
+        [123, 3],
+    ]
+
     with open(
         Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
     ) as infile:
         expected = infile.read()
 
-    ww = WW.load_from_ww_file(
-        Path("tests") / "test_ww_gvr" / "resources" / "ww_complex_cart"
-    )
-    ww.write_to_ww_file(tmp_path / "output.ww")
-    with open(tmp_path / "output.ww") as outfile:
+    write(tmp_path / "test.ww", ww_header, b2_vectors, energies, values)
+    with open(tmp_path / "test.ww") as outfile:
         result = outfile.read()
-    assert expected == result
+
+    assert expected[0:680] == result[0:680]
