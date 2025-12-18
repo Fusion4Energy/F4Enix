@@ -4,7 +4,7 @@ This file includes the main class of the ww_gvr package, the WW class.
 
 # flake8: noqa: PLR2004
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -218,7 +218,7 @@ class WW:
         return energies
 
     @property
-    def particles(self) -> List[ParticleType]:
+    def particles(self) -> list[ParticleType]:
         """
         List of ParticleType objects that are present in the weight window.
 
