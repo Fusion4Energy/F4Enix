@@ -491,7 +491,7 @@ class IrradiationFile:
         data = []
         for irradiation in self.irr_schedules:
             row = {
-                "Daughter": int(irradiation.daughter.zaid),
+                "Daughter": int(irradiation.daughter.write_to_int_string()),
                 "Lambda": float(irradiation.lambd),
             }
             for i, time in enumerate(irradiation.times):
