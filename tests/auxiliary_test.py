@@ -2,7 +2,7 @@ from importlib.resources import files, as_file
 from numjuggler.parser import Card
 import pytest
 
-from f4enix.input.auxiliary import get_comments
+from f4enix.core.auxiliary import get_comments
 
 
 @pytest.mark.parametrize(

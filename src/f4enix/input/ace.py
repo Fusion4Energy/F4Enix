@@ -12,7 +12,7 @@ import endf
 # import f4e_ace.data
 import numpy as np
 
-from f4enix.egroups import GROUP_STRUCTURES
+from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Material, Zaid
 

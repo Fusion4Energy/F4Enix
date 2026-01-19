@@ -1,7 +1,7 @@
 import pytest
 import math
 from importlib.resources import as_file, files
-from f4enix.input.irradiation import (
+from f4enix.core.irradiation import (
     Nuclide,
     IrradiationScenario,
     _process_irr_line,

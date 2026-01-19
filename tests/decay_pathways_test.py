@@ -1,4 +1,4 @@
-from f4enix.material_library import CONCRETE, MICROTHERM
+from f4enix.core.material_library import CONCRETE, MICROTHERM
 from f4enix.output.decay_pathways import AVAILABLE_SPECTRA, PathwayLibrary
 
 

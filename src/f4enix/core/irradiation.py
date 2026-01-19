@@ -6,9 +6,14 @@ from pypact.input.serialization import from_file
 import numpy as np
 import json
 
-from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION, PathLike
+from f4enix.core.constants import (
+    TIME_UNITS,
+    TIME_UNITS_CONVERSION,
+    PathLike,
+    SCIENTIFIC_PAT,
+    PAT_DIGIT,
+)
 from f4enix.input.libmanager import LibManager
-from f4enix.constants import SCIENTIFIC_PAT, PAT_DIGIT
 from f4enix import resources
 
 LM = LibManager()

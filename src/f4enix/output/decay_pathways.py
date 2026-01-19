@@ -8,7 +8,7 @@ import pandas as pd
 
 import f4enix.resources as pkg_res
 from f4enix.input.libmanager import LibManager
-from f4enix.material_library import AVAILABLE_MATERIALS, MaterialComposition
+from f4enix.core.material_library import AVAILABLE_MATERIALS, MaterialComposition
 
 
 def _sort_df_byzaidnum(df: pd.DataFrame, reset_index=True) -> None:

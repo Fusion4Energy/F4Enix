@@ -38,7 +38,7 @@ from decimal import Decimal
 import pandas as pd
 from numjuggler import parser as par
 
-from f4enix.constants import AVOGADRO_NUMBER, PAT_COMMENT, PAT_MAT, PAT_MX
+from f4enix.core.constants import AVOGADRO_NUMBER, PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
 
 
