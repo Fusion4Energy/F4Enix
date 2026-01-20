@@ -33,19 +33,19 @@ from numjuggler import likefunc as lf
 from numjuggler import parser
 
 from f4enix.constants import (
+    PAT_ALL_TALLY_KEYS,
     PAT_CARD_KEY,
     PAT_COMMENT,
     PAT_F_TR_CARD_KEY,
     PAT_FMESH_KEY,
     PAT_NP,
-    PAT_ALL_TALLY_KEYS,
     UNION_INTERSECT_SYMBOLS,
 )
 from f4enix.input.auxiliary import debug_file_unicode
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
+from f4enix.input.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
-from f4enix.input.irradiation import Nuclide, METASTABLE_TAG
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -1843,6 +1843,12 @@ class Input:
         )
         self.other_data["SI1"] = parser.Card(["SI1 0 1\n"], -5, -1)
         self.other_data["SP1"] = parser.Card(["SP1 -21 1\n"], -5, -1)
+
+    def explore_id_ranges_by_plot(self) -> None:
+        pass
+
+    def find_first_free_id_range(self, required_size: int):
+        pass
 
 
 class D1S_Input(Input):
