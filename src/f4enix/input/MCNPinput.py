@@ -1860,7 +1860,7 @@ class Input:
         ... fig.show()
         """
         cell_ids = {int(x) for x in self.cells}
-        surface_ids = {int(x) for x in self.surfs}
+        surface_ids = {int(x.lstrip("*")) for x in self.surfs}
 
         fig, ax = plt.subplots(figsize=(12, 3))
         ax.scatter(list(cell_ids), [1] * len(cell_ids), s=10, color="blue")
@@ -1880,7 +1880,7 @@ class Input:
         """
         # Extract combined cell and surface IDs
         cells = {int(x) for x in self.cells}
-        surfaces = {int(x) for x in self.surfs}
+        surfaces = {int(x.lstrip("*")) for x in self.surfs}
         combined_ids = np.array(list(cells.union(surfaces)))
         combined_ids.sort()
 
