@@ -11,9 +11,9 @@ import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
+from f4enix.input.irradiation import Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
-from f4enix.input.irradiation import Nuclide
 
 resources_inp = files(input_res)
 resources_lib = files(lib_res)
@@ -745,6 +745,25 @@ C a breaking comment
         assert result == "1 3I 5 7 12 13 21 22 23 "
         result = get_formatted_range([1])
         assert result == "1 "
+
+    def test_explore_id_ranges_by_plot(self):
+        # This method creates a plot. Here we just check that it runs without errors.
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            test_input = Input.from_input(FILE1)
+        test_input.explore_id_ranges_by_plot()
+
+    def test_find_first_free_id_range(self):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            test_input = Input.from_input(FILE1)
+
+        first_id_that_fits_15 = 2
+        assert test_input.find_first_free_id_range(15) == first_id_that_fits_15
+
+        first_id_that_fits_30 = 23
+        assert test_input.find_first_free_id_range(30) == first_id_that_fits_30
+
+        first_id_that_fits_1000 = 300
+        assert test_input.find_first_free_id_range(1000) == first_id_that_fits_1000
 
 
 class TestD1S_Input:

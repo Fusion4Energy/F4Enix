@@ -19,7 +19,6 @@ under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
-
 import json
 import logging
 import os
@@ -27,25 +26,29 @@ import re
 from copy import deepcopy
 from typing import Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
 from numjuggler import likefunc as lf
 from numjuggler import parser
 
 from f4enix.constants import (
+    PAT_ALL_TALLY_KEYS,
     PAT_CARD_KEY,
     PAT_COMMENT,
     PAT_F_TR_CARD_KEY,
     PAT_FMESH_KEY,
     PAT_NP,
-    PAT_ALL_TALLY_KEYS,
     UNION_INTERSECT_SYMBOLS,
 )
 from f4enix.input.auxiliary import debug_file_unicode
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
+from f4enix.input.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
-from f4enix.input.irradiation import Nuclide, METASTABLE_TAG
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -1843,6 +1846,53 @@ class Input:
         )
         self.other_data["SI1"] = parser.Card(["SI1 0 1\n"], -5, -1)
         self.other_data["SP1"] = parser.Card(["SP1 -21 1\n"], -5, -1)
+
+    def explore_id_ranges_by_plot(self) -> tuple[Figure, Axes]:
+        """
+        Returns a Figure and Axes object where the cell and surface IDs used in the
+        input are plotted. Useful for interactive exploration of the used IDs.
+
+        Example
+        -------
+        >>> from f4enix.input.MCNPinput import Input
+        ... inp = Input.from_input('input.i')
+        ... fig, ax = inp.explore_id_ranges_by_plot()
+        ... fig.show()
+        """
+        cell_ids = {int(x) for x in self.cells}
+        surface_ids = {int(x.lstrip("*")) for x in self.surfs}
+
+        fig, ax = plt.subplots(figsize=(12, 3))
+        ax.scatter(list(cell_ids), [1] * len(cell_ids), s=10, color="blue")
+        ax.scatter(list(surface_ids), [2] * len(surface_ids), s=10, color="red")
+        ax.set_xlabel("ID number")
+        ax.set_yticks([1, 2])
+        ax.set_yticklabels(["Cell IDs", "Surface IDs"])
+        ax.grid()
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # Only integer ticks
+        ax.set_title("Occupied IDs")
+        return fig, ax
+
+    def find_first_free_id_range(self, required_size: int) -> int:
+        """
+        Given a required size, it finds the first ID that can accommodate both cell and
+        surface ID ranges.
+        """
+        # Extract combined cell and surface IDs
+        cells = {int(x) for x in self.cells}
+        surfaces = {int(x.lstrip("*")) for x in self.surfs}
+        combined_ids = np.array(list(cells.union(surfaces)))
+        combined_ids.sort()
+
+        # Add zero to the beginning in case the first IDs are free
+        combined_ids = np.insert(combined_ids, 0, 0)
+
+        # Return the first id that satisfies the required size or the last id + 1
+        gaps = np.diff(combined_ids) - 1
+        for i, gap in enumerate(gaps):
+            if gap >= required_size:
+                return combined_ids[i] + 1
+        return combined_ids[-1] + 1
 
 
 class D1S_Input(Input):
