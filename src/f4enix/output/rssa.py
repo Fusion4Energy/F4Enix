@@ -1,9 +1,10 @@
 """This module is related to the parsing of D1S-UNED meshinfo files."""
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Literal
+from typing import BinaryIO, Literal, Self
 
 import numpy as np
 import polars as pl
@@ -173,6 +174,21 @@ class RSSA:
         """Returns the history numbers of the tracks."""
         return self.tracks["a"]
 
+    def calculate_perimeter_positions(self) -> None:
+        """
+        It adds a new column to the tracks DataFrame called 'perimeter_pos' that takes
+        the X and Y coordinates and calculates the position as a perimeter coordinate.
+        The perimeter position is calculated as theta * r, where theta is the angle in
+        radians and r is the average radius of all the points.
+        """
+        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt().mean()
+        thetas = pl.arctan2(pl.col("y"), pl.col("x"))
+        perimeter_pos = (thetas * radius).alias("perimeter_pos")
+        self.tracks = self.tracks.with_columns(perimeter_pos)
+
+    def get_energy_spectra(self, energy_bins: Sequence[float]) -> pl.DataFrame:
+        raise NotImplementedError()
+
     def plot_plane(self) -> "RSSAPlot":
         """Returns an instance of RSSAPlot to plot the RSSA data assumin an XY plane."""
         return RSSAPlot(self)
@@ -180,7 +196,12 @@ class RSSA:
     def plot_cyl(self) -> "RSSAPlot":
         """Returns an instance of RSSAPlotCyl to plot the RSSA data asuming a
         cylindrical geometry with an axis following the Z-coordinate axis."""
+        if "perimeter_pos" not in self.tracks.collect_schema().names():
+            self.calculate_perimeter_positions()
         return RSSAPlot(self, x_col="perimeter_pos", y_col="z")
+
+    def plot_spectra(self):
+        pass
 
 
 @dataclass
@@ -196,7 +217,68 @@ class PlotParameters:
     vmax: float | None = None
 
 
-class RSSAPlot:
+class PlottingFunctions(ABC):
+    tracks: pl.LazyFrame
+    rssa_parameters: _FileParameters
+
+    def set_particle(self, particle_type: Literal["n", "p"]) -> Self:
+        """Set the particle type to filter the tracks."""
+        if particle_type == "n":
+            self.tracks = self.tracks.filter(pl.col("b") == NEUTRON_INDICATOR)
+        elif particle_type == "p":
+            self.tracks = self.tracks.filter(pl.col("b") != NEUTRON_INDICATOR)
+        return self
+
+    def set_surface_ids(self, surface_ids: list[int]) -> Self:
+        """Set the surface IDs to filter the tracks."""
+        valid_surface_ids = [s.id for s in self.rssa_parameters.surfaces]
+        if not all(sid in valid_surface_ids for sid in surface_ids):
+            raise ValueError(
+                f"Some surface IDs are not valid. Valid IDs are: {valid_surface_ids}"
+            )
+        self.tracks = self.tracks.filter(pl.col("c").is_in(surface_ids))
+        return self
+
+    def set_z_limits(self, vmin: float, vmax: float) -> Self:
+        """Set the z limits for the plot."""
+        self.tracks = self.tracks.filter(
+            pl.col("z").is_between(vmin, vmax, closed="both")
+        )
+        return self
+
+    def set_perimeter_limits(self, vmin: float, vmax: float) -> Self:
+        """Set the limits for the perimeter positions."""
+        self.tracks = self.tracks.filter(
+            pl.col("perimeter_pos").is_between(vmin, vmax, closed="both")
+        )
+        return self
+
+    def set_plot_parameters(self, plot_parameters: PlotParameters) -> Self:
+        """Set the plot parameters for the plot."""
+        self.plot_parameters = plot_parameters
+        return self
+
+    @abstractmethod
+    def get_plot(self) -> tuple[Figure, Axes]: ...
+
+    def save_figure(self, out_path: Path | str) -> Self:
+        """Save the figure to the specified path."""
+        _fig, _ax = self.get_plot()
+
+        out_path = Path(out_path)
+        if out_path.suffix != ".png":
+            out_path = Path(out_path).with_suffix(".png")
+        plt.savefig(out_path, dpi=300, bbox_inches="tight")
+        return self
+
+    def show(self) -> Self:
+        """Show the plot."""
+        _fig, _ax = self.get_plot()
+        plt.show()
+        return self
+
+
+class RSSAPlot(PlottingFunctions):
     def __init__(self, rssa: RSSA, x_col: str = "x", y_col: str = "y"):
         self.tracks = rssa.tracks.lazy()
         self.rssa_parameters = rssa.parameters
@@ -221,47 +303,6 @@ class RSSAPlot:
             raise ValueError("Y bins are not set. Call set_bins() or calculate_bins().")
         return self._y_bins
 
-    def set_particle(self, particle_type: Literal["n", "p"]) -> "RSSAPlot":
-        """Set the particle type to filter the tracks."""
-        if particle_type == "n":
-            self.tracks = self.tracks.filter(pl.col("b") == NEUTRON_INDICATOR)
-        elif particle_type == "p":
-            self.tracks = self.tracks.filter(pl.col("b") != NEUTRON_INDICATOR)
-        return self
-
-    def set_surface_ids(self, surface_ids: list[int]) -> "RSSAPlot":
-        """Set the surface IDs to filter the tracks."""
-        valid_surface_ids = [s.id for s in self.rssa_parameters.surfaces]
-        if not all(sid in valid_surface_ids for sid in surface_ids):
-            raise ValueError(
-                f"Some surface IDs are not valid. Valid IDs are: {valid_surface_ids}"
-            )
-        self.tracks = self.tracks.filter(pl.col("c").is_in(surface_ids))
-        return self
-
-    def set_z_limits(self, vmin: float, vmax: float) -> "RSSAPlot":
-        """Set the z limits for the plot."""
-        self.tracks = self.tracks.filter(
-            pl.col("z").is_between(vmin, vmax, closed="both")
-        )
-        return self
-
-    def set_perimeter_limits(self, vmin: float, vmax: float) -> "RSSAPlot":
-        """Set the limits for the perimeter positions."""
-        if "perimeter_pos" not in self.tracks.collect_schema().names():
-            self.calculate_perimeter_positions()
-        self.tracks = self.tracks.filter(
-            pl.col("perimeter_pos").is_between(vmin, vmax, closed="both")
-        )
-        return self
-
-    def calculate_perimeter_positions(self) -> "RSSAPlot":
-        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt().mean()
-        thetas = pl.arctan2(pl.col("y"), pl.col("x"))
-        perimeter_pos = (thetas * radius).alias("perimeter_pos")
-        self.tracks = self.tracks.with_columns(perimeter_pos)
-        return self
-
     def set_bins(self, x_bins: Sequence[float], y_bins: Sequence[float]) -> "RSSAPlot":
         """Set the x and y bins for the plot."""
         self._x_bins = pl.Series("x_bins", x_bins).sort()
@@ -271,7 +312,6 @@ class RSSAPlot:
     def calculate_bins(self, bin_width: float = 10.0) -> "RSSAPlot":
         """Automatically calculate the bins for the x and y coordinates of the plot by
         giving a bin width in cm. Instead use `set_bins()` to apply custom bins."""
-        self._ensure_that_columns_are_set()
         collected_tracks = self.tracks.collect()
         if collected_tracks.is_empty():
             raise ValueError("The tracks DataFrame is empty at this point.")
@@ -283,13 +323,6 @@ class RSSAPlot:
             np.arange(x_min, x_max + bin_width, bin_width),  # type: ignore
             np.arange(y_min, y_max + bin_width, bin_width),  # type: ignore
         )
-
-    def _ensure_that_columns_are_set(self) -> None:
-        if (
-            self.x_col == "perimeter_pos"
-            and self.x_col not in self.tracks.collect_schema().names()
-        ):
-            self.calculate_perimeter_positions()
 
     def get_particle_current(self, source_intensity: float) -> "RSSAPlot":
         """Calculate the particle current from the tracks. It automatically divides the
@@ -321,11 +354,6 @@ class RSSAPlot:
         self.tracks = self.tracks.with_columns(
             (pl.col("wgt") / abs(self.rssa_parameters.np1)).alias("wgt")
         )
-        return self
-
-    def set_plot_parameters(self, plot_parameters: PlotParameters) -> "RSSAPlot":
-        """Set the plot parameters for the plot."""
-        self.plot_parameters = plot_parameters
         return self
 
     def get_ratio_to(self, other: "RSSAPlot") -> "RSSAPlot":
@@ -372,28 +400,10 @@ class RSSAPlot:
         ax.set_ylabel(self.plot_parameters.ylabel)
         return fig, ax
 
-    def save_figure(self, out_path: Path | str) -> "RSSAPlot":
-        """Save the figure to the specified path."""
-        _fig, _ax = self.get_plot()
-
-        out_path = Path(out_path)
-        if out_path.suffix != ".png":
-            out_path = Path(out_path).with_suffix(".png")
-        plt.savefig(out_path, dpi=300, bbox_inches="tight")
-        return self
-
-    def show(self) -> "RSSAPlot":
-        """Show the plot."""
-        _fig, _ax = self.get_plot()
-        plt.show()
-        return self
-
     def _get_2d_grid_of_weights(
         self,
         agg_func: Literal["sum", "count"] = "sum",
     ) -> np.ndarray:
-        self._ensure_that_columns_are_set()
-
         # Remove points outside of the bins
         filtered_df = (
             self.tracks.select([self.x_col, self.y_col, "wgt"])
@@ -434,6 +444,9 @@ class RSSAPlot:
         )
         raster = _get_raster(grid, self.x_bins, self.y_bins)
         return raster
+
+
+class RSSASpectraPlot(PlottingFunctions): ...
 
 
 def _get_raster(
