@@ -4,7 +4,7 @@ from pathlib import Path
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
-
+import logging
 
 LINESTYLES = ["--", "-.", ":"] * 20
 
@@ -51,9 +51,11 @@ class Spectra:
 
         # Spectra must be normalized to 1
         if not np.isclose(np.sum(spectra_values), 1.0, atol=5e-3):
-            raise ValueError(
+            logging.warning(
                 f"Spectra values must be normalized to 1. Current sum: {np.sum(spectra_values)}"
+                " Normalizing automatically."
             )
+            spectra_values = spectra_values / np.sum(spectra_values)
 
         if not len(ebins) - 1 == len(spectra_values):
             raise ValueError(

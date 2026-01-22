@@ -100,3 +100,9 @@ class TestSpectra:
         with as_file(RES.joinpath("FLUXESS_space_name")) as fisp_file:
             spectra = Spectra.from_fispact(GROUP_STRUCTURES["VITAMIN-J-175"], fisp_file)
         assert spectra.name == "FLUX1_with_space"
+
+    def test_automatic_normalization(self):
+        ebins = GROUP_STRUCTURES["VITAMIN-J-175"]
+        values = np.random.rand(len(ebins) - 1) * 100
+        spectra = Spectra(ebins=ebins, spectra_values=values, name="test_spectra")
+        assert np.isclose(np.sum(spectra.spectra_values), 1.0, atol=5e-3)
