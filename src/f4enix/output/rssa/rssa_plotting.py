@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Self
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -48,7 +48,7 @@ class PlottingFunctions(ABC):
     tracks: pl.LazyFrame
     rssa_parameters: FileParameters
 
-    def set_particle(self, particle_type: Literal["n", "p"]) -> Self:
+    def set_particle(self, particle_type: Literal["n", "p"]):
         """Set the particle type to filter the tracks."""
         if particle_type == "n":
             self.tracks = self.tracks.filter(pl.col("b") == NEUTRON_INDICATOR)
@@ -56,7 +56,7 @@ class PlottingFunctions(ABC):
             self.tracks = self.tracks.filter(pl.col("b") != NEUTRON_INDICATOR)
         return self
 
-    def set_surface_ids(self, surface_ids: list[int]) -> Self:
+    def set_surface_ids(self, surface_ids: list[int]):
         """Set the surface IDs to filter the tracks."""
         valid_surface_ids = [s.id for s in self.rssa_parameters.surfaces]
         if not all(sid in valid_surface_ids for sid in surface_ids):
@@ -66,14 +66,14 @@ class PlottingFunctions(ABC):
         self.tracks = self.tracks.filter(pl.col("c").is_in(surface_ids))
         return self
 
-    def set_z_limits(self, vmin: float, vmax: float) -> Self:
+    def set_z_limits(self, vmin: float, vmax: float):
         """Set the z limits for the plot."""
         self.tracks = self.tracks.filter(
             pl.col("z").is_between(vmin, vmax, closed="both")
         )
         return self
 
-    def set_perimeter_limits(self, vmin: float, vmax: float) -> Self:
+    def set_perimeter_limits(self, vmin: float, vmax: float):
         """Set the limits for the perimeter positions."""
         self.tracks = self.tracks.filter(
             pl.col("perimeter_pos").is_between(vmin, vmax, closed="both")
@@ -83,7 +83,7 @@ class PlottingFunctions(ABC):
     @abstractmethod
     def get_plot(self) -> tuple[Figure, Axes]: ...
 
-    def save_figure(self, out_path: Path | str) -> Self:
+    def save_figure(self, out_path: Path | str):
         """Save the figure to the specified path."""
         fig, _ax = self.get_plot()
 
@@ -93,7 +93,7 @@ class PlottingFunctions(ABC):
         fig.savefig(out_path, dpi=300, bbox_inches="tight")
         return self
 
-    def show(self) -> Self:
+    def show(self):
         """Show the plot."""
         fig, _ax = self.get_plot()
         fig.show()
@@ -131,7 +131,7 @@ class RSSAPlot(PlottingFunctions):
             raise ValueError("Y bins are not set. Call set_bins() or calculate_bins().")
         return self._y_bins
 
-    def set_plot_parameters(self, plot_parameters: PlotParameters) -> Self:
+    def set_plot_parameters(self, plot_parameters: PlotParameters) -> "RSSAPlot":
         """Set the plot parameters for the plot."""
         self.plot_parameters = plot_parameters
         return self
@@ -278,6 +278,26 @@ class RSSAPlot(PlottingFunctions):
         raster = _get_raster(grid, self.x_bins, self.y_bins)
         return raster
 
+    # Override the return types of PlottingFunctions methods
+    # necessary due to the lack of typing.Self in Python <3.11
+    def set_particle(self, particle_type: Literal["n", "p"]) -> "RSSAPlot":
+        return super().set_particle(particle_type)
+
+    def set_surface_ids(self, surface_ids: list[int]) -> "RSSAPlot":
+        return super().set_surface_ids(surface_ids)
+
+    def set_z_limits(self, vmin: float, vmax: float) -> "RSSAPlot":
+        return super().set_z_limits(vmin, vmax)
+
+    def set_perimeter_limits(self, vmin: float, vmax: float) -> "RSSAPlot":
+        return super().set_perimeter_limits(vmin, vmax)
+
+    def save_figure(self, out_path: Path | str) -> "RSSAPlot":
+        return super().save_figure(out_path)
+
+    def show(self) -> "RSSAPlot":
+        return super().show()
+
 
 def _get_raster(
     grid: pl.DataFrame,
@@ -335,11 +355,13 @@ class RSSASpectraPlot(PlottingFunctions):
             ylabel="Normalized counts per unit of lethargy",
         )
 
-    def set_plot_parameters(self, plot_parameters: SpectraPlotParameters) -> Self:
+    def set_plot_parameters(
+        self, plot_parameters: SpectraPlotParameters
+    ) -> "RSSASpectraPlot":
         self.plot_parameters = plot_parameters
         return self
 
-    def set_energy_bins(self, energy_bins: Sequence[float]) -> Self:
+    def set_energy_bins(self, energy_bins: Sequence[float]) -> "RSSASpectraPlot":
         """Set the energy bins for the spectra plot."""
         self.energy_bins = np.asarray(energy_bins)
         return self
@@ -421,3 +443,23 @@ class RSSASpectraPlot(PlottingFunctions):
         ax.grid(True)
 
         return fig, ax
+
+    # Override the return types of PlottingFunctions methods
+    # necessary due to the lack of typing.Self in Python <3.11
+    def set_particle(self, particle_type: Literal["n", "p"]) -> "RSSASpectraPlot":
+        return super().set_particle(particle_type)
+
+    def set_surface_ids(self, surface_ids: list[int]) -> "RSSASpectraPlot":
+        return super().set_surface_ids(surface_ids)
+
+    def set_z_limits(self, vmin: float, vmax: float) -> "RSSASpectraPlot":
+        return super().set_z_limits(vmin, vmax)
+
+    def set_perimeter_limits(self, vmin: float, vmax: float) -> "RSSASpectraPlot":
+        return super().set_perimeter_limits(vmin, vmax)
+
+    def save_figure(self, out_path: Path | str) -> "RSSASpectraPlot":
+        return super().save_figure(out_path)
+
+    def show(self) -> "RSSASpectraPlot":
+        return super().show()
