@@ -195,23 +195,39 @@ END
             Spectra object read from the file.
         """
         # Read and flatten all tokens (handles multi-column and single-column)
+        lines = []
         with open(file, "r") as f:
-            tokens = []
             for line in f:
-                tokens.extend(line.strip().split())
+                lines.append(line)
+
+        # the last non empty line should be the title
+        removal_counter = 0
+        for line in reversed(lines):
+            removal_counter += 1
+            if line.strip():
+                if len(line) > 1:
+                    title_line = line
+                    break
+
+        # replace eventual spaces in the title
+        title_line = title_line.strip().replace(" ", "_")
+
+        # now go for the tokens
+        tokens = []
+        for line in lines[:-removal_counter]:
+            tokens.extend(line.strip().split())
 
         n_bins = len(ebins) - 1
 
-        if not len(tokens) == n_bins + 2:
+        if not len(tokens) == n_bins + 1:
             raise SpectraParsingError(
                 f"File {file} does not contain the expected number of tokens "
                 f"for the provided energy bins. Possible mismatch."
             )
 
         flux_values = np.flip(np.array(tokens[:n_bins], dtype=float))
-        name = tokens[-1]
 
-        return Spectra(ebins=ebins, spectra_values=flux_values, name=name)
+        return Spectra(ebins=ebins, spectra_values=flux_values, name=title_line)
 
     def get_by_lethargy(self) -> np.ndarray:
         """Get converted spectra values by unit lethargy."""
@@ -227,10 +243,11 @@ END
 
         Parameters
         ----------
-        lethargy : bool
-            If True, plot the spectra by unit lethargy.
-        add_spectra : list[Spectra] | None
-            Additional spectra to plot for comparison. If None, only the current spectra is plotted.
+        lethargy : bool, optional
+            If True, plot the spectra by unit lethargy. Default is False.
+        add_spectra : list[Spectra] | None, optional
+            Additional spectra to plot for comparison.
+            If None, only the current spectra is plotted. Default is None.
 
         Returns
         -------

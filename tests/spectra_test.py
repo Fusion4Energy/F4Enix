@@ -95,3 +95,8 @@ class TestSpectra:
         fig, ax = spectra.plot(lethargy=True, add_spectra=[spectra, spectra])
         assert fig is not None
         assert ax is not None
+
+    def test_spaced_name(self):
+        with as_file(RES.joinpath("FLUXESS_space_name")) as fisp_file:
+            spectra = Spectra.from_fispact(GROUP_STRUCTURES["VITAMIN-J-175"], fisp_file)
+        assert spectra.name == "FLUX1_with_space"
