@@ -31,7 +31,7 @@ class PlotParameters:
 
 @dataclass
 class SpectraPlotParameters:
-    title: str = "Energy spectra"
+    title: str = "Particle energy spectra"
     xlabel: str = "Energy [eV]"
     ylabel: str = "Normalized counts per unit of lethargy"
     label: str = ""
