@@ -13,6 +13,8 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from f4enix.egroups import GROUP_STRUCTURES
+
 BYTE = np.byte
 CHAR = np.char
 INT = np.int32
@@ -190,7 +192,7 @@ class RSSA:
         raise NotImplementedError()
 
     def plot_plane(self) -> "RSSAPlot":
-        """Returns an instance of RSSAPlot to plot the RSSA data assumin an XY plane."""
+        """Returns an instance of RSSAPlot to plot the RSSA data assuming an XY plane."""
         return RSSAPlot(self)
 
     def plot_cyl(self) -> "RSSAPlot":
@@ -200,8 +202,8 @@ class RSSA:
             self.calculate_perimeter_positions()
         return RSSAPlot(self, x_col="perimeter_pos", y_col="z")
 
-    def plot_spectra(self):
-        pass
+    def plot_spectra(self) -> "RSSASpectraPlot":
+        return RSSASpectraPlot(self)
 
 
 @dataclass
@@ -215,6 +217,21 @@ class PlotParameters:
     norm: Literal["linear", "log"] = "log"
     vmin: float | None = None
     vmax: float | None = None
+
+
+@dataclass
+class SpectraPlotParameters:
+    title: str = "Energy spectra"
+    xlabel: str = "Energy [eV]"
+    ylabel: str = "Normalized counts per unit of lethargy"
+    label: str = ""
+
+
+@dataclass
+class SpectraInfo:
+    normalized_counts: np.ndarray
+    energy_bins: np.ndarray
+    label: str = ""
 
 
 class PlottingFunctions(ABC):
@@ -251,11 +268,6 @@ class PlottingFunctions(ABC):
         self.tracks = self.tracks.filter(
             pl.col("perimeter_pos").is_between(vmin, vmax, closed="both")
         )
-        return self
-
-    def set_plot_parameters(self, plot_parameters: PlotParameters) -> Self:
-        """Set the plot parameters for the plot."""
-        self.plot_parameters = plot_parameters
         return self
 
     @abstractmethod
@@ -302,6 +314,11 @@ class RSSAPlot(PlottingFunctions):
         if self._y_bins is None:
             raise ValueError("Y bins are not set. Call set_bins() or calculate_bins().")
         return self._y_bins
+
+    def set_plot_parameters(self, plot_parameters: PlotParameters) -> Self:
+        """Set the plot parameters for the plot."""
+        self.plot_parameters = plot_parameters
+        return self
 
     def set_bins(self, x_bins: Sequence[float], y_bins: Sequence[float]) -> "RSSAPlot":
         """Set the x and y bins for the plot."""
@@ -446,9 +463,6 @@ class RSSAPlot(PlottingFunctions):
         return raster
 
 
-class RSSASpectraPlot(PlottingFunctions): ...
-
-
 def _get_raster(
     grid: pl.DataFrame,
     x_bins: pl.Series,
@@ -492,6 +506,105 @@ def calculate_areas(
     dx = np.diff(x_edges)
     dy = np.diff(y_edges)
     return np.outer(dy, dx)
+
+
+class RSSASpectraPlot(PlottingFunctions):
+    def __init__(self, rssa: RSSA):
+        self.tracks = rssa.tracks.lazy()
+        self.rssa_parameters = rssa.parameters
+        self.energy_bins: np.ndarray = GROUP_STRUCTURES["VITAMIN-J-175"]
+        self.plot_parameters = SpectraPlotParameters(
+            title="Energy spectra",
+            xlabel="Energy [eV]",
+            ylabel="Normalized counts per unit of lethargy",
+        )
+
+    def set_plot_parameters(self, plot_parameters: SpectraPlotParameters) -> Self:
+        self.plot_parameters = plot_parameters
+        return self
+
+    def set_energy_bins(self, energy_bins: Sequence[float]) -> Self:
+        """Set the energy bins for the spectra plot."""
+        self.energy_bins = np.asarray(energy_bins)
+        return self
+
+    def get_spectra_info(self) -> SpectraInfo:
+        # Get the energies and weights
+        data = self.tracks.select(
+            (pl.col("erg") * 1e6).alias("erg"),  # Convert energy from MeV to eV,
+            pl.col("wgt"),
+        ).collect()
+
+        # Group the data by energy bins
+        weighted_counts, _ = np.histogram(
+            data["erg"],
+            bins=self.energy_bins,
+            weights=data["wgt"],  # each contribution is weighted by the particle weight
+        )
+
+        # Calculate the counts per lethargy
+        lethargies = np.log(self.energy_bins[1:] / self.energy_bins[:-1])
+        normalized_counts = (
+            weighted_counts
+            / lethargies  # The Y axis is in units of energy per lethargy
+            / np.sum(weighted_counts)  # Normalize to the total number of counts to 1
+        )
+
+        return SpectraInfo(
+            normalized_counts=normalized_counts,
+            energy_bins=self.energy_bins,
+            label=self.plot_parameters.label,
+        )
+
+    def get_plot(self) -> tuple[Figure, Axes]:
+        spectra_info = self.get_spectra_info()
+
+        # Create the plot
+        fig, ax = plt.subplots()
+        ax.step(
+            spectra_info.energy_bins[:-1],
+            spectra_info.normalized_counts,
+            label=spectra_info.label,
+        )
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        if spectra_info.label:
+            ax.legend()
+        ax.set_xlabel(self.plot_parameters.xlabel)
+        ax.set_ylabel(self.plot_parameters.ylabel)
+        ax.set_title(self.plot_parameters.title)
+        ax.grid(True)
+        return fig, ax
+
+    def get_combined_plot_with_other_spectras(
+        self, *other_spectra_info: SpectraInfo
+    ) -> tuple[Figure, Axes]:
+        """Combine the current spectra plot with other spectra for comparison."""
+        current_spectra_info = self.get_spectra_info()
+
+        fig, ax = plt.subplots()
+        ax.step(
+            current_spectra_info.energy_bins[:-1],
+            current_spectra_info.normalized_counts,
+            label=current_spectra_info.label,
+        )
+
+        for spectra_info in other_spectra_info:
+            ax.step(
+                spectra_info.energy_bins[:-1],
+                spectra_info.normalized_counts,
+                label=spectra_info.label,
+            )
+
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.legend()
+        ax.set_xlabel(self.plot_parameters.xlabel)
+        ax.set_ylabel(self.plot_parameters.ylabel)
+        ax.set_title(self.plot_parameters.title)
+        ax.grid(True)
+
+        return fig, ax
 
 
 def _parse_header(infile: BinaryIO) -> _FileParameters:

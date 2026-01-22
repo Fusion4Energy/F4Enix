@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 import tests.resources.rssa as res
-from f4enix.output.rssa import RSSA, PlotParameters
+from f4enix.egroups import GROUP_STRUCTURES
+from f4enix.output.rssa import RSSA, PlotParameters, SpectraPlotParameters
 
 RESOURCES = files(res)
 
@@ -156,3 +157,58 @@ def test_plot_plane(rssa, tmp_path):
     )
     # Check if the plot file was created
     assert (tmp_path / "test_plot_plane.png").exists()
+
+
+def test_plot_spectra(rssa, tmp_path):
+    (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                title="Neutron spectra at surface",
+                xlabel="Energy (eV)",
+                ylabel="Counts",
+                label="Neutron spectra",
+            )
+        )
+        .save_figure(tmp_path / "test_plot_spectra.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_spectra.png").exists()
+
+
+def test_combined_plot_spectra(rssa, tmp_path):
+    other_spectra = (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                label="Other spectra",
+            )
+        )
+        .get_spectra_info()
+    )
+    other_spectra.normalized_counts *= 0.1  # Just to differentiate the plots
+    fig, _ax = (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                title="Neutron spectra at surface",
+                xlabel="Energy (eV)",
+                ylabel="Counts",
+                label="Neutron spectra",
+            )
+        )
+        .get_combined_plot_with_other_spectras(other_spectra)
+    )
+    fig.savefig(tmp_path / "test_plot_spectra.png")
+
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_spectra.png").exists()
