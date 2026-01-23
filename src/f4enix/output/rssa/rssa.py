@@ -140,18 +140,6 @@ class RSSA:
         """Returns the history numbers of the tracks."""
         return self.tracks["a"]
 
-    def calculate_perimeter_positions(self) -> None:
-        """
-        It adds a new column to the tracks DataFrame called 'perimeter_pos' that takes
-        the X and Y coordinates and calculates the position as a perimeter coordinate.
-        The perimeter position is calculated as theta * r, where theta is the angle in
-        radians and r is the average radius of all the points.
-        """
-        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
-        thetas = pl.arctan2(pl.col("y"), pl.col("x"))
-        perimeter_pos = (thetas * radius).alias("perimeter_pos")
-        self.tracks = self.tracks.with_columns(perimeter_pos)
-
     def get_energy_spectra(self, energy_bins: Sequence[float]) -> pl.DataFrame:
         raise NotImplementedError()
 
@@ -162,9 +150,11 @@ class RSSA:
     def plot_cyl(self) -> RSSAPlot:
         """Returns an instance of RSSAPlotCyl to plot data asuming a cylindrical
         geometry with an axis following the Z-coordinate axis."""
-        if "perimeter_pos" not in self.tracks.collect_schema().names():
-            self.calculate_perimeter_positions()
-        return RSSAPlot(self.tracks, self.parameters, x_col="perimeter_pos", y_col="z")
+        rssa_plot = RSSAPlot(
+            self.tracks, self.parameters, x_col="perimeter_pos", y_col="z"
+        )
+        rssa_plot.calculate_perimeter_positions()
+        return rssa_plot
 
     def plot_spectra(self) -> RSSASpectraPlot:
         return RSSASpectraPlot(self.tracks, self.parameters)

@@ -30,14 +30,6 @@ class PlotParameters:
 
 
 @dataclass
-class SpectraPlotParameters:
-    title: str = "Particle energy spectra"
-    xlabel: str = "Energy [eV]"
-    ylabel: str = "Normalized counts per unit of lethargy"
-    label: str = ""
-
-
-@dataclass
 class SpectraInfo:
     normalized_counts: np.ndarray
     energy_bins: np.ndarray
@@ -75,10 +67,24 @@ class PlottingFunctions(ABC):
 
     def set_perimeter_limits(self, vmin: float, vmax: float):
         """Set the limits for the perimeter positions."""
+        if "perimeter_pos" not in self.tracks.collect_schema().names():
+            self.calculate_perimeter_positions()
         self.tracks = self.tracks.filter(
             pl.col("perimeter_pos").is_between(vmin, vmax, closed="both")
         )
         return self
+
+    def calculate_perimeter_positions(self) -> None:
+        """
+        It adds a new column to the tracks DataFrame called 'perimeter_pos' that takes
+        the X and Y coordinates and calculates the position as a perimeter coordinate.
+        The perimeter position is calculated as theta * r, where theta is the angle in
+        radians and r is the average radius of all the points.
+        """
+        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
+        thetas = pl.arctan2(pl.col("y"), pl.col("x"))
+        perimeter_pos = (thetas * radius).alias("perimeter_pos")
+        self.tracks = self.tracks.with_columns(perimeter_pos)
 
     @abstractmethod
     def get_plot(self) -> tuple[Figure, Axes]: ...
@@ -344,6 +350,16 @@ def calculate_areas(
     return np.outer(dy, dx)
 
 
+@dataclass
+class SpectraPlotParameters:
+    title: str = "Particle energy spectra"
+    xlabel: str = "Energy [eV]"
+    ylabel: str = "Normalized counts per unit of lethargy"
+    label: str = ""
+    min_energy: float | None = None
+    max_energy: float | None = None
+
+
 class RSSASpectraPlot(PlottingFunctions):
     def __init__(self, tracks: pl.DataFrame, rssa_parameters: FileParameters):
         self.tracks = tracks.lazy()
@@ -411,6 +427,7 @@ class RSSASpectraPlot(PlottingFunctions):
         ax.set_xlabel(self.plot_parameters.xlabel)
         ax.set_ylabel(self.plot_parameters.ylabel)
         ax.set_title(self.plot_parameters.title)
+        ax.set_xlim(self.plot_parameters.min_energy, self.plot_parameters.max_energy)
         ax.grid(True)
         return fig, ax
 
@@ -440,6 +457,7 @@ class RSSASpectraPlot(PlottingFunctions):
         ax.set_xlabel(self.plot_parameters.xlabel)
         ax.set_ylabel(self.plot_parameters.ylabel)
         ax.set_title(self.plot_parameters.title)
+        ax.set_xlim(self.plot_parameters.min_energy, self.plot_parameters.max_energy)
         ax.grid(True)
 
         return fig, ax
