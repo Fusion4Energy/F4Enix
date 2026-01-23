@@ -157,4 +157,8 @@ class RSSA:
         return rssa_plot
 
     def plot_spectra(self) -> RSSASpectraPlot:
+        """Returns an instance of RSSASpectraPlot to plot energy spectra. If
+        `set_perimeter_limits()` is used and there is no `perimeter_pos` column,
+        the perimeter position will be calculated assuming a cylindrical geometry with
+        an axis following the Z-coordinate axis."""
         return RSSASpectraPlot(self.tracks, self.parameters)

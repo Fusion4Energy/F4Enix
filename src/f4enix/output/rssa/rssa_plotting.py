@@ -79,7 +79,7 @@ class PlottingFunctions(ABC):
         It adds a new column to the tracks DataFrame called 'perimeter_pos' that takes
         the X and Y coordinates and calculates the position as a perimeter coordinate.
         The perimeter position is calculated as theta * r, where theta is the angle in
-        radians and r is the average radius of all the points.
+        radians and r is the radius of each track.
         """
         radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
         thetas = pl.arctan2(pl.col("y"), pl.col("x"))
@@ -374,6 +374,7 @@ class RSSASpectraPlot(PlottingFunctions):
     def set_plot_parameters(
         self, plot_parameters: SpectraPlotParameters
     ) -> "RSSASpectraPlot":
+        """Set the plot parameters for the spectra plot."""
         self.plot_parameters = plot_parameters
         return self
 
@@ -383,6 +384,7 @@ class RSSASpectraPlot(PlottingFunctions):
         return self
 
     def get_spectra_info(self) -> SpectraInfo:
+        """Calculate and return the spectra information."""
         # Get the energies and weights
         data = self.tracks.select(
             (pl.col("erg") * 1e6).alias("erg"),  # Convert energy from MeV to eV,
@@ -411,6 +413,8 @@ class RSSASpectraPlot(PlottingFunctions):
         )
 
     def get_plot(self) -> tuple[Figure, Axes]:
+        """Returns the Matplotlib figure and axes of the plot for further manual
+        customization."""
         spectra_info = self.get_spectra_info()
 
         # Create the plot
