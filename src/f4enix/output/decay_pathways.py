@@ -60,8 +60,8 @@ class PathwayLibrary:
             with as_file(resources.joinpath("global_filterable.csv")) as infile:
                 df = pd.read_csv(infile)
 
-        df["isotope"] = df["isotope"].astype(str) + df["state"].astype(str)
-        df["isotope"] = df["isotope"].str.replace("nan", "")
+        df["isotope"] = df["isotope"].astype(str) + df["state"].replace(pd.NA, "")
+
         del df["state"]
 
         self.library = df.set_index(
