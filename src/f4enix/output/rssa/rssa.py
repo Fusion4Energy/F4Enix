@@ -147,7 +147,7 @@ class RSSA:
         The perimeter position is calculated as theta * r, where theta is the angle in
         radians and r is the average radius of all the points.
         """
-        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt().mean()
+        radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
         thetas = pl.arctan2(pl.col("y"), pl.col("x"))
         perimeter_pos = (thetas * radius).alias("perimeter_pos")
         self.tracks = self.tracks.with_columns(perimeter_pos)
