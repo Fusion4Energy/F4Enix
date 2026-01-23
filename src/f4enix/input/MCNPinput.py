@@ -1218,8 +1218,8 @@ class Input:
 
         rows = []
         for key in tallies:
-            desc = pd.NA
-            particle = pd.NA
+            desc = np.nan
+            particle = np.nan
             multiplier = None
             card_keys = self._get_tally_cards(key)
             for aux_key in card_keys:
@@ -1238,10 +1238,10 @@ class Input:
                 if len(multiplier) > 1:
                     row["Other multipliers"] = multiplier[1:]
                 else:
-                    row["Other multipliers"] = pd.NA
+                    row["Other multipliers"] = np.nan
             else:
-                row["Normalization"] = pd.NA
-                row["Other multipliers"] = pd.NA
+                row["Normalization"] = np.nan
+                row["Other multipliers"] = np.nan
 
             rows.append(row)
 

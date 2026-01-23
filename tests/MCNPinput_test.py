@@ -438,7 +438,12 @@ class TestInput:
             "3.8566e10",
             ["25", "205"],
         ]
-        assert summary.loc[204].values.tolist() == ["N", pd.NA, pd.NA, pd.NA]
+        to_assert = summary.loc[204].values.tolist()
+        assert to_assert[0] == "N"
+        assert to_assert[1] is np.nan
+        assert to_assert[2] is np.nan
+        assert to_assert[3] is np.nan
+
         assert len(summary.loc[704]["Other multipliers"]) == 12
 
         summary = testInput.get_tally_summary(fmesh=True)
