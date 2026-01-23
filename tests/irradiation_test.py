@@ -6,6 +6,8 @@ from f4enix.core.irradiation import (
     IrradiationScenario,
     _process_irr_line,
     TCF_Computer,
+    Pulse,
+    TIME_UNITS,
 )
 from f4enix.input.d1suned import IrradiationFile
 from tests.resources import irradiation
@@ -66,6 +68,31 @@ class TestIrradiationScenario:
             irr_scenario = IrradiationScenario.from_legacy_d1stime(d1s_file)
 
         assert len(irr_scenario.pulses) == 62
+
+    def test_get_collapsed_table(self):
+        scenario = IrradiationScenario(
+            (
+                [
+                    Pulse(2, 2.68, TIME_UNITS.YEAR),
+                    Pulse(10, 20.6, TIME_UNITS.YEAR),
+                    Pulse(0.667, 0, TIME_UNITS.YEAR),
+                    Pulse(1.325, 41.5, TIME_UNITS.YEAR),
+                ]
+                + [Pulse(3290, 0), Pulse(400, 500)] * 17
+                + [Pulse(3290, 0), Pulse(400, 700)] * 3
+                + [Pulse(2, 2.68, TIME_UNITS.YEAR)]
+            ),
+        )
+        table = scenario.get_collapsed_table()
+        assert len(table) == 9
+        assert table.reset_index().iloc[4]["Repetition"] == 17
+        assert table.reset_index().iloc[6]["Repetition"] == 3
+
+        scenario = IrradiationScenario(
+            ([Pulse(3290, 0), Pulse(400, 500)] + [Pulse(3290, 0)] * 3),
+        )
+        table = scenario.get_collapsed_table()
+        assert len(table) == 3
 
 
 class TestTFC_Computer:

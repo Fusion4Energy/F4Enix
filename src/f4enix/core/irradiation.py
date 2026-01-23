@@ -5,7 +5,7 @@ from pypact.input.inputdata import InputData
 from pypact.input.serialization import from_file
 import numpy as np
 import json
-
+import pandas as pd
 from f4enix.core.constants import (
     TIME_UNITS,
     TIME_UNITS_CONVERSION,
@@ -65,6 +65,15 @@ class Pulse:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Pulse):
+            return False
+        return (
+            self.time == value.time
+            and self.intensity == value.intensity
+            and self.unit == value.unit
+        )
 
 
 class IrradiationScenario:
@@ -217,6 +226,47 @@ class IrradiationScenario:
             )
 
         return cls(pulses=pulses, cooling_times=cooling_times, name=name)
+
+    def get_collapsed_table(self) -> pd.DataFrame:
+        """Compile a dataframe with the irradiation sceario data. Pulses or sequences
+        of pulses that are repeated are collapsed into single entries with a multiplier."""
+
+        def scan_sequence(pulses: list[Pulse]) -> tuple[int, int]:
+            "How many repetitions containing the pulse at index zero are there?"
+            multiplier = 1
+            for len_sequence in range(1, (len(pulses) // 2 + 1)):
+                seq = pulses[:len_sequence]
+                for check_idx in range(len_sequence, len(pulses), len_sequence):
+                    if pulses[check_idx : check_idx + len_sequence] == seq:
+                        multiplier += 1
+                    else:
+                        break
+                if multiplier > 1:
+                    return multiplier, len_sequence
+            return 1, 1
+
+        def get_record(pulse: Pulse, multiplier: int) -> dict:
+            record = {
+                "Time": f"{pulse.get_time(pulse.unit)} {pulse.unit.value}",
+                "Intensity": pulse.intensity,
+                "Repetition": multiplier,
+            }
+            return record
+
+        remaining_pulses = self.pulses
+        records = []
+        while len(remaining_pulses) > 0:
+            multiplier, len_sequence = scan_sequence(remaining_pulses)
+            if multiplier > 1:
+                sequence = remaining_pulses[:len_sequence]
+                remaining_pulses = remaining_pulses[len_sequence * multiplier :]
+                for pulse in sequence:
+                    records.append(get_record(pulse, multiplier))
+            else:
+                records.append(get_record(remaining_pulses[0], multiplier=1))
+                remaining_pulses = remaining_pulses[1:]
+
+        return pd.DataFrame(records).set_index(["Repetition", "Time"])
 
 
 class Nuclide:
