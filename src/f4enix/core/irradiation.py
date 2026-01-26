@@ -3,6 +3,7 @@ from pathlib import Path
 from importlib.resources import files, as_file
 from pypact.input.inputdata import InputData
 from pypact.input.serialization import from_file
+from copy import deepcopy
 import numpy as np
 import json
 import pandas as pd
@@ -108,7 +109,8 @@ class IrradiationScenario:
             list of cooling time labels
         """
         self.name = name
-        self.pulses = pulses
+        # make sure all pulses are individual copies
+        self.pulses = [deepcopy(pulse) for pulse in pulses]
         if cooling_times is not None:
             self._cooling_times = cooling_times
             self._cooling_labels = [
