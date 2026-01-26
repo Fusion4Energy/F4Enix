@@ -5,6 +5,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 import logging
+from f4enix.core.material_library import TUNGSTEN
 
 LINESTYLES = ["--", "-.", ":"] * 20
 
@@ -86,21 +87,41 @@ class Spectra:
             # add flux name
             f.write(f"{self.name}\n")
 
-    def print_collapse_inp(self, outdir: PathLike) -> Path:
+    def print_collapse_inp(self, outdir: PathLike, tungsten: bool = False) -> Path:
         """Print a fispact collapse input file to perform XS collapse with this spectra.
 
         Parameters
         ----------
         outdir : PathLike
             Path to the output directory.
+        tungsten : bool
+            If True, the irradiation will happen on 1kg of tungsten as target material.
+            self shielding will be included for the W186(n,g)W187.
 
         Returns
         -------
         Path
             Path to the generated input file.
         """
+        if tungsten:
+            mass_text = ""
+            for elem, perc in zip(TUNGSTEN.elem, TUNGSTEN.perc):
+                mass_text += f"{elem} {perc}\n"
+            text = f"""MONITOR 1
+CLOBBER
+GETXS 1 {len(self.ebins) - 1}
+PROBTAB 1 1
+SSFCHOOSE 1 0
+W186
+SSFMASS 1 {len(TUNGSTEN.elem)}
+{mass_text}FISPACT
+* COLLAPSE 
+END
+* END OF RUN
+"""
 
-        text = f"""MONITOR 1
+        else:
+            text = f"""MONITOR 1
 CLOBBER
 GETXS 1 {len(self.ebins) - 1}
 FISPACT
