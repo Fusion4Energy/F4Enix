@@ -2,7 +2,12 @@ import pytest
 from importlib.resources import files, as_file
 
 import tests.resources.fispact_legacy_out as lib_res
-from f4enix.output.fispact_legacy_out import FispactZaid, Pathway, PathwayCollection
+from f4enix.output.fispact_legacy_out import (
+    FispactZaid,
+    Pathway,
+    PathwayCollection,
+    FispactOutput,
+)
 
 lib_resources = files(lib_res)
 
@@ -51,3 +56,19 @@ class TestPathwayCollection:
             collection = PathwayCollection.from_file(file)
         df = collection.to_dataframe()
         assert len(df) == 56
+
+
+class TestFispactOutput:
+    @pytest.fixture
+    def outp(self) -> FispactOutput:
+        with as_file(lib_resources.joinpath("testSS.out")) as file:
+            output = FispactOutput(file, cooling_times=["1e2", "1e4"])
+        return output
+
+    def test_filter_by_cum_dose(self, outp: FispactOutput):
+        df = outp.filter_by_cum_dose(95, "1e2")
+        assert len(df) == 3
+        assert df.iloc[-1]["Cumulative dose sum"] > 95
+
+        df = outp.filter_by_cum_dose(95, "1e2", add_pathways=True)
+        assert len(df) == 8

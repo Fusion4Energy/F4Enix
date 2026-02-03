@@ -1,14 +1,15 @@
-"""Parse legacy FISPACT-II output files to extract the generic pathways.
-
-"""
+"""Parse legacy FISPACT-II output files to extract the generic pathways."""
 
 from __future__ import annotations
 
 import re
 import os
 import pandas as pd
+import pypact as pp
 from dataclasses import dataclass
+from pathlib import Path
 from f4enix.input.libmanager import LibManager
+from f4enix.core.constants import PathLike
 
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
@@ -271,3 +272,122 @@ class PathwayCollection:
         df.set_index(["Daughter", "% contribution"], inplace=True)
         del df["isotope_sort"]
         return df
+
+
+class FispactOutput:
+    def __init__(self, filepath: PathLike, cooling_times: list[str]):
+        """Store data parsed from FISPACT legacy output files
+
+        Parameters
+        ----------
+        filepath : PathLike
+            path to the fispact output
+        cooling_times : list[str]
+            list of labels associated to the different cooling times. No check is
+            performed on the correct length of the label list, the last len(cooling_times)
+            timesteps in the inventory data will be associated to these labels.
+
+        Attributes
+        ----------
+        filepath : Path
+            path to the fispact output
+        name : str
+            name of the fispact output file without extension
+        inventory_data : list[pp.TimeStep]
+            inventory data parsed from the fispact output file. This is a pypact object.
+        """
+        self.filepath = Path(filepath)
+        self.name = self.filepath.stem
+
+        with pp.Reader(filepath) as output:
+            # store inventory data
+            self.inventory_data = output.inventory_data
+
+        self.sddr = self._get_sddr(cooling_times)
+        self.pathways_collection = PathwayCollection.from_file(self.filepath)
+
+    def _get_sddr(self, cooling_times: list[str]) -> pd.DataFrame:
+        dfs = []
+        for i, timestep in enumerate(self.inventory_data[-len(cooling_times) :]):
+            cooling_time_label = cooling_times[i]
+
+            doses = []
+            for nuclide in timestep.nuclides:
+                doses.append(
+                    {
+                        "element": nuclide.element,
+                        "isotope": nuclide.isotope,
+                        "state": nuclide.state,
+                        "dose": nuclide.dose,
+                        "cooling time": cooling_time_label,
+                    }
+                )
+
+            df = pd.DataFrame(doses)
+            df = df[df["dose"] > 0]  # filter zero doses
+            df["isotope % dose"] = df["dose"] / df["dose"].sum() * 100
+            df.sort_values(by="isotope % dose", ascending=False, inplace=True)
+            df["Cumulative dose sum"] = df["isotope % dose"].values.cumsum()
+            dfs.append(df)
+
+        return pd.concat(dfs)
+
+    def filter_by_cum_dose(
+        self, perc: float, label: str, add_pathways: bool = False
+    ) -> pd.DataFrame:
+        """Filter the SDDR output (at a certain cooling time) to get at least a certain
+        percent of the cumulative dose.
+
+        Parameters
+        ----------
+        perc : float
+            percent of cumulative dose to filter at
+        label : str
+            cooling time label to filter at
+        add_pathways : bool, optional
+            whether to add pathways rows, by default False
+        Returns
+        -------
+        pd.DataFrame
+            filtered dataframe
+        """
+        # select only requested label
+        df = self.sddr[self.sddr["cooling time"] == label].copy()
+        last_index = None
+        for i, (_, row) in enumerate(df.iterrows()):
+            if row["Cumulative dose sum"] > perc:
+                last_index = i + 1
+                break
+        df = df.iloc[:last_index]
+
+        if add_pathways:
+            df = self.add_pathways_rows(df)
+        return df
+
+    def add_pathways_rows(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add pathways rows to a SDDR dataframe.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            filtered dataframe
+
+        Returns
+        -------
+        pd.DataFrame
+            dataframe with pathways rows added
+        """
+        newrows = []
+        for _, row in df.iterrows():
+            isotope = str(row["element"]) + str(row["isotope"]) + row["state"]
+            for pathway in self.pathways_collection.pathways:
+                if pathway.daughter.get_str() == isotope:
+                    newrow = row.copy()
+                    newrow["pathway"] = str(pathway)
+                    newrow["pathway % dose"] = (
+                        pathway.perc * row["isotope % dose"] / 100
+                    )
+                    newrows.append(newrow)
+
+        newdf = pd.DataFrame(newrows)
+        return newdf.sort_values(by="pathway % dose", ascending=False)
