@@ -244,7 +244,7 @@ CONCRETE = MaterialComposition(
     ],
 )
 CUCRZR = MaterialComposition(
-    "Copper Cromium Zirconium (CuCrZr)",
+    "CuCrZr",
     [
         ("B", "1.0000E-03"),
         ("O", "3.2000E-2"),

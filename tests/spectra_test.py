@@ -67,15 +67,13 @@ class TestSpectra:
             )
 
     def test_not_normalized(self):
-        with pytest.raises(ValueError):
-            Spectra(
-                ebins=GROUP_STRUCTURES["VITAMIN-J-175"],
-                spectra_values=np.random.rand(
-                    len(GROUP_STRUCTURES["VITAMIN-J-175"]) - 1
-                )
-                * 100,
-                name="test_spectra",
-            )
+        spectrum = Spectra(
+            ebins=GROUP_STRUCTURES["VITAMIN-J-175"],
+            spectra_values=np.random.rand(len(GROUP_STRUCTURES["VITAMIN-J-175"]) - 1)
+            * 100,
+            name="test_spectra",
+        )
+        assert pytest.approx(spectrum.spectra_values.sum()) == 1.0
 
     @pytest.mark.parametrize(
         "egroup",

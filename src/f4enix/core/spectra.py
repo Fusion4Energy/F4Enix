@@ -83,7 +83,7 @@ class Spectra:
             for flux in np.flip(self.spectra_values):
                 f.write(f"{flux:{format}}\n")
             # Add dummy wall load
-            f.write(f"{1:{format}}\n")
+            f.write(f"{1}\n")
             # add flux name
             f.write(f"{self.name}\n")
 

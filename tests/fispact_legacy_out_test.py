@@ -57,6 +57,10 @@ class TestPathwayCollection:
         df = collection.to_dataframe()
         assert len(df) == 56
 
+    def test_weird_pathways(self):
+        with as_file(lib_resources.joinpath("test_weird_pathways.out")) as file:
+            collection = PathwayCollection.from_file(file)
+
 
 class TestFispactOutput:
     @pytest.fixture

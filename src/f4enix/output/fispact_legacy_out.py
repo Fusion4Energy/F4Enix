@@ -157,6 +157,8 @@ class PathwayCollection:
             A list of Pathway objects representing the pathways found in the file.
         """
         lines = []
+        end_reactions = None
+        start_reactions = None
         with open(file, "r", encoding="utf-8") as infile:
             for i, line in enumerate(infile):
                 lines.append(line)
@@ -164,6 +166,17 @@ class PathwayCollection:
                     start_reactions = i
                 elif "G E N E R I C   P A T H W" in line:
                     end_reactions = i
+
+            if end_reactions is None:
+                # may be a weird pathways end
+                for i, line in enumerate(lines):
+                    if "1 * * * TIME INTERVAL" in line:
+                        end_reactions = i
+                        break
+
+        if end_reactions is None or start_reactions is None:
+            raise ValueError(f"Could not find pathways section in file {file}.")
+
         lines = lines[start_reactions + 1 : end_reactions]
 
         paths = []
