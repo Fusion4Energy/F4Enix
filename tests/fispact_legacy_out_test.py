@@ -39,7 +39,7 @@ class TestPathway:
 
         reactions = ["fission", "decay"]
         pathway = Pathway(parent, daughter, 1, reactions, intermediates)
-        assert str(pathway) == "U235 -fission-> U236 -decay->  U236"
+        assert str(pathway) == "U235 -fission-> U236 -decay-> U236"
 
 
 class TestPathwayCollection:
@@ -57,9 +57,36 @@ class TestPathwayCollection:
         df = collection.to_dataframe()
         assert len(df) == 56
 
-    def test_weird_pathways(self):
-        with as_file(lib_resources.joinpath("test_weird_pathways.out")) as file:
+    @pytest.mark.parametrize(
+        "file", ["testSS.out", "test_weird_pathways.out", "no_pathways.out"]
+    )
+    def test_weird_pathways(self, file):
+        with as_file(lib_resources.joinpath(file)) as file:
             collection = PathwayCollection.from_file(file)
+            assert len(collection.pathways) > 0
+
+    def test_parse_pathway(self):
+        text = """
+ Target nuclide Bi212     99.837% of inventory given by  1 path
+ --------------------
+
+ path  1  99.837% Th 232 ---(B)--- Ra228 ---(d)--- Ac228 ---(d)--- Th228 ---(b)--- Ra224 ---(b)--- Rn220 ---(d)--- Po216 ---(d)--- Pb212 ---(d)--- 
+                     99.99%(a)      100.00%(b-)     100.00%(b-)     100.00%(a)      100.00%(a)      100.00%(a)      100.00%(a)      100.00%(b-)    
+                      0.01%(n,na)                                     0.00%(n,na)     0.00%(n,na)                                                  
+
+ path continued   Pb 212 ---(d)--- Bi212 ---(S)---
+                    100.00%(b-)"""
+        pathway = PathwayCollection._parse_pathway(text)
+        assert pathway.parent.get_str() == "Th232"
+        assert pathway.daughter.get_str() == "Bi212"
+        assert pathway.reactions[-1] == "(b-)"
+
+        # normal path
+        text = """
+ path  1 100.000% Th232 ---(D)--- Ra228 ---(D)--- Ac228 ---(d)--- Th228 ---(d)--- Ra224 ---(S)--- 
+                    100.00%(a)      100.00%(b-)     100.00%(b-)     100.00%(a)  """
+        pathway = PathwayCollection._parse_pathway(text)
+        assert len(pathway.reactions) == 4
 
 
 class TestFispactOutput:
@@ -76,3 +103,9 @@ class TestFispactOutput:
 
         df = outp.filter_by_cum_dose(95, "1e2", add_pathways=True)
         assert len(df) == 8
+
+    # def test_filter_bugged(self):
+    #     with as_file(lib_resources.joinpath("no_pathways.out")) as file:
+    #         output = FispactOutput(file, cooling_times=["1e2", "1e4"])
+
+    #     df = output.filter_by_cum_dose(95, "1e2", add_pathways=True)

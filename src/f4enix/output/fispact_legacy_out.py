@@ -17,8 +17,9 @@ target_pathway_zaids = re.compile(r"[A-Z][a-z]*\s*\d+m*")
 metastable_pat = re.compile(r"\d+m")
 isotope_pat = re.compile(r"\d+")
 element_pat = re.compile(r"[a-zA-Z]+")
-path_id_pat = re.compile(r"\s+path\s+\d+")
+path_id_pat = re.compile(r"\s*path\s+\d+")
 reaction_pat = re.compile(r"\([a-zA-Z\d,+-]+\)")
+PATHWAY_END = ["(S)", "(L)"]
 
 
 @dataclass
@@ -94,7 +95,7 @@ class Pathway:
             text = f"{self.parent.get_str()} "
             for intermediate, reaction in zip(self.intermediates, self.reactions):
                 text += f"-{reaction}-> {intermediate.get_str()} "
-            text += f"-{self.reactions[-1]}->  {self.daughter.get_str()}"
+            text += f"-{self.reactions[-1]}-> {self.daughter.get_str()}"
             return text
         else:
             return f"{self.parent.get_str()} -{self.reactions[0]}-> {self.daughter.get_str()}"
@@ -129,17 +130,6 @@ class PathwayCollection:
         """
         self.pathways = pathways
 
-    @staticmethod
-    def _get_zaid_from_str(name: str) -> FispactZaid:
-        element = element_pat.search(name).group()
-        isotope = isotope_pat.search(name).group()
-        if metastable_pat.search(name) is not None:
-            metastable = True
-        else:
-            metastable = False
-
-        return FispactZaid(element=element, isotope=isotope, metastable=metastable)
-
     @classmethod
     def from_file(cls, file: os.PathLike) -> PathwayCollection:
         """
@@ -157,22 +147,19 @@ class PathwayCollection:
             A list of Pathway objects representing the pathways found in the file.
         """
         lines = []
+        possible_ends = ["G E N E R I C   P A T H W", "1 * * * TIME INTERVAL"]
         end_reactions = None
         start_reactions = None
+        look_for_end = False
         with open(file, "r", encoding="utf-8") as infile:
             for i, line in enumerate(infile):
                 lines.append(line)
                 if "Significant loops" in line:
                     start_reactions = i
-                elif "G E N E R I C   P A T H W" in line:
+                    look_for_end = True
+                elif look_for_end and any(end in line for end in possible_ends):
                     end_reactions = i
-
-            if end_reactions is None:
-                # may be a weird pathways end
-                for i, line in enumerate(lines):
-                    if "1 * * * TIME INTERVAL" in line:
-                        end_reactions = i
-                        break
+                    break
 
         if end_reactions is None or start_reactions is None:
             raise ValueError(f"Could not find pathways section in file {file}.")
@@ -182,61 +169,7 @@ class PathwayCollection:
         paths = []
         for i, line in enumerate(lines):
             if path_id_pat.match(line) is not None:
-                perc = float(perc_pattern.search(line).group()[:-1])
-                zaids = target_pathway_zaids.findall(line)
-                try:
-                    parent = cls._get_zaid_from_str(zaids[0])
-                except IndexError as e:
-                    print(line)
-                    raise e
-                daughter = cls._get_zaid_from_str(zaids[-1])
-                if len(zaids) > 2:
-                    intermediates = []
-                    for zaid in zaids[1:-1]:
-                        intermediates.append(cls._get_zaid_from_str(zaid))
-                else:
-                    intermediates = None
-
-                # if a path is found, the following line will contain details
-                # on the reactions
-                line = lines[i + 1]
-                reactions = reaction_pat.findall(line)
-
-                try:
-                    pathway = Pathway(
-                        parent=parent,
-                        daughter=daughter,
-                        reactions=reactions,
-                        intermediates=intermediates,
-                        perc=perc,
-                    )
-                except AssertionError as e:
-                    # it may be a very long path that continues
-                    if "path continued" in lines[i + 4]:
-                        other_zaids = target_pathway_zaids.findall(lines[i + 4])
-                        intermediates.append(daughter)
-                        for zaid in other_zaids[:-1]:
-                            intermediates.append(cls._get_zaid_from_str(zaid))
-                        daughter = cls._get_zaid_from_str(other_zaids[-1])
-                        reactions.extend(reaction_pat.findall(lines[i + 5]))
-
-                        try:
-                            pathway = Pathway(
-                                parent=parent,
-                                daughter=daughter,
-                                reactions=reactions,
-                                intermediates=intermediates,
-                                perc=perc,
-                            )
-                        except AssertionError:
-                            print(lines[i])
-                            print(line)
-                            raise e
-                    else:
-                        print(lines[i])
-                        print(line)
-                        raise e
-
+                pathway = cls._parse_pathway(lines[i : i + 10])  # parse next 10 lines
                 paths.append(pathway)
 
         return PathwayCollection(paths)
@@ -285,6 +218,67 @@ class PathwayCollection:
         df.set_index(["Daughter", "% contribution"], inplace=True)
         del df["isotope_sort"]
         return df
+
+    @staticmethod
+    def _parse_pathway(text: str | list[str]) -> Pathway:
+        if isinstance(text, str):
+            lines = text.splitlines()
+        else:
+            lines = text
+
+        reactions = None
+        zaids = None
+        perc = None
+        for j, line in enumerate(lines):
+            # be sure no EOL characters are present in the line
+            line = line.strip("\n").strip("\rn").strip()
+            if path_id_pat.match(line) is not None:
+                # Get the zaids
+                perc = float(perc_pattern.search(line).group()[:-1])
+                tokens = line.split("---")
+                # starting from pos 3, every two tokens should be a zaid and a reaction
+                zaids = [_get_zaid_from_str(tokens[0].split("%")[-1])]
+
+                for i in range(2, len(tokens[:-1]), 2):
+                    zaids.append(_get_zaid_from_str(tokens[i]))
+
+                # get the reactions
+                line = lines[j + 1]
+                reactions = reaction_pat.findall(line)
+
+                if tokens[-2] in PATHWAY_END:
+                    # then there are no more tokens to parse
+                    break
+
+            elif "path continued" in line:
+                if zaids is None or reactions is None or perc is None:
+                    raise ValueError(
+                        f"Pathway continuation found but no pathway was being parsed. Text: {text}"
+                    )
+                # then the path continues on the next line, we need to parse the next line for more zaids and reactions
+                tokens = line.split("---")
+                zaids.append(_get_zaid_from_str(tokens[0].split("%")[-1]))
+                for i in range(2, len(tokens[:-1]), 2):
+                    zaids.append(_get_zaid_from_str(tokens[i]))
+
+                line = lines[j + 1]
+                reactions.extend(reaction_pat.findall(line))
+
+                if tokens[-2] in PATHWAY_END:
+                    # then there are no more tokens to parse
+                    break
+
+        if zaids is None or reactions is None or perc is None:
+            raise ValueError(f"Could not parse pathway from text: {text}")
+
+        pathway = Pathway(
+            parent=zaids[0],
+            daughter=zaids[-1],
+            reactions=reactions,
+            intermediates=zaids[1:-1],
+            perc=perc,
+        )
+        return pathway
 
 
 class FispactOutput:
@@ -403,4 +397,21 @@ class FispactOutput:
                     newrows.append(newrow)
 
         newdf = pd.DataFrame(newrows)
+
+        # it may happen that pathways column is not created
+        if "pathway % dose" not in newdf.columns:
+            raise ValueError(
+                "No pathways found for any of the isotopes in the dataframe."
+            )
         return newdf.sort_values(by="pathway % dose", ascending=False)
+
+
+def _get_zaid_from_str(name: str) -> FispactZaid:
+    element = element_pat.search(name).group()
+    isotope = isotope_pat.search(name).group()
+    if metastable_pat.search(name) is not None:
+        metastable = True
+    else:
+        metastable = False
+
+    return FispactZaid(element=element, isotope=isotope, metastable=metastable)
