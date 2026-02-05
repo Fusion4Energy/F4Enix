@@ -78,12 +78,12 @@ class PlottingFunctions(ABC):
         """
         It adds a new column to the tracks DataFrame called 'perimeter_pos' that takes
         the X and Y coordinates and calculates the position as a perimeter coordinate.
-        The perimeter position is calculated as theta * r, where theta is the angle in
+        The perimeter position is calculated as -theta * r, where theta is the angle in
         radians and r is the radius of each track.
         """
         radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
         thetas = pl.arctan2(pl.col("y"), pl.col("x"))
-        perimeter_pos = (thetas * radius).alias("perimeter_pos")
+        perimeter_pos = (thetas * radius * -1).alias("perimeter_pos")
         self.tracks = self.tracks.with_columns(perimeter_pos)
 
     @abstractmethod
