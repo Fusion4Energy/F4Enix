@@ -80,9 +80,14 @@ class PlottingFunctions(ABC):
         the X and Y coordinates and calculates the position as a perimeter coordinate.
         The perimeter position is calculated as theta * r, where theta is the angle in
         radians and r is the radius of each track.
+
+        The theta is calculated using the arctan2 function, which gives the angle
+        between the positive X-axis and the point (x, y). In that calculation, the X
+        coordinate is multiplied by -1 to "flip" the plot, this way it looks as a
+        cylinder observed from the inside.
         """
         radius = (pl.col("x").pow(2) + pl.col("y").pow(2)).sqrt()
-        thetas = pl.arctan2(pl.col("y"), pl.col("x"))
+        thetas = pl.arctan2(pl.col("y"), -1 * pl.col("x"))
         perimeter_pos = (thetas * radius).alias("perimeter_pos")
         self.tracks = self.tracks.with_columns(perimeter_pos)
 

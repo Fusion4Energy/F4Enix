@@ -1,6 +1,4 @@
 """This module is related to the parsing of D1S-UNED meshinfo files."""
-
-from collections.abc import Sequence
 from pathlib import Path
 
 import polars as pl
@@ -139,9 +137,6 @@ class RSSA:
     def histories(self) -> pl.Series:
         """Returns the history numbers of the tracks."""
         return self.tracks["a"]
-
-    def get_energy_spectra(self, energy_bins: Sequence[float]) -> pl.DataFrame:
-        raise NotImplementedError()
 
     def plot_plane(self) -> RSSAPlot:
         """Returns an instance of RSSAPlot to plot data assuming an XY plane."""
