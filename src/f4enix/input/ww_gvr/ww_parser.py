@@ -224,7 +224,7 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     nfy = ncy = len(mesh.x2bin) - 1
     nfz = ncz = len(mesh.x3bin) - 1
     if mesh.trsf and any(mesh.trsf.origin):
-        origin = [mesh.trsf.origin[2], mesh.trsf.origin[1], mesh.trsf.origin[0]]
+        origin = [mesh.trsf.origin[0], mesh.trsf.origin[1], mesh.trsf.origin[2]]
     else:
         origin = [0.0, 0.0, 0.0]
 
