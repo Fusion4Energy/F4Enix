@@ -189,8 +189,8 @@ def test_read_meshtally_file_cyl():
         ncx=3,
         ncy=10,
         ncz=10,
-        director_1=[1.0, 0.0, 0.0],
-        director_2=[0.0, 0.0, 1.0],
+        director_1=[0.0, -50.0, -50.0],
+        director_2=[-50.0, -50.0, 0.0],
     )
     expected_b2_vec_i = np.array(
         [0.0, 1.0, 16.67, 1.0, 1.0, 33.33, 1.0, 1.0, 50.0, 1.0]
@@ -198,7 +198,7 @@ def test_read_meshtally_file_cyl():
     expected_energies = [[100]]
 
     result = read_meshtally_file(
-        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl",  tally_id=4
+        Path("tests") / "test_ww_gvr" / "resources" / "meshtal_cyl", tally_id=4
     )
 
     assert expected_ww_header == result.header
