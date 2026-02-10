@@ -13,7 +13,7 @@ RESOURCES = files(res)
 @pytest.fixture
 def rssa():
     path = Path(RESOURCES.joinpath("small_cyl.w"))  # type: ignore
-    return RSSA(path)
+    return RSSA.read_from_file(path)
 
 
 def test_read_rssa_parameters(rssa):
