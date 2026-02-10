@@ -387,14 +387,21 @@ class FispactOutput:
         newrows = []
         for _, row in df.iterrows():
             isotope = str(row["element"]) + str(row["isotope"]) + row["state"]
+            found = False
             for pathway in self.pathways_collection.pathways:
                 if pathway.daughter.get_str() == isotope:
+                    found = True
                     newrow = row.copy()
                     newrow["pathway"] = str(pathway)
                     newrow["pathway % dose"] = (
                         pathway.perc * row["isotope % dose"] / 100
                     )
                     newrows.append(newrow)
+            if not found:
+                newrow = row.copy()
+                newrow["pathway"] = "N.A."
+                newrow["pathway % dose"] = row["isotope % dose"]
+                newrows.append(newrow)
 
         newdf = pd.DataFrame(newrows)
 
