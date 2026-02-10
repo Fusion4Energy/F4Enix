@@ -13,6 +13,22 @@ from f4enix.output.rssa.rssa_helpers import (
     SurfaceParameters,
 )
 
+SCHEMA = pl.Schema(
+    {
+        "a": int,
+        "b": int,
+        "wgt": float,
+        "erg": float,
+        "tme": float,
+        "x": float,
+        "y": float,
+        "z": float,
+        "u": float,
+        "v": float,
+        "c": int,
+    },
+)
+
 
 def parse_header(infile: BinaryIO) -> FileParameters:
     first_record = _read_fortran_record(infile)
@@ -109,22 +125,16 @@ def parse_tracks(file: BinaryIO) -> pl.DataFrame:
     # all the data is already converted from bytes to floats
     data = data.reshape(-1, 11)
 
-    return pl.DataFrame(
-        data,
-        schema={
-            "a": int,
-            "b": int,
-            "wgt": float,
-            "erg": float,
-            "tme": float,
-            "x": float,
-            "y": float,
-            "z": float,
-            "u": float,
-            "v": float,
-            "c": int,
-        },
+    # Build the DataFrame
+    df = pl.DataFrame(data, schema=SCHEMA)
+
+    # Modify the value of "b" for fast filtering of neutrons and photons
+    df = df.with_columns(
+        (pl.col("b").abs() / (10 ** pl.col("b").abs().log10().floor()))
+        .cast(int)
+        .alias("b")
     )
+    return df
 
 
 def _read_fortran_record(infile: BinaryIO):

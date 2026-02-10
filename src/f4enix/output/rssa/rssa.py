@@ -1,4 +1,5 @@
 """This module is related to the parsing of D1S-UNED meshinfo files."""
+
 from pathlib import Path
 
 import polars as pl
@@ -67,13 +68,6 @@ class RSSA:
         with open(path, "rb") as infile:
             self.parameters = parse_header(infile)
             self.tracks = parse_tracks(infile)
-
-        # Modify the value of "b" for fast filtering of neutrons and photons
-        self.tracks = self.tracks.with_columns(
-            (pl.col("b").abs() / (10 ** pl.col("b").abs().log10().floor()))
-            .cast(int)
-            .alias("b")
-        )
 
     def __repr__(self) -> str:
         return self.get_summary()
