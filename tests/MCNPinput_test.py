@@ -11,9 +11,9 @@ import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
-from f4enix.input.irradiation import Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
+from f4enix.core.irradiation import Nuclide
 
 resources_inp = files(input_res)
 resources_lib = files(lib_res)

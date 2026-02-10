@@ -8,7 +8,7 @@ import pytest
 import pyvista as pv
 
 import tests.resources.plotter as pkg_res
-from f4enix.constants import ITER_Z_LEVELS
+from f4enix.core.constants import ITER_Z_LEVELS
 from f4enix.output.plotter import Atlas, CDFplot, MeshPlotter
 
 RESOURCES = files(pkg_res)

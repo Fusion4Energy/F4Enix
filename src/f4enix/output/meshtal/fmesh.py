@@ -9,7 +9,7 @@ import pyvista as pv
 from numjuggler import parser
 from tqdm import tqdm
 
-from f4enix.constants import PathLike
+from f4enix.core.constants import PathLike
 from f4enix.output.meshtal.aux_meshtal_functions import (
     ExtraBin,
     _rectilinear_grid,

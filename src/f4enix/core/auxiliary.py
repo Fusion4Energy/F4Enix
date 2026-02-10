@@ -23,7 +23,7 @@ import re
 
 from numjuggler.parser import Card
 
-from f4enix.constants import PAT_COMMENT_TEXT, PAT_DOLLAR_COMMENT
+from f4enix.core.constants import PAT_COMMENT_TEXT, PAT_DOLLAR_COMMENT
 
 _surrogates = re.compile(r"[\uDC80-\uDCFF]")
 

@@ -5,9 +5,8 @@ import logging
 import pandas as pd
 import numpy as np
 
-from numjuggler.parser import Card
 from f4enix.input.MCNPinput import Input
-from f4enix.constants import (
+from f4enix.core.constants import (
     SECTOR_BOUNDARIES,
     SECTOR_BOUNDARIES_ANGLES,
     SECTOR_NAMES,

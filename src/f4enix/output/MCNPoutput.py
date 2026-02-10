@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 import pyvista as pv
 
-from f4enix.constants import PAT_DIGIT, SCIENTIFIC_PAT
+from f4enix.core.constants import PAT_DIGIT, SCIENTIFIC_PAT
 from f4enix.input.MCNPinput import Input
 from f4enix.output.mctal import Tally
 

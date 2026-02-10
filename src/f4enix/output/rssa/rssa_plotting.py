@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from f4enix.egroups import GROUP_STRUCTURES
+from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.output.rssa.rssa_helpers import NEUTRON_INDICATOR
 from f4enix.output.rssa.rssa_reader import FileParameters
 
