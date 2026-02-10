@@ -60,6 +60,13 @@ def test_properties(rssa):
     assert True
 
 
+def test_save_and_load_parameters(rssa, tmp_path):
+    rssa.save_to_files(tmp_path)
+    saved_rssa = RSSA.load_from_saved_files(tmp_path)
+    assert saved_rssa.parameters == rssa.parameters
+    assert saved_rssa.tracks.equals(rssa.tracks)
+
+
 def test_plot_cyl(rssa, tmp_path):
     (
         rssa.plot_cyl()
