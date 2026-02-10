@@ -51,7 +51,7 @@ def parse_tracks(path: Path | str) -> pl.DataFrame:
         return _parse_tracks_binary(infile)
 
 
-def scan_tracks_file(
+def scan_tracks(
     path_to_file: Path | str, default_batch_size: int = 100_000_000
 ) -> pl.LazyFrame:
     """Scans the RSSA to return a polars LazyFrame instead of a DataFrame.
@@ -69,9 +69,9 @@ def scan_tracks_file(
     Examples
     --------
     >>> from f4enix.output.rssa import RSSA
-    >>> from f4enix.output.rssa.rssa_reader import parse_header, scan_rssa_file
+    >>> from f4enix.output.rssa.rssa_reader import parse_header, scan_tracks
     >>> parameters = parse_header('small_cyl.w')
-    >>> lazy_tracks = scan_rssa_file('small_cyl.w')
+    >>> lazy_tracks = scan_tracks('small_cyl.w')
     >>> # We will only read the first 20 tracks of the file
     >>> tracks = lazy_tracks.head(20).collect()
     >>> rssa = RSSA(parameters, tracks)

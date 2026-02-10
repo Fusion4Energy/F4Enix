@@ -6,7 +6,7 @@ import pytest
 import tests.resources.rssa as res
 from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.output.rssa import RSSA, PlotParameters, SpectraPlotParameters
-from f4enix.output.rssa.rssa_reader import parse_header, scan_tracks_file
+from f4enix.output.rssa.rssa_reader import parse_header, scan_tracks
 
 RESOURCES = files(res)
 
@@ -71,7 +71,7 @@ def test_save_and_load_parameters(rssa, tmp_path):
 def test_scan_tracks_file(rssa):
     path = Path(RESOURCES.joinpath("small_cyl.w"))  # type: ignore
     file_parameters = parse_header(path)
-    scanned_tracks = scan_tracks_file(path)
+    scanned_tracks = scan_tracks(path)
     scanned_tracks = (
         scanned_tracks.head(3)
         .with_columns()  # We can filter by columns
