@@ -51,7 +51,7 @@ def parse_tracks(path: Path | str) -> pl.DataFrame:
         return _parse_tracks_binary(infile)
 
 
-def scan_rssa_file(
+def scan_tracks_file(
     path_to_file: Path | str, default_batch_size: int = 100_000_000
 ) -> pl.LazyFrame:
     """Scans the RSSA to return a polars LazyFrame instead of a DataFrame.
