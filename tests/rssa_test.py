@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 import tests.resources.rssa as res
-from f4enix.egroups import GROUP_STRUCTURES
+from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.output.rssa import RSSA, PlotParameters, SpectraPlotParameters
 
 RESOURCES = files(res)
