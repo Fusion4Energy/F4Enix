@@ -438,7 +438,12 @@ class TestInput:
             "3.8566e10",
             ["25", "205"],
         ]
-        assert summary.loc[204].values.tolist() == ["N", pd.NA, pd.NA, pd.NA]
+        to_assert = summary.loc[204].values.tolist()
+        assert to_assert[0] == "N"
+        assert to_assert[1] is np.nan
+        assert to_assert[2] is np.nan
+        assert to_assert[3] is np.nan
+
         assert len(summary.loc[704]["Other multipliers"]) == 12
 
         summary = testInput.get_tally_summary(fmesh=True)
@@ -745,6 +750,25 @@ C a breaking comment
         assert result == "1 3I 5 7 12 13 21 22 23 "
         result = get_formatted_range([1])
         assert result == "1 "
+
+    def test_explore_id_ranges_by_plot(self):
+        # This method creates a plot. Here we just check that it runs without errors.
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            test_input = Input.from_input(FILE1)
+        test_input.explore_id_ranges_by_plot()
+
+    def test_find_first_free_id_range(self):
+        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+            test_input = Input.from_input(FILE1)
+
+        first_id_that_fits_15 = 2
+        assert test_input.find_first_free_id_range(15) == first_id_that_fits_15
+
+        first_id_that_fits_30 = 23
+        assert test_input.find_first_free_id_range(30) == first_id_that_fits_30
+
+        first_id_that_fits_1000 = 300
+        assert test_input.find_first_free_id_range(1000) == first_id_that_fits_1000
 
 
 class TestD1S_Input:

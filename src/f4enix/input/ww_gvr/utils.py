@@ -2,14 +2,12 @@
 Some utilities for the ww_gvr package.
 """
 
-from typing import Tuple
-
 import numpy as np
 
 from f4enix.input.ww_gvr.models import Vectors
 
 
-def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
+def decompose_b2_vectors(b2_vectors: Vectors) -> tuple[Vectors, Vectors]:
     """
     Takes a Vectors object with b2 format and returns two Vectors objects, one with the
     coarse vectors and the other with the fine vectors.
@@ -32,7 +30,7 @@ def decompose_b2_vectors(b2_vectors: Vectors) -> Tuple[Vectors, Vectors]:
 
     Returns
     -------
-    Tuple[Vectors, Vectors]
+    tuple[Vectors, Vectors]
         Two Vectors objects, one with the coarse vectors and the other with the
         fine vectors.
     """

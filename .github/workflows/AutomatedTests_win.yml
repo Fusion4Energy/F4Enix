@@ -19,6 +19,8 @@ jobs:
   TestBuild:
     # The type of runner that the job will run on
     runs-on: windows-latest
+    env:
+      MPLBACKEND: Agg  # To avoid issues with matplotlib on headless systems (TLC error)
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
