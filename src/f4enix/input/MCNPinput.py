@@ -46,7 +46,6 @@ from f4enix.core.constants import (
 )
 from f4enix.core.auxiliary import debug_file_unicode
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
-from f4enix.core.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
 from f4enix.core.irradiation import Nuclide, METASTABLE_TAG

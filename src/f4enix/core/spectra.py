@@ -20,7 +20,7 @@ class Spectra:
     def __init__(
         self, ebins: np.ndarray, spectra_values: np.ndarray, name: str | None = None
     ) -> None:
-        """Class representing a neutron spectra. Values are expcted as normalized to 1.
+        """Class representing a neutron spectra. Values are expected as normalized to 1.
 
         Parameters
         ----------
@@ -168,12 +168,12 @@ END
         Parameters
         ----------
         outdir : Path
-            _description_
+            Path to the output directory.
 
         Returns
         -------
         Path
-            _description_
+            Path to the generated input file.
         """
         outfile = Path(outdir, f"arb_flux_{self.name}.txt")
         with open(outfile, "w") as f:

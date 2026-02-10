@@ -231,7 +231,7 @@ class PathwayCollection:
         perc = None
         for j, line in enumerate(lines):
             # be sure no EOL characters are present in the line
-            line = line.strip("\n").strip("\rn").strip()
+            line = line.strip()
             if path_id_pat.match(line) is not None:
                 # Get the zaids
                 perc = float(perc_pattern.search(line).group()[:-1])
@@ -257,7 +257,7 @@ class PathwayCollection:
                     )
                 # then the path continues on the next line, we need to parse the next line for more zaids and reactions
                 tokens = line.split("---")
-                zaids.append(_get_zaid_from_str(tokens[0].split("%")[-1]))
+                zaids.append(_get_zaid_from_str(tokens[0].split("continued")[-1]))
                 for i in range(2, len(tokens[:-1]), 2):
                     zaids.append(_get_zaid_from_str(tokens[i]))
 
@@ -421,4 +421,4 @@ def _get_zaid_from_str(name: str) -> FispactZaid:
     else:
         metastable = False
 
-    return FispactZaid(element=element, isotope=isotope, metastable=metastable)
+    return FispactZaid(element=element, isotope=int(isotope), metastable=metastable)

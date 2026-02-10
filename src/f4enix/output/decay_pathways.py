@@ -97,7 +97,7 @@ class PathwayLibrary:
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
         materials : list[MaterialComposition] | None, optional
-            available materials are at f4enix.material_library.AVAILABLE_MATERIALS,
+            available materials are at f4enix.core.material_library.AVAILABLE_MATERIALS,
             by default None. If None, all materials are selected
         cooling_times : list[str] | None, optional
             select the decay pathways that contribute to the requested cooling times,
@@ -154,7 +154,7 @@ class PathwayLibrary:
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
         materials : list[MaterialComposition] | None, optional
-            available materials are at f4enix.material_library.AVAILABLE_MATERIALS,
+            available materials are at f4enix.core.material_library.AVAILABLE_MATERIALS,
             by default None. If None, all materials are selected
         cooling_times : list[str] | None, optional
             select the decay pathways that contribute to the requested cooling times,
