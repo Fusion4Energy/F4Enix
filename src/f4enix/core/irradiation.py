@@ -274,17 +274,24 @@ class IrradiationScenario:
 class Nuclide:
     def __init__(
         self,
-        zaid: int | str,
+        zaid: int | str | None = None,
+        element: str | None = None,
+        isotope: int | str | None = None,
         metastable: bool = False,
         IRS_active: bool = False,
         lib: str | None = None,
     ) -> None:
         """A general nuclide. Supports metastable, libraries and IRS flags.
+        As a minimum, either the zaid number or element and isotope must be provided.
 
         Parameters
         ----------
-        zaid : int | str
+        zaid : int | str | None
             ZAID number of the nuclide (e.g. 3003 for Li-3).
+        element : str | None, optional
+            Element symbol of the nuclide (e.g. "Li" for Lithium), by default None
+        isotope : int | str | None, optional
+            Isotope number of the nuclide (e.g. 3 for Li-3), by default None
         metastable : bool, optional
             true if the nuclide is metastable, by default False
         IRS_active : bool, optional
@@ -292,7 +299,16 @@ class Nuclide:
         lib : str | None, optional
             library identifier, by default None
         """
-        self._zaid = int(zaid)
+        if zaid:
+            self._zaid = int(zaid)
+            _, formula = LM.get_zaidname(str(self._zaid))
+            self._element = formula.split("-")[0].strip()
+            self._isotope = int(formula.split("-")[1].strip())
+        elif element and isotope:
+            self._element = element
+            self._isotope = int(isotope)
+            self._zaid = LM.get_zaidnum(f"{element}{isotope}")
+
         self.metastable = metastable
         self.IRS_active = IRS_active
         self.lib = lib
@@ -391,16 +407,21 @@ class Nuclide:
 
     def write_to_formula(self) -> str:
         """Return the formula string representation of the nuclide. E.g. "irsLi3m.99c"."""
-        result = ""
         if self.IRS_active:
-            result += "irs"
-        _, formula = LM.get_zaidname(str(self._zaid))
-        result += formula.replace("-", "")
+            irs = "irs"
+        else:
+            irs = ""
+
         if self.metastable:
-            result += "m"
+            metastable = "m"
+        else:
+            metastable = ""
         if self.lib:
-            result += f".{self.lib}"
-        return result
+            lib = f".{self.lib}"
+        else:
+            lib = ""
+
+        return f"{irs}{self.element}{self.isotope}{metastable}{lib}"
 
     def write_to_int_string(self) -> str:
         """Return the integer string representation of the nuclide. E.g. "9993003900.99c"."""
@@ -417,6 +438,14 @@ class Nuclide:
     @property
     def zaid(self) -> int:
         return self._zaid
+
+    @property
+    def element(self) -> str:
+        return self._element
+
+    @property
+    def isotope(self) -> int:
+        return self._isotope
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Nuclide):

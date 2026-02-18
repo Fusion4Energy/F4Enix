@@ -15,6 +15,7 @@ import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
 from f4enix.core.irradiation import Nuclide
 from f4enix.core.irradiation import IrradiationScenario, Pulse
+from f4enix.output.fispact_legacy_out import Pathway
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)
@@ -385,3 +386,14 @@ class TestReactionFile:
         expected = ["26054", "26056", "26057", "26058"]
         for one, other in zip(parents, expected):
             assert one.write_to_int_string().split(".")[0] == other
+
+    def test_filter_by_paths(self):
+        with as_file(RESOURCES.joinpath("reac_fe")) as inp:
+            reac_file = ReactionFile.from_text(inp)
+        paths = [
+            "Fe58 -(n,g)-> Fe59",
+            "Co59 -(n,p)-> Fe59",
+        ]
+        paths = [Pathway.from_string(path) for path in paths]
+        reac_file.filter_by_paths(paths)
+        assert len(reac_file.reactions) == 1

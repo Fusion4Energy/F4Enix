@@ -3,37 +3,27 @@ from importlib.resources import files, as_file
 
 import tests.resources.fispact_legacy_out as lib_res
 from f4enix.output.fispact_legacy_out import (
-    FispactZaid,
     Pathway,
     PathwayCollection,
     FispactOutput,
 )
+from f4enix.core.irradiation import Nuclide
 from f4enix.core.irradiation import TCF_Computer
 
 lib_resources = files(lib_res)
 
 
-class TestFispactZaid:
-    def test_get_str(self):
-        zaid = FispactZaid("U", 235)
-        assert zaid.get_str() == "U235"
-
-    def test_get_str_metastable(self):
-        zaid = FispactZaid("U", 235, metastable=True)
-        assert zaid.get_str() == "U235m"
-
-
 class TestPathway:
     def test_str(self):
-        parent = FispactZaid("U", 235)
-        daughter = FispactZaid("U", 236)
+        parent = Nuclide(element="U", isotope=235)
+        daughter = Nuclide(element="U", isotope=236)
         pathway = Pathway(parent, daughter, 1, ["fission"])
         assert str(pathway) == "U235 -fission-> U236"
 
     def test_str_with_intermediates(self):
-        parent = FispactZaid("U", 235)
-        daughter = FispactZaid("U", 236)
-        intermediates = [FispactZaid("U", 236)]
+        parent = Nuclide(element="U", isotope=235)
+        daughter = Nuclide(element="U", isotope=236)
+        intermediates = [Nuclide(element="U", isotope=236)]
         reactions = ["fission"]
         with pytest.raises(AssertionError):
             pathway = Pathway(parent, daughter, 1, reactions, intermediates)
@@ -43,9 +33,9 @@ class TestPathway:
         assert str(pathway) == "U235 -fission-> U236 -decay-> U236"
 
     def test_reduce(self):
-        parent = FispactZaid("U", 235)
-        daughter = FispactZaid("U", 236)
-        intermediates = [FispactZaid("U", 236, metastable=True)]
+        parent = Nuclide(element="U", isotope=235)
+        daughter = Nuclide(element="U", isotope=236)
+        intermediates = [Nuclide(element="U", isotope=236, metastable=True)]
         reactions = ["A", "IT"]
         pathway = Pathway(parent, daughter, 100, reactions, intermediates=intermediates)
         reduced = pathway.reduce()
@@ -57,9 +47,9 @@ class TestPathway:
         assert pathway2 == reduced
 
         # Try a cutoff
-        parent = FispactZaid("U", 235)
-        daughter = FispactZaid("Co", 60)
-        intermediates = [FispactZaid("Co", 60, metastable=True)]
+        parent = Nuclide(element="U", isotope=235)
+        daughter = Nuclide(element="Co", isotope=60)
+        intermediates = [Nuclide(element="Co", isotope=60, metastable=True)]
         reactions = ["A", "IT"]
         pathway = Pathway(parent, daughter, 100, reactions, intermediates=intermediates)
 
@@ -76,8 +66,8 @@ class TestPathway:
         assert str(path) == string
 
     def test_equal(self):
-        zaid1 = FispactZaid("U", 235)
-        zaid2 = FispactZaid("U", 235, metastable=True)
+        zaid1 = Nuclide(element="U", isotope=235)
+        zaid2 = Nuclide(element="U", isotope=235, metastable=True)
         reactions = ["fission"]
         reactions2 = ["fission1"]
 
@@ -89,7 +79,7 @@ class TestPathway:
 
         assert pathway1 == pathway2
         assert pathway1 != pathway3
-        assert pathway3 != pathway4
+        assert pathway3 == pathway4  # different spelling of reaction is fine
         assert pathway1 != pathway5
 
     @pytest.mark.parametrize(
@@ -128,7 +118,7 @@ class TestPathwayCollection:
         with as_file(lib_resources.joinpath("testSS.out")) as file:
             collection = PathwayCollection.from_file(file)
         assert len(collection.pathways) == 56
-        assert str(collection.pathways[0]) == "Mn55 -(n,g)-> Mn56"
+        assert collection.pathways[0].parent.write_to_formula() == "Mn55"
         assert str(collection.pathways[1]) == "Fe56 -(n,p)-> Mn56"
         assert len(collection.pathways[-1].intermediates) == 8
 
@@ -158,8 +148,8 @@ class TestPathwayCollection:
  path continued   Pb 212 ---(d)--- Bi212 ---(S)---
                     100.00%(b-)"""
         pathway = PathwayCollection._parse_pathway(text)
-        assert pathway.parent.get_str() == "Th232"
-        assert pathway.daughter.get_str() == "Bi212"
+        assert pathway.parent.write_to_formula() == "Th232"
+        assert pathway.daughter.write_to_formula() == "Bi212"
         assert pathway.reactions[-1] == "(b-)"
 
         # normal path

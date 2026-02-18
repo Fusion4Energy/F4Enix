@@ -9,7 +9,7 @@ import pypact as pp
 from dataclasses import dataclass
 from pathlib import Path
 from f4enix.input.libmanager import LibManager
-from f4enix.core.constants import PathLike
+from f4enix.core.constants import PathLike, REVERSED_MT_DICT
 from f4enix.core.irradiation import Nuclide, TCF_Computer
 from copy import deepcopy
 
@@ -25,83 +25,29 @@ PATHWAY_END = ["(S)", "(L)"]
 
 
 @dataclass
-class FispactZaid:
-    """Class to represent a Zaid in a generic pathway in fispact.
-
-    Attributes
-    ----------
-    element : str
-        The element of the isotope.
-    isotope : int
-        The isotope number.
-    metastable : bool
-        Whether the isotope is metastable or not.
-    """
-
-    element: str
-    isotope: int
-    metastable: bool = False
-
-    def get_str(self) -> str:
-        """Return the Zaid as a string.
-
-        Returns
-        -------
-        str
-            The Zaid as a string.
-        """
-        if self.metastable:
-            return f"{self.element}{self.isotope}m"
-        else:
-            return f"{self.element}{self.isotope}"
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, FispactZaid):
-            return False
-
-        return (
-            self.element == value.element
-            and self.isotope == value.isotope
-            and self.metastable == value.metastable
-        )
-
-    @classmethod
-    def _from_nuclide(cls, nuclide: Nuclide) -> "FispactZaid":
-        formula = nuclide.write_to_formula()
-        element = element_pat.match(formula).group()
-        isotope = int(isotope_pat.search(formula).group())
-        if formula[-1] == "m":
-            metastable = True
-        else:
-            metastable = False
-
-        return cls(element=element, isotope=isotope, metastable=metastable)
-
-
-@dataclass
 class Pathway:
     """Class to represent a pathway in fispact.
 
     Attributes
     ----------
-    parent : FispactZaid
-        The parent FispactZaid object.
-    daughter : FispactZaid
-        The daughter FispactZaid object.
+    parent : Nuclide
+        The parent Nuclide object.
+    daughter : Nuclide
+        The daughter Nuclide object.
     perc : float
         The percentage of the pathway contribution to the daughter isotope.
     reactions : list[str]
         The list of reactions in the pathway.
-    intermediates : list[FispactZaid], optional
-        The list of intermediate FispactZaid objects in the pathway.
+    intermediates : list[Nuclide], optional
+        The list of intermediate Nuclide objects in the pathway.
 
     """
 
-    parent: FispactZaid
-    daughter: FispactZaid
+    parent: Nuclide
+    daughter: Nuclide
     perc: float
     reactions: list[str]
-    intermediates: list[FispactZaid] | None = None
+    intermediates: list[Nuclide] | None = None
 
     def __eq__(self, other: object) -> bool:
         # they are pathways
@@ -135,13 +81,13 @@ class Pathway:
 
     def __str__(self) -> str:
         if self.intermediates is not None:
-            text = f"{self.parent.get_str()} "
+            text = f"{self.parent.write_to_formula()} "
             for intermediate, reaction in zip(self.intermediates, self.reactions):
-                text += f"-{reaction}-> {intermediate.get_str()} "
-            text += f"-{self.reactions[-1]}-> {self.daughter.get_str()}"
+                text += f"-{reaction}-> {intermediate.write_to_formula()} "
+            text += f"-{self.reactions[-1]}-> {self.daughter.write_to_formula()}"
             return text
         else:
-            return f"{self.parent.get_str()} -{self.reactions[0]}-> {self.daughter.get_str()}"
+            return f"{self.parent.write_to_formula()} -{self.reactions[0]}-> {self.daughter.write_to_formula()}"
 
     def is_multistep(self) -> bool:
         """Return whether the pathway is a multistep pathway or not.
@@ -183,13 +129,12 @@ class Pathway:
         # replace the reactions with nothing
         string = reaction_pat.sub("", string)
         zaids = string.split("-->")
-        parent = FispactZaid._from_nuclide(Nuclide.from_formula(zaids[0].strip()))
-        daughter = FispactZaid._from_nuclide(Nuclide.from_formula(zaids[-1].strip()))
+        parent = Nuclide.from_formula(zaids[0].strip())
+        daughter = Nuclide.from_formula(zaids[-1].strip())
         intermediates = []
         for intermediate in zaids[1:-1]:
-            intermediates.append(
-                FispactZaid._from_nuclide(Nuclide.from_formula(intermediate.strip()))
-            )
+            intermediates.append(Nuclide.from_formula(intermediate.strip()))
+
         return cls(parent, daughter, perc, reactions, intermediates=intermediates)
 
     def reduce(
@@ -251,6 +196,15 @@ class Pathway:
             reactions,
             intermediates=intermediates,
         )
+
+    def get_MT(self) -> int | None:
+        """Return the MT number associated to the first reaction in the pathway."""
+        # ensure parenthesis are present and no whitespaces
+        key = f'({self.reactions[0].replace(" ", "").strip("(").strip(")")})'
+        try:
+            return REVERSED_MT_DICT[key]
+        except KeyError:
+            return None
 
 
 class PathwayCollection:
@@ -344,16 +298,16 @@ class PathwayCollection:
             intermediates = []
             if pathway.intermediates is not None:
                 for intermediate in pathway.intermediates:
-                    intermediates.append(intermediate.get_str())
+                    intermediates.append(intermediate.write_to_formula())
             rows.append(
                 [
-                    pathway.parent.get_str(),
+                    pathway.parent.write_to_formula(),
                     intermediates,
                     pathway.reactions,
-                    pathway.daughter.get_str(),
+                    pathway.daughter.write_to_formula(),
                     pathway.perc,
                     # additional columns for sorting to be dropped later
-                    lm.get_zaidnum(pathway.daughter.get_str()),
+                    lm.get_zaidnum(pathway.daughter.write_to_formula()),
                 ]
             )
 
@@ -389,10 +343,10 @@ class PathwayCollection:
                 perc = float(perc_pattern.search(line).group()[:-1])
                 tokens = line.split("---")
                 # starting from pos 3, every two tokens should be a zaid and a reaction
-                zaids = [_get_zaid_from_str(tokens[0].split("%")[-1])]
+                zaids = [Nuclide.from_formula(tokens[0].split("%")[-1])]
 
                 for i in range(2, len(tokens[:-1]), 2):
-                    zaids.append(_get_zaid_from_str(tokens[i]))
+                    zaids.append(Nuclide.from_formula(tokens[i]))
 
                 # get the reactions
                 line = lines[j + 1]
@@ -409,9 +363,9 @@ class PathwayCollection:
                     )
                 # then the path continues on the next line, we need to parse the next line for more zaids and reactions
                 tokens = line.split("---")
-                zaids.append(_get_zaid_from_str(tokens[0].split("continued")[-1]))
+                zaids.append(Nuclide.from_formula(tokens[0].split("continued")[-1]))
                 for i in range(2, len(tokens[:-1]), 2):
-                    zaids.append(_get_zaid_from_str(tokens[i]))
+                    zaids.append(Nuclide.from_formula(tokens[i]))
 
                 line = lines[j + 1]
                 reactions.extend(reaction_pat.findall(line))
@@ -541,7 +495,7 @@ class FispactOutput:
             isotope = str(row["element"]) + str(row["isotope"]) + row["state"]
             found = False
             for pathway in self.pathways_collection.pathways:
-                if pathway.daughter.get_str() == isotope:
+                if pathway.daughter.write_to_formula() == isotope:
                     found = True
                     newrow = row.copy()
                     newrow["pathway"] = str(pathway)
@@ -563,14 +517,3 @@ class FispactOutput:
                 "No pathways found for any of the isotopes in the dataframe."
             )
         return newdf.sort_values(by="pathway % dose", ascending=False)
-
-
-def _get_zaid_from_str(name: str) -> FispactZaid:
-    element = element_pat.search(name).group()
-    isotope = isotope_pat.search(name).group()
-    if metastable_pat.search(name) is not None:
-        metastable = True
-    else:
-        metastable = False
-
-    return FispactZaid(element=element, isotope=int(isotope), metastable=metastable)
