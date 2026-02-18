@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from f4enix.input.libmanager import LibManager
 from f4enix.core.constants import PathLike
+from f4enix.core.irradiation import Nuclide, TCF_Computer
+from copy import deepcopy
 
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
@@ -53,6 +55,28 @@ class FispactZaid:
         else:
             return f"{self.element}{self.isotope}"
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, FispactZaid):
+            return False
+
+        return (
+            self.element == value.element
+            and self.isotope == value.isotope
+            and self.metastable == value.metastable
+        )
+
+    @classmethod
+    def _from_nuclide(cls, nuclide: Nuclide) -> "FispactZaid":
+        formula = nuclide.write_to_formula()
+        element = element_pat.match(formula).group()
+        isotope = int(isotope_pat.search(formula).group())
+        if formula[-1] == "m":
+            metastable = True
+        else:
+            metastable = False
+
+        return cls(element=element, isotope=isotope, metastable=metastable)
+
 
 @dataclass
 class Pathway:
@@ -77,9 +101,28 @@ class Pathway:
     daughter: FispactZaid
     perc: float
     reactions: list[str]
-    intermediates: list[FispactZaid] = None
+    intermediates: list[FispactZaid] | None = None
+
+    def __eq__(self, other: object) -> bool:
+        # they are pathways
+        if not isinstance(other, Pathway):
+            return False
+        # parent and daughters are the same
+        if (
+            self.parent != other.parent
+            or self.daughter != other.daughter
+            or self.intermediates != other.intermediates
+            # given same intermediates reactions are automatically the same,
+            # not checking helps avoid mistakes for small differences in reaction labels
+            # or self.reactions != other.reactions
+        ):
+            return False
+        return True
 
     def __post_init__(self):
+        # if an empty list is provided, change it to None
+        if isinstance(self.intermediates, list) and len(self.intermediates) == 0:
+            self.intermediates = None
         # check that reaction list length is always one more than intermediates
         # when it is not None
         if self.intermediates is not None:
@@ -99,6 +142,115 @@ class Pathway:
             return text
         else:
             return f"{self.parent.get_str()} -{self.reactions[0]}-> {self.daughter.get_str()}"
+
+    def is_multistep(self) -> bool:
+        """Return whether the pathway is a multistep pathway or not.
+        Isomeric transitions are not considered as steps in the pathway.
+
+        Returns
+        -------
+        bool
+            True if the pathway is a multistep pathway, False otherwise.
+        """
+        if self.intermediates is not None:
+            for intermediate in self.intermediates:
+                if (
+                    intermediate.isotope == self.daughter.isotope
+                    and intermediate.element == self.daughter.element
+                ):
+                    # then this is an isomeric transition
+                    # we do not consider it as a step in the pathway
+                    continue
+                else:
+                    return True
+        return False
+
+    @classmethod
+    def from_string(cls, string: str, perc: float = 100) -> "Pathway":
+        """parse from string like: Ni58 -(n,p)-> Co58m -(IT)-> Co58
+
+        Parameters
+        ----------
+        str : str
+            string to parse
+
+        Returns
+        -------
+        Pathway
+            parsed pathway
+        """
+        reactions = reaction_pat.findall(string)
+        # replace the reactions with nothing
+        string = reaction_pat.sub("", string)
+        zaids = string.split("-->")
+        parent = FispactZaid._from_nuclide(Nuclide.from_formula(zaids[0].strip()))
+        daughter = FispactZaid._from_nuclide(Nuclide.from_formula(zaids[-1].strip()))
+        intermediates = []
+        for intermediate in zaids[1:-1]:
+            intermediates.append(
+                FispactZaid._from_nuclide(Nuclide.from_formula(intermediate.strip()))
+            )
+        return cls(parent, daughter, perc, reactions, intermediates=intermediates)
+
+    def reduce(
+        self,
+        half_life_cutoff: float | None = None,
+        tfc_computer: TCF_Computer | None = None,
+    ) -> Pathway:
+        """Return a reduced pathway built from the original where isomeric transitions
+        have been removed. It is possible to provide a half life cut-off value above
+        which metastable steps will be retained.
+
+        Parameters
+        ----------
+        half_life_cutoff : float | None, optional
+            threshold (in seconds) below which isomeric transitions shall be removed
+            by default None. If a value is provided, also the tfc_computer must be
+            provided.
+        tfc_computer : TCF_Computer | None, optional
+            TFC_Computer object used to retrieve half-life values, by default None
+
+        Returns
+        -------
+        Pathway
+            New reduced pathway
+
+        Raises
+        ------
+        ValueError
+            If a half life cut-off is provided but no TFC_Computer.
+        """
+        if half_life_cutoff is not None:
+            if tfc_computer is None:
+                raise ValueError("TFC_Computer must be provided to compute half-lives")
+
+        it_strings = ["IT", "(IT)"]
+        reactions = [self.reactions[0]]
+        intermediates = []
+        if self.intermediates is None:
+            return deepcopy(self)
+        for i, intermediate in enumerate(self.intermediates):
+            if self.reactions[i + 1] in it_strings:
+                # if the metastable is below cut-off, simplify
+                if half_life_cutoff and tfc_computer:
+                    nuclide = Nuclide.from_formula(
+                        str(intermediate.element) + str(intermediate.isotope) + "m",
+                    )
+                    half_life = tfc_computer.get_half_life(nuclide)
+                    if float(half_life) <= half_life_cutoff:
+                        continue
+                # if no cut-off provided, always simplify
+                else:
+                    continue
+            reactions.append(self.reactions[i + 1])
+            intermediates.append(deepcopy(intermediate))
+        return Pathway(
+            deepcopy(self.parent),
+            deepcopy(self.daughter),
+            self.perc,
+            reactions,
+            intermediates=intermediates,
+        )
 
 
 class PathwayCollection:

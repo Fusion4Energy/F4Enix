@@ -8,6 +8,7 @@ from f4enix.output.fispact_legacy_out import (
     PathwayCollection,
     FispactOutput,
 )
+from f4enix.core.irradiation import TCF_Computer
 
 lib_resources = files(lib_res)
 
@@ -40,6 +41,86 @@ class TestPathway:
         reactions = ["fission", "decay"]
         pathway = Pathway(parent, daughter, 1, reactions, intermediates)
         assert str(pathway) == "U235 -fission-> U236 -decay-> U236"
+
+    def test_reduce(self):
+        parent = FispactZaid("U", 235)
+        daughter = FispactZaid("U", 236)
+        intermediates = [FispactZaid("U", 236, metastable=True)]
+        reactions = ["A", "IT"]
+        pathway = Pathway(parent, daughter, 100, reactions, intermediates=intermediates)
+        reduced = pathway.reduce()
+
+        assert str(reduced) == "U235 -A-> U236"
+
+        pathway2 = Pathway(parent, daughter, 100, reactions[1:])
+        reduced = pathway2.reduce()
+        assert pathway2 == reduced
+
+        # Try a cutoff
+        parent = FispactZaid("U", 235)
+        daughter = FispactZaid("Co", 60)
+        intermediates = [FispactZaid("Co", 60, metastable=True)]
+        reactions = ["A", "IT"]
+        pathway = Pathway(parent, daughter, 100, reactions, intermediates=intermediates)
+
+        tfc_computer = TCF_Computer()
+        reduce1 = pathway.reduce(600, tfc_computer=tfc_computer)
+        reduce2 = pathway.reduce(650, tfc_computer=tfc_computer)
+
+        assert len(reduce1.intermediates) == 1
+        assert reduce2.intermediates is None
+
+    def test_from_string(self):
+        string = "Ni58 -(n,p)-> Co58m -(IT)-> Co58"
+        path = Pathway.from_string(string)
+        assert str(path) == string
+
+    def test_equal(self):
+        zaid1 = FispactZaid("U", 235)
+        zaid2 = FispactZaid("U", 235, metastable=True)
+        reactions = ["fission"]
+        reactions2 = ["fission1"]
+
+        pathway1 = Pathway(zaid1, zaid2, 10, reactions)
+        pathway2 = Pathway(zaid1, zaid2, 50, reactions)
+        pathway3 = Pathway(zaid1, zaid1, 1, reactions)
+        pathway4 = Pathway(zaid1, zaid1, 1, reactions2)
+        pathway5 = Pathway(zaid2, zaid2, 1, reactions)
+
+        assert pathway1 == pathway2
+        assert pathway1 != pathway3
+        assert pathway3 != pathway4
+        assert pathway1 != pathway5
+
+    @pytest.mark.parametrize(
+        ["text", "expected"],
+        [
+            [
+                [
+                    "path  1  99.915% Cu 63 ---(R)--- Cu 62 ---(S)--- ",
+                    "                    100.00%(n,2n)  ",
+                ],
+                False,
+            ],
+            [
+                [
+                    " path  4  42.748% Ni 58 ---(R)--- Co 58m---(b)--- Co 58 ---(S)--- ",
+                    "  100.00%(n,p)    100.00%(IT)",
+                ],
+                False,
+            ],
+            [
+                [
+                    "path  1  96.911% Sn112 ---(R)--- Sn111 ---(b)--- In111 ---(S)--- ",
+                    "   100.00%(n,2n)   100.00%(b+)   ",
+                ],
+                True,
+            ],
+        ],
+    )
+    def test_is_multistep(self, text, expected):
+        path = PathwayCollection._parse_pathway(text)
+        assert path.is_multistep() == expected
 
 
 class TestPathwayCollection:
