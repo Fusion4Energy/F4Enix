@@ -314,7 +314,7 @@ def _get_xs_zaid_list(
                             e_0 = energy_grid[i - 1]
                         x = np.logspace(np.log10(e_0), np.log10(e), integral_points)
                         y = table(x)
-                        values.append(np.trapz(y, x) / (e - e_0))
+                        values.append(np.trapezoid(y, x) / (e - e_0))
                     values = np.array(values)
 
                 else:
