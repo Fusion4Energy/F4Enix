@@ -51,6 +51,7 @@ from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
+PAT_COLUMN_FORMAT = re.compile(r"\s*\#")
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
 ADD_LINE_FORMAT = "         {}\n"
 
@@ -601,6 +602,15 @@ class Input:
                     comment = card.lines
                     flag_add = True
                     continue
+
+                # check if it is a column format
+                if PAT_COLUMN_FORMAT.match(card.lines[0]) is not None:
+                    # then this needs to be added to the previous card
+                    new_cards[previous_key].lines.extend(card.lines)
+                    new_cards[previous_key].get_input()
+                    new_cards[previous_key].get_values()
+                    continue
+
                 # and then if it is a proper card
                 else:
                     key = card.card().split()[0].upper()
@@ -615,6 +625,7 @@ class Input:
                 flag_add = False
 
             new_cards[key] = card
+            previous_key = key
 
         return new_cards
 

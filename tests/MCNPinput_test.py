@@ -917,3 +917,21 @@ class TestD1S_Input:
             "DF14 0.0485 0.1254 0.2050 0.2999 0.3381 0.3572"
             in inp.other_data["DF14"].lines[0]
         )
+
+    def test_column_format(self, tmp_path):
+        with as_file(resources_inp.joinpath("column_format.i")) as FILE1:
+            inp = Input.from_input(FILE1)
+
+        outfile = tmp_path / "column_format_output.i"
+        inp.write(outfile)
+
+        inp2 = Input.from_input(outfile)
+        # check for the # line
+        with open(outfile) as f:
+            lines = f.readlines()
+        found = False
+        for line in lines:
+            if "    #     wwn1:p" in line:
+                found = True
+                break
+        assert found
