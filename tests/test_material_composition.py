@@ -1,4 +1,4 @@
-from f4enix.material_library import MaterialComposition
+from f4enix.core.material_library import MaterialComposition
 
 
 class TestMaterialComposition:

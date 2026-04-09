@@ -26,10 +26,15 @@ import re
 import numpy as np
 import pandas as pd
 
-from f4enix.constants import PAT_BLANK, PAT_COMMENT, PAT_SPACE
+from f4enix.core.constants import (
+    PAT_BLANK,
+    PAT_COMMENT,
+    PAT_SPACE,
+    TIME_UNITS,
+    TIME_UNITS_CONVERSION,
+)
 from f4enix.input.libmanager import LibManager
-from f4enix.input.irradiation import Nuclide, IrradiationScenario, TCF_Computer
-from f4enix.constants import TIME_UNITS, TIME_UNITS_CONVERSION
+from f4enix.core.irradiation import Nuclide, IrradiationScenario, TCF_Computer
 from copy import deepcopy
 
 # PAT_COMMENT = re.compile('[Cc]+')
@@ -779,9 +784,7 @@ Daughter: {}
 lambda [1/s]: {}
 times: {}
 comment: {}
-""".format(
-            self.daughter.write_to_formula(), self.lambd, self.times, self.comment
-        )
+""".format(self.daughter.write_to_formula(), self.lambd, self.times, self.comment)
 
         return text
 

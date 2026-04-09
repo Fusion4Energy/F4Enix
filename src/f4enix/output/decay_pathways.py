@@ -8,7 +8,7 @@ import pandas as pd
 
 import f4enix.resources as pkg_res
 from f4enix.input.libmanager import LibManager
-from f4enix.material_library import AVAILABLE_MATERIALS, MaterialComposition
+from f4enix.core.material_library import AVAILABLE_MATERIALS, MaterialComposition
 
 
 def _sort_df_byzaidnum(df: pd.DataFrame, reset_index=True) -> None:
@@ -60,8 +60,8 @@ class PathwayLibrary:
             with as_file(resources.joinpath("global_filterable.csv")) as infile:
                 df = pd.read_csv(infile)
 
-        df["isotope"] = df["isotope"].astype(str) + df["state"].astype(str)
-        df["isotope"] = df["isotope"].str.replace("nan", "")
+        df["isotope"] = df["isotope"].astype(str) + df["state"].replace(pd.NA, "")
+
         del df["state"]
 
         self.library = df.set_index(
@@ -97,7 +97,7 @@ class PathwayLibrary:
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
         materials : list[MaterialComposition] | None, optional
-            available materials are at f4enix.material_library.AVAILABLE_MATERIALS,
+            available materials are at f4enix.core.material_library.AVAILABLE_MATERIALS,
             by default None. If None, all materials are selected
         cooling_times : list[str] | None, optional
             select the decay pathways that contribute to the requested cooling times,
@@ -154,7 +154,7 @@ class PathwayLibrary:
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
         materials : list[MaterialComposition] | None, optional
-            available materials are at f4enix.material_library.AVAILABLE_MATERIALS,
+            available materials are at f4enix.core.material_library.AVAILABLE_MATERIALS,
             by default None. If None, all materials are selected
         cooling_times : list[str] | None, optional
             select the decay pathways that contribute to the requested cooling times,

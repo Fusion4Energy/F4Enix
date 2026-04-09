@@ -23,7 +23,7 @@ import logging
 import pyvista as pv
 import numpy as np
 
-from f4enix.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
+from f4enix.core.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
 
 # Identifiers
 # idNodes = 'NUMBER OF NODES'
@@ -53,7 +53,6 @@ TETRA2 = "2nd tetra"
 
 
 class EEOUT:
-
     def __init__(self, filepath: os.PathLike) -> None:
         """Representation of an MCNP .eeout output file
 
@@ -269,7 +268,6 @@ class EEOUT:
                 materialFlag = True
 
     def _read_nodes_xyz(self) -> tuple[np.ndarray, int]:
-
         # Reading nodes
         readFlagX = False
         readFlagY = False
@@ -282,7 +280,6 @@ class EEOUT:
         pat_trigger_end = re.compile(" ELEMENT TYPE")
 
         for idx, line in enumerate(self.lines):
-
             # Reading nodes
             if readFlagX:
                 split = PAT_SPACE.split(line)
@@ -370,7 +367,6 @@ class EEOUT:
         return connectivity, idx + start_idx
 
     def _read_edits(self, start_idx: int = 0) -> tuple[dict[str, dict[str, list]], int]:
-
         pat_particle = re.compile(r"(?<=DATA OUTPUT PARTICLE :)\s+\d+")
         pat_edit = re.compile(r"(?<=EDIT LIST :)\s+\d+")
         pat_type = re.compile(r"(?<=TYPE :)\s+\w+")

@@ -4,7 +4,7 @@ Classes and functions to read WW files.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, TextIO
+from typing import Any, TextIO
 
 import numpy as np
 from numpy import float64
@@ -25,11 +25,11 @@ class WWHeader:
     ni: int  # Number of particle types
     nr: int  # 10/16/16 = cartesian/cylindrical/spherical coord
     probid: str  # Date and time of run
-    ne: List[int]  # Number of energy windows of each particle
+    ne: list[int]  # Number of energy windows of each particle
     nfx: int  # Number of fine meshses in i
     nfy: int  # Number of fine meshses in j
     nfz: int  # Number of fine meshses in k
-    origin: List[float]  #  Bottom left corner for cart, bottom center for cyl
+    origin: list[float]  #  Bottom left corner for cart, bottom center for cyl
     ncx: int  # Number of coarse meshses in i
     ncy: int  # Number of coarse meshses in j
     ncz: int  # Number of coarse meshses in k
@@ -37,8 +37,8 @@ class WWHeader:
 
 @dataclass()
 class WWHeaderCyl(WWHeader):
-    director_1: List[float]  # Vector defining the director 1
-    director_2: List[float]  # Vector defining the director 2
+    director_1: list[float]  # Vector defining the director 1
+    director_2: list[float]  # Vector defining the director 2
 
 
 @dataclass()
@@ -102,7 +102,7 @@ def _parse_header(infile: TextIO) -> WWHeader:
     ncy = int(float(words[1]))  # Number of coarse meshes in j
     ncz = int(float(words[2]))  # Number of coarse meshes in k
 
-    header_args: Dict[str, Any] = {
+    header_args: dict[str, Any] = {
         "if_": if_,
         "iv": iv,
         "ni": ni,
@@ -147,7 +147,7 @@ def _read_block_2_vector(
      ...]
     """
     expected_length = 3 * number_of_coarse_intervals + 1
-    vector: List[float] = []
+    vector: list[float] = []
     while len(vector) < expected_length:
         words = infile.readline().split()
         vector.extend([float(word) for word in words])
@@ -162,7 +162,7 @@ def _read_block_3(infile: TextIO, header: WWHeader) -> tuple[NestedList, NestedL
     for particle_index in range(header.ni):
         # Read energy bins for this particle
         expected_energy_bins = header.ne[particle_index]
-        energies_current_particle: List[float] = []
+        energies_current_particle: list[float] = []
         while len(energies_current_particle) < expected_energy_bins:
             words = infile.readline().split()
             energies_current_particle.extend([float(word) for word in words])
@@ -171,7 +171,7 @@ def _read_block_3(infile: TextIO, header: WWHeader) -> tuple[NestedList, NestedL
         expected_value_bins = (
             header.nfx * header.nfy * header.nfz * expected_energy_bins
         )
-        values_current_particle: List[float] = []
+        values_current_particle: list[float] = []
         while len(values_current_particle) < expected_value_bins:
             words = infile.readline().split()
             values_current_particle.extend([float(word) for word in words])
@@ -224,11 +224,11 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
     nfy = ncy = len(mesh.x2bin) - 1
     nfz = ncz = len(mesh.x3bin) - 1
     if mesh.trsf and any(mesh.trsf.origin):
-        origin = [mesh.trsf.origin[2], mesh.trsf.origin[1], mesh.trsf.origin[0]]
+        origin = [mesh.trsf.origin[0], mesh.trsf.origin[1], mesh.trsf.origin[2]]
     else:
         origin = [0.0, 0.0, 0.0]
 
-    header_args: Dict[str, Any] = {
+    header_args: dict[str, Any] = {
         "if_": if_,
         "iv": iv,
         "ni": ni,
@@ -257,6 +257,12 @@ def _read_header_from_meshtally_file(mesh: Fmesh) -> WWHeader:
                 director_2 = [0.0, 1.0, 0.0]  # Cant be the same as the axis
         else:
             director_2 = mesh.trsf.vec.tolist()
+        # The director vectors are AXS and VEC but with origin in the bottom center of
+        # the cylinder instead of 0,0,0 as provided by MESHTAL.
+        height = mesh.x2bin[-1] - mesh.x2bin[0]
+        director_1 = (np.array(director_1) * height + np.array(origin)).tolist()
+        radius = mesh.x1bin[-1] - mesh.x1bin[0]
+        director_2 = (np.array(director_2) * radius + np.array(origin)).tolist()
         header_args.update(
             {
                 "director_1": director_1,

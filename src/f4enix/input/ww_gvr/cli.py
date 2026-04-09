@@ -6,7 +6,6 @@ import os
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 from f4enix.input.ww_gvr import WW
 
@@ -62,7 +61,7 @@ class Menu:
 
         Running Menu() will start the CLI loop directly.
         """
-        self.weight_windows: Dict[str, WW] = {}
+        self.weight_windows: dict[str, WW] = {}
         self.extra_text: str = ""
         self.command_map = {
             Command.OPEN: self._handle_open,
@@ -171,7 +170,7 @@ class Menu:
         except FileNotFoundError:
             self.extra_text = " File not found..."
 
-    def _select_ww_key(self) -> Optional[str]:
+    def _select_ww_key(self) -> str | None:
         if len(self.weight_windows) == 0:
             self.extra_text = " No weight windows loaded..."
             return None
@@ -189,7 +188,7 @@ class Menu:
                     return list(self.weight_windows.keys())[ww_key - 1]
             print(" Invalid weight window number...")
 
-    def _ask_gvr_parameters(self) -> Tuple[float, float]:
+    def _ask_gvr_parameters(self) -> tuple[float, float]:
         try:
             maximum_splitting = float(
                 input(" Enter maximum splitting ratio (default 5): ")

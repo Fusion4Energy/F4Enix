@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from importlib.resources import files, as_file
 
-from f4enix.constants import TIME_UNITS
+from f4enix.core.constants import TIME_UNITS
 from f4enix.input.d1suned import (
     Reaction,
     ReactionFile,
@@ -13,8 +13,8 @@ from f4enix.input.d1suned import (
 from f4enix.input.libmanager import LibManager
 import tests.resources.d1suned as res
 import f4enix.resources as pkg_res
-from f4enix.input.irradiation import Nuclide
-from f4enix.input.irradiation import IrradiationScenario, Pulse
+from f4enix.core.irradiation import Nuclide
+from f4enix.core.irradiation import IrradiationScenario, Pulse
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)

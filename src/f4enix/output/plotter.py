@@ -37,13 +37,12 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
 from math import radians, degrees
-from f4enix.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
+from f4enix.core.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
 
 pv.set_plot_theme("document")
 
 
 class MeshPlotter:
-
     def __init__(self, mesh: pv.PolyData, stl: pv.PolyData = None) -> None:
         """Object responsible for the plotting of meshes.
 
@@ -379,7 +378,6 @@ class MeshPlotter:
             scalar_bar_args["n_labels"] = int(n_colors / 2 + 1)
 
         for i, (name, mesh_slice, stl_slice) in enumerate(slices):
-
             pl = self._get_plotter()
             if custom_categories is not None:
                 # Add category label to the mesh
@@ -492,7 +490,6 @@ class MeshPlotter:
         colors: list[str],
         name="label",
     ) -> list[str]:
-
         values = mesh[array_name]
         labels = np.empty(len(values), dtype="<U10")
 
@@ -526,7 +523,6 @@ class MeshPlotter:
 
 
 class Atlas:
-
     def __init__(self, name: str = "atlas", landscape: str = True) -> None:
         """Class to handle the generation of the Atlas.
 
@@ -796,7 +792,6 @@ class Atlas:
 
 
 class Plotter2D(ABC):
-
     def __init__(
         self, suptitle: str = None, xlabel: str = None, ylabel: str = None
     ) -> None:

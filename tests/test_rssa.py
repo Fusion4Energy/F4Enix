@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 import tests.resources.rssa as res
-from f4enix.output.rssa import RSSA, PlotParameters
+from f4enix.core.egroups import GROUP_STRUCTURES
+from f4enix.output.rssa import RSSA, PlotParameters, SpectraPlotParameters
+from f4enix.output.rssa.rssa_reader import parse_header, scan_tracks
 
 RESOURCES = files(res)
 
@@ -12,7 +14,7 @@ RESOURCES = files(res)
 @pytest.fixture
 def rssa():
     path = Path(RESOURCES.joinpath("small_cyl.w"))  # type: ignore
-    return RSSA(path)
+    return RSSA.read_from_file(path)
 
 
 def test_read_rssa_parameters(rssa):
@@ -57,6 +59,28 @@ def test_properties(rssa):
     str(rssa)
     rssa.__repr__()
     assert True
+
+
+def test_save_and_load_parameters(rssa, tmp_path):
+    rssa.save_to_files(tmp_path)
+    saved_rssa = RSSA.load_from_saved_files(tmp_path)
+    assert saved_rssa.parameters == rssa.parameters
+    assert saved_rssa.tracks.equals(rssa.tracks)
+
+
+def test_scan_tracks_file(rssa):
+    path = Path(RESOURCES.joinpath("small_cyl.w"))  # type: ignore
+    file_parameters = parse_header(path)
+    scanned_tracks = scan_tracks(path)
+    scanned_tracks = (
+        scanned_tracks.head(3)
+        .with_columns()  # We can filter by columns
+        .filter()  # We can apply any predicate to the LazyFrame
+    )
+    small_rssa = RSSA(file_parameters, scanned_tracks.collect())
+
+    assert small_rssa.tracks.shape == (3, 11)
+    assert rssa.tracks.head(3).equals(small_rssa.tracks)
 
 
 def test_plot_cyl(rssa, tmp_path):
@@ -156,3 +180,58 @@ def test_plot_plane(rssa, tmp_path):
     )
     # Check if the plot file was created
     assert (tmp_path / "test_plot_plane.png").exists()
+
+
+def test_plot_spectra(rssa, tmp_path):
+    (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                title="Neutron spectra at surface",
+                xlabel="Energy (eV)",
+                ylabel="Counts",
+                label="Neutron spectra",
+            )
+        )
+        .save_figure(tmp_path / "test_plot_spectra.png")
+    )
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_spectra.png").exists()
+
+
+def test_combined_plot_spectra(rssa, tmp_path):
+    other_spectra = (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                label="Other spectra",
+            )
+        )
+        .get_spectra_info()
+    )
+    other_spectra.normalized_counts *= 0.1  # Just to differentiate the plots
+    fig, _ax = (
+        rssa.plot_spectra()
+        .set_particle("n")
+        .set_z_limits(-600, 800)
+        .set_energy_bins(GROUP_STRUCTURES["VITAMIN-J-175"])
+        .set_plot_parameters(
+            SpectraPlotParameters(
+                title="Neutron spectra at surface",
+                xlabel="Energy (eV)",
+                ylabel="Counts",
+                label="Neutron spectra",
+            )
+        )
+        .get_combined_plot_with_other_spectras(other_spectra)
+    )
+    fig.savefig(tmp_path / "test_plot_spectra.png")
+
+    # Check if the plot file was created
+    assert (tmp_path / "test_plot_spectra.png").exists()

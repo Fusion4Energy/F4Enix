@@ -133,9 +133,7 @@ class Tally:
         )  # Array of corc     bin boundaries for mesh tallies (or lattices)
 
         self.tfc_jtf = np.array(())  # List of numbers in the tfc line
-        self.tfc_dat = (
-            []
-        )  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
+        self.tfc_dat = []  # Tally fluctuation chart data (NPS, tally, error, figure of merit)
 
         self.detectorTypeList = {
             -6: "smesh",
@@ -1031,9 +1029,7 @@ class Mctal:
                                                     ):  # f is for Field...again, forgive me
                                                         del Fld
                                                         del self.line
-                                                        self.line = (
-                                                            self.mctalFile.readline().strip()
-                                                        )
+                                                        self.line = self.mctalFile.readline().strip()
                                                         Fld = self.line.split()
                                                         nFld = len(Fld) - 1
                                                         f = 0
@@ -1471,19 +1467,15 @@ def normalize_tally(
         if col not in [user_label, "Value", "Error", "Normalized Value"]
     ]
 
-    def normalize(group):
-        total = group["Value"].sum()
-        group["Normalized Value"] = group["Value"] / total if total != 0 else 0
-        return group
+    if not inplace:
+        df = df.copy()
 
     if len(group_cols) == 0:
         # No group keys: normalize the whole column
         total = df["Value"].sum()
         df["Normalized Value"] = df["Value"] / total if total != 0 else 0
-        return df if inplace else df.copy()
+        return df
     else:
-        if inplace:
-            df = df.groupby(group_cols).apply(normalize).reset_index(drop=True)
-            return df
-        else:
-            return df.groupby(group_cols).apply(normalize).reset_index(drop=True)
+        norm_factor = df.groupby(group_cols)["Value"].transform("sum")
+        df["Normalized Value"] = df["Value"] / norm_factor.where(norm_factor != 0, 0)
+        return df

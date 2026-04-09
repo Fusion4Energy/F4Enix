@@ -7,7 +7,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -47,8 +46,8 @@ class Vectors:
             return False
 
 
-Pathlike = Union[str, Path]
-NestedList = List[List[float]]
-ValuesByEnergy = Dict[float, np.ndarray]
-ValuesByParticle = Dict[ParticleType, ValuesByEnergy]
-EnergiesByParticle = Dict[ParticleType, List[float]]
+Pathlike = str | Path
+NestedList = list[list[float]]
+ValuesByEnergy = dict[float, np.ndarray]
+ValuesByParticle = dict[ParticleType, ValuesByEnergy]
+EnergiesByParticle = dict[ParticleType, list[float]]

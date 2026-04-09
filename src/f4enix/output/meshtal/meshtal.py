@@ -4,7 +4,7 @@ from copy import deepcopy
 import pyvista as pv
 from numjuggler import parser
 
-from f4enix.constants import PathLike
+from f4enix.core.constants import PathLike
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
 from f4enix.output.meshtal.fmesh import Fmesh

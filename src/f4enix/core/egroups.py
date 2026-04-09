@@ -1,3 +1,5 @@
+"""Set of common energy groups. Original set from OpenMC repo (https://openmc.org)"""
+
 import numpy as np
 
 # from f4e_ace.mgxs.groups import EnergyGroups
