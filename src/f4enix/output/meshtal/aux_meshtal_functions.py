@@ -202,8 +202,12 @@ def _get_column_data(
                 for i2 in range(nx2):
                     for i3 in range(nx3):
                         strvalues = fic._readline().split()
-                        val = float(strvalues[ival])
-                        err = float(strvalues[ierr])
+                        try:
+                            val = float(strvalues[ival])
+                            err = float(strvalues[ierr])
+                        except ValueError:
+                            val = 0.0
+                            err = 0.0
                         data[it, ie, i1, i2, i3, :] = (val, err)
     data = np.swapaxes(data, 2, 4)
     return data

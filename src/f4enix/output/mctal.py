@@ -1483,7 +1483,7 @@ def normalize_tally(
         return df if inplace else df.copy()
     else:
         if inplace:
-            df[:] = df.groupby(group_cols).apply(normalize)
+            df = df.groupby(group_cols).apply(normalize).reset_index(drop=True)
             return df
         else:
             return df.groupby(group_cols).apply(normalize).reset_index(drop=True)
