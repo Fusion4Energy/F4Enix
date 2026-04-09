@@ -1,3 +1,5 @@
+"""Deals with irradiation scenarios and time correction factors for D1S methodology."""
+
 import re
 from pathlib import Path
 from importlib.resources import files, as_file
