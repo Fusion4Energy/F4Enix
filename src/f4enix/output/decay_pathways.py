@@ -5,6 +5,7 @@ from __future__ import annotations
 from importlib.resources import as_file, files
 
 import pandas as pd
+from enum import Enum
 
 import f4enix.resources as pkg_res
 from f4enix.input.libmanager import LibManager
@@ -26,19 +27,32 @@ def _sort_df_byzaidnum(df: pd.DataFrame, reset_index=True) -> None:
         df.set_index(index, inplace=True)
 
 
-FIRST_WALL = "First Wall (315g)"
-EQ_PORT = "Eq. port interspace (175g)"
-N17 = "N-17 neutron emission (175g)"
+class AVAIL_SPECTRUM(Enum):
+    FirstWall500MW = "500MW_First_Wall"
+    PortCell500MW = "500MW_Port_Cell"
+    PortInterspace500MW = "500MW_Port_Interspace"
+    N17PortCell = "N17_Port_Cell"
+    SRO_FW_Layer1 = "SRO_FW_Layer1"
+    SRO_FW_SB = "SRO_FW_SB"
+    SRO_NBI_BetweenDucts = "SRO_NBI_Between_Ducts"
+    SRO_NBI_Room = "SRO_NBI_Room"
+    SRO_Port_Interspace = "SRO_Port_Interspace"
+    SRO_Runaway_Electrons = "SRO_runaway_electrons"
 
-AVAILABLE_SPECTRA = [FIRST_WALL, EQ_PORT, N17]
-AVAILABLE_COOLING_TIMES = [
-    "24h",
-    "11.6d",
-    "30d",
-    "180d",
-    "1y",
-    "10y",
-]
+
+AVAILABLE_SPECTRA = [s for s in AVAIL_SPECTRUM]
+
+
+class AVAIL_IRR_SCENARIO(Enum):
+    DT1 = "DT1"
+    DT2 = "DT2"
+    SRO = "SRO"
+    SA2 = "SA2"
+
+
+AVAILABLE_IRRADIATION_SCENARIOS = [s for s in AVAIL_IRR_SCENARIO]
+
+AVAILABLE_COOLING_TIMES = ["24 h", "11.6 d", "30 d", "180 d", "230 d", "1 y", "10 y"]
 
 
 class PathwayLibrary:
@@ -66,19 +80,22 @@ class PathwayLibrary:
 
         self.library = df.set_index(
             [
-                "dose",
-                "spectrum",
+                "Dose threshold",
+                "Scenario",
+                "Spectrum",
                 "element",
                 "isotope",
                 # "state",
                 "pathway",
-                "material",
+                "Material",
+                "cooling time",
             ],
         )
 
     def get_pathways(
         self,
-        spectrum: list[str] | None = None,
+        spectrum: list[AVAIL_SPECTRUM] | None = None,
+        irradiation_scenario: list[AVAIL_IRR_SCENARIO] | None = None,
         dose: int = 95,
         materials: list[MaterialComposition] | None = None,
         cooling_times: list[str] | None = None,
@@ -90,9 +107,11 @@ class PathwayLibrary:
 
         Parameters
         ----------
-        spectrum : list[str] | None, optional
+        spectrum : list[AvailableSpectra] | None, optional
             allowed spectra are available at f4enix.decay_pathways.AVAILABLE_SPECTRA,
             by default None. If None, all spectra are selected
+        irradiation_scenario : list[AvailableIrradiationScenarios] | None, optional
+            allowed irradiation scenarios are available at f4enix.decay_pathways.AVAILABLE_IRR
         dose : int | None, optional
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
@@ -108,11 +127,12 @@ class PathwayLibrary:
         -------
         pd.DataFrame
             resulting summary of important decay pathways for the requested dose,
-            materials, spectra and cooling times.
+            materials, spectra, irradiation scenarios, and cooling times.
         """
         # filter the pathways
         df = self.filter_pathways(
             spectrum=spectrum,
+            irradiation_scenario=irradiation_scenario,
             dose=dose,
             materials=materials,
             cooling_times=cooling_times,
@@ -129,16 +149,18 @@ class PathwayLibrary:
             )
             .max()
         )
-        del dfmax["dose"]
-        del dfmax["material"]
-        del dfmax["spectrum"]
+        del dfmax["Dose threshold"]
+        del dfmax["Material"]
+        del dfmax["Spectrum"]
+        del dfmax["Scenario"]
         _sort_df_byzaidnum(dfmax)
 
         return dfmax
 
     def filter_pathways(
         self,
-        spectrum: list[str] | None = None,
+        spectrum: list[AVAIL_SPECTRUM] | None = None,
+        irradiation_scenario: list[AVAIL_IRR_SCENARIO] | None = None,
         dose: int = 95,
         materials: list[MaterialComposition] | None = None,
         cooling_times: list[str] | None = None,
@@ -147,9 +169,12 @@ class PathwayLibrary:
 
         Parameters
         ----------
-        spectrum : list[str] | None, optional
+        spectrum : list[AvailableSpectra] | None, optional
             allowed spectra are available at f4enix.decay_pathways.AVAILABLE_SPECTRA,
             by default None. If None, all spectra are selected
+        irradiation_scenario : list[AvailableIrradiationScenarios] | None, optional
+            allowed irradiation scenarios are available at f4enix.decay_pathways.AVAILABLE_IRRADIATION_SCENARIOS,
+            by default None. If None, all irradiation scenarios are selected
         dose : int | None, optional
             select the decay pathways that contribute to either 95 or 99 percent,
             by default 95.
@@ -165,12 +190,12 @@ class PathwayLibrary:
         -------
         pd.DataFrame
             filtereted dataframe containing only the rows related to the subset of
-            materials, spectra and dose requested.
+            materials, spectra, irradiation scenarios and dose requested.
 
         Raises
         ------
         ValueError
-            if either a spectrum, cooling time or material is requested that is not available
+            if either a spectrum, cooling time, material, or irradiation scenario is requested that is not available
         """
         if spectrum is None:
             spectrum = AVAILABLE_SPECTRA
@@ -179,12 +204,19 @@ class PathwayLibrary:
             for s in spectrum:
                 if s not in AVAILABLE_SPECTRA:
                     raise ValueError(f"Spectrum {s} is not available")
+        # get the values
+        spectrum_values = [s.value for s in spectrum]
 
-        if dose == 95:
-            doselabel = "Dose 95%"
-        elif dose == 99:
-            doselabel = "Dose 99%"
+        if irradiation_scenario is None:
+            irradiation_scenario = AVAILABLE_IRRADIATION_SCENARIOS
         else:
+            # check that requested irradiation scenario is available
+            for s in irradiation_scenario:
+                if s not in AVAILABLE_IRRADIATION_SCENARIOS:
+                    raise ValueError(f"Irradiation scenario {s} is not available")
+        irradiation_scenario_values = [s.value for s in irradiation_scenario]
+
+        if dose not in [95, 99]:
             raise ValueError("only 95% and 99% doses are available")
 
         if materials is None:
@@ -205,10 +237,18 @@ class PathwayLibrary:
 
         # I need the material names to check the df columns
         mat_names = [m.name for m in materials]
-        cooling_times = [f"max dose % at {t}" for t in cooling_times]
 
         # Select all the rows that match the requested spectrum, dose and materials
         df = self.library.copy()
-        df = df.loc[doselabel, spectrum, :, :, :, mat_names]
+        df = df.loc[
+            dose,
+            irradiation_scenario_values,
+            spectrum_values,
+            :,
+            :,
+            :,
+            mat_names,
+            cooling_times,
+        ]
 
-        return df[cooling_times].dropna(how="all")
+        return df
