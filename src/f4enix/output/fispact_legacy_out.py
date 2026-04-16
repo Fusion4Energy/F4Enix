@@ -9,7 +9,9 @@ import pypact as pp
 from dataclasses import dataclass
 from pathlib import Path
 from f4enix.input.libmanager import LibManager
-from f4enix.core.constants import PathLike
+from f4enix.core.constants import PathLike, REVERSED_MT_DICT
+from f4enix.core.irradiation import Nuclide, TCF_Computer
+from copy import deepcopy
 
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
@@ -23,63 +25,50 @@ PATHWAY_END = ["(S)", "(L)"]
 
 
 @dataclass
-class FispactZaid:
-    """Class to represent a Zaid in a generic pathway in fispact.
-
-    Attributes
-    ----------
-    element : str
-        The element of the isotope.
-    isotope : int
-        The isotope number.
-    metastable : bool
-        Whether the isotope is metastable or not.
-    """
-
-    element: str
-    isotope: int
-    metastable: bool = False
-
-    def get_str(self) -> str:
-        """Return the Zaid as a string.
-
-        Returns
-        -------
-        str
-            The Zaid as a string.
-        """
-        if self.metastable:
-            return f"{self.element}{self.isotope}m"
-        else:
-            return f"{self.element}{self.isotope}"
-
-
-@dataclass
 class Pathway:
     """Class to represent a pathway in fispact.
 
     Attributes
     ----------
-    parent : FispactZaid
-        The parent FispactZaid object.
-    daughter : FispactZaid
-        The daughter FispactZaid object.
+    parent : Nuclide
+        The parent Nuclide object.
+    daughter : Nuclide
+        The daughter Nuclide object.
     perc : float
         The percentage of the pathway contribution to the daughter isotope.
     reactions : list[str]
         The list of reactions in the pathway.
-    intermediates : list[FispactZaid], optional
-        The list of intermediate FispactZaid objects in the pathway.
+    intermediates : list[Nuclide], optional
+        The list of intermediate Nuclide objects in the pathway.
 
     """
 
-    parent: FispactZaid
-    daughter: FispactZaid
+    parent: Nuclide
+    daughter: Nuclide
     perc: float
     reactions: list[str]
-    intermediates: list[FispactZaid] = None
+    intermediates: list[Nuclide] | None = None
+
+    def __eq__(self, other: object) -> bool:
+        # they are pathways
+        if not isinstance(other, Pathway):
+            return False
+        # parent and daughters are the same
+        if (
+            self.parent != other.parent
+            or self.daughter != other.daughter
+            or self.intermediates != other.intermediates
+            # given same intermediates reactions are automatically the same,
+            # not checking helps avoid mistakes for small differences in reaction labels
+            # or self.reactions != other.reactions
+        ):
+            return False
+        return True
 
     def __post_init__(self):
+        # if an empty list is provided, change it to None
+        if isinstance(self.intermediates, list) and len(self.intermediates) == 0:
+            self.intermediates = None
         # check that reaction list length is always one more than intermediates
         # when it is not None
         if self.intermediates is not None:
@@ -92,13 +81,130 @@ class Pathway:
 
     def __str__(self) -> str:
         if self.intermediates is not None:
-            text = f"{self.parent.get_str()} "
+            text = f"{self.parent.write_to_formula()} "
             for intermediate, reaction in zip(self.intermediates, self.reactions):
-                text += f"-{reaction}-> {intermediate.get_str()} "
-            text += f"-{self.reactions[-1]}-> {self.daughter.get_str()}"
+                text += f"-{reaction}-> {intermediate.write_to_formula()} "
+            text += f"-{self.reactions[-1]}-> {self.daughter.write_to_formula()}"
             return text
         else:
-            return f"{self.parent.get_str()} -{self.reactions[0]}-> {self.daughter.get_str()}"
+            return f"{self.parent.write_to_formula()} -{self.reactions[0]}-> {self.daughter.write_to_formula()}"
+
+    def is_multistep(self) -> bool:
+        """Return whether the pathway is a multistep pathway or not.
+        Isomeric transitions are not considered as steps in the pathway.
+
+        Returns
+        -------
+        bool
+            True if the pathway is a multistep pathway, False otherwise.
+        """
+        if self.intermediates is not None:
+            for intermediate in self.intermediates:
+                if (
+                    intermediate.isotope == self.daughter.isotope
+                    and intermediate.element == self.daughter.element
+                ):
+                    # then this is an isomeric transition
+                    # we do not consider it as a step in the pathway
+                    continue
+                else:
+                    return True
+        return False
+
+    @classmethod
+    def from_string(cls, string: str, perc: float = 100) -> "Pathway":
+        """parse from string like: Ni58 -(n,p)-> Co58m -(IT)-> Co58
+
+        Parameters
+        ----------
+        str : str
+            string to parse
+
+        Returns
+        -------
+        Pathway
+            parsed pathway
+        """
+        reactions = reaction_pat.findall(string)
+        # replace the reactions with nothing
+        string = reaction_pat.sub("", string)
+        zaids = string.split("-->")
+        parent = Nuclide.from_formula(zaids[0].strip())
+        daughter = Nuclide.from_formula(zaids[-1].strip())
+        intermediates = []
+        for intermediate in zaids[1:-1]:
+            intermediates.append(Nuclide.from_formula(intermediate.strip()))
+
+        return cls(parent, daughter, perc, reactions, intermediates=intermediates)
+
+    def reduce(
+        self,
+        half_life_cutoff: float | None = None,
+        tfc_computer: TCF_Computer | None = None,
+    ) -> Pathway:
+        """Return a reduced pathway built from the original where isomeric transitions
+        have been removed. It is possible to provide a half life cut-off value above
+        which metastable steps will be retained.
+
+        Parameters
+        ----------
+        half_life_cutoff : float | None, optional
+            threshold (in seconds) below which isomeric transitions shall be removed
+            by default None. If a value is provided, also the tfc_computer must be
+            provided.
+        tfc_computer : TCF_Computer | None, optional
+            TFC_Computer object used to retrieve half-life values, by default None
+
+        Returns
+        -------
+        Pathway
+            New reduced pathway
+
+        Raises
+        ------
+        ValueError
+            If a half life cut-off is provided but no TFC_Computer.
+        """
+        if half_life_cutoff is not None:
+            if tfc_computer is None:
+                raise ValueError("TFC_Computer must be provided to compute half-lives")
+
+        it_strings = ["IT", "(IT)"]
+        reactions = [self.reactions[0]]
+        intermediates = []
+        if self.intermediates is None:
+            return deepcopy(self)
+        for i, intermediate in enumerate(self.intermediates):
+            if self.reactions[i + 1] in it_strings:
+                # if the metastable is below cut-off, simplify
+                if half_life_cutoff and tfc_computer:
+                    nuclide = Nuclide.from_formula(
+                        str(intermediate.element) + str(intermediate.isotope) + "m",
+                    )
+                    half_life = tfc_computer.get_half_life(nuclide)
+                    if float(half_life) <= half_life_cutoff:
+                        continue
+                # if no cut-off provided, always simplify
+                else:
+                    continue
+            reactions.append(self.reactions[i + 1])
+            intermediates.append(deepcopy(intermediate))
+        return Pathway(
+            deepcopy(self.parent),
+            deepcopy(self.daughter),
+            self.perc,
+            reactions,
+            intermediates=intermediates,
+        )
+
+    def get_MT(self) -> int | None:
+        """Return the MT number associated to the first reaction in the pathway."""
+        # ensure parenthesis are present and no whitespaces
+        key = f'({self.reactions[0].replace(" ", "").strip("(").strip(")")})'
+        try:
+            return REVERSED_MT_DICT[key]
+        except KeyError:
+            return None
 
 
 class PathwayCollection:
@@ -192,16 +298,16 @@ class PathwayCollection:
             intermediates = []
             if pathway.intermediates is not None:
                 for intermediate in pathway.intermediates:
-                    intermediates.append(intermediate.get_str())
+                    intermediates.append(intermediate.write_to_formula())
             rows.append(
                 [
-                    pathway.parent.get_str(),
+                    pathway.parent.write_to_formula(),
                     intermediates,
                     pathway.reactions,
-                    pathway.daughter.get_str(),
+                    pathway.daughter.write_to_formula(),
                     pathway.perc,
                     # additional columns for sorting to be dropped later
-                    lm.get_zaidnum(pathway.daughter.get_str()),
+                    lm.get_zaidnum(pathway.daughter.write_to_formula()),
                 ]
             )
 
@@ -237,10 +343,10 @@ class PathwayCollection:
                 perc = float(perc_pattern.search(line).group()[:-1])
                 tokens = line.split("---")
                 # starting from pos 3, every two tokens should be a zaid and a reaction
-                zaids = [_get_zaid_from_str(tokens[0].split("%")[-1])]
+                zaids = [Nuclide.from_formula(tokens[0].split("%")[-1])]
 
                 for i in range(2, len(tokens[:-1]), 2):
-                    zaids.append(_get_zaid_from_str(tokens[i]))
+                    zaids.append(Nuclide.from_formula(tokens[i]))
 
                 # get the reactions
                 line = lines[j + 1]
@@ -257,9 +363,9 @@ class PathwayCollection:
                     )
                 # then the path continues on the next line, we need to parse the next line for more zaids and reactions
                 tokens = line.split("---")
-                zaids.append(_get_zaid_from_str(tokens[0].split("continued")[-1]))
+                zaids.append(Nuclide.from_formula(tokens[0].split("continued")[-1]))
                 for i in range(2, len(tokens[:-1]), 2):
-                    zaids.append(_get_zaid_from_str(tokens[i]))
+                    zaids.append(Nuclide.from_formula(tokens[i]))
 
                 line = lines[j + 1]
                 reactions.extend(reaction_pat.findall(line))
@@ -389,7 +495,7 @@ class FispactOutput:
             isotope = str(row["element"]) + str(row["isotope"]) + row["state"]
             found = False
             for pathway in self.pathways_collection.pathways:
-                if pathway.daughter.get_str() == isotope:
+                if pathway.daughter.write_to_formula() == isotope:
                     found = True
                     newrow = row.copy()
                     newrow["pathway"] = str(pathway)
@@ -411,14 +517,3 @@ class FispactOutput:
                 "No pathways found for any of the isotopes in the dataframe."
             )
         return newdf.sort_values(by="pathway % dose", ascending=False)
-
-
-def _get_zaid_from_str(name: str) -> FispactZaid:
-    element = element_pat.search(name).group()
-    isotope = isotope_pat.search(name).group()
-    if metastable_pat.search(name) is not None:
-        metastable = True
-    else:
-        metastable = False
-
-    return FispactZaid(element=element, isotope=int(isotope), metastable=metastable)

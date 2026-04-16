@@ -35,6 +35,7 @@ from f4enix.core.constants import (
 )
 from f4enix.input.libmanager import LibManager
 from f4enix.core.irradiation import Nuclide, IrradiationScenario, TCF_Computer
+from f4enix.output.fispact_legacy_out import Pathway
 from copy import deepcopy
 
 # PAT_COMMENT = re.compile('[Cc]+')
@@ -945,6 +946,32 @@ class ReactionFile:
 
     def __str__(self) -> str:
         return self._print()
+
+    def filter_by_paths(self, pathways: list[Pathway]) -> None:
+        """Use a list of pathways to filter the reaction list.
+
+        Parameters
+        ----------
+        pathways : list[Pathway]
+            reactions must be present in this list of pathways to be kept in the
+            reaction file.
+        """
+        filtered_reactions = []
+        for reaction in self.reactions:
+            found = False
+            for pathway in pathways:
+                if (
+                    reaction.parent.zaid == pathway.parent.zaid
+                    and reaction.parent.metastable == pathway.parent.metastable
+                    and reaction.daughter.zaid == pathway.daughter.zaid
+                    and reaction.daughter.metastable == pathway.daughter.metastable
+                    and int(reaction.MT) == pathway.get_MT()
+                ):
+                    found = True
+                    break
+            if found:
+                filtered_reactions.append(reaction)
+        self.reactions = filtered_reactions
 
 
 class Reaction:

@@ -250,3 +250,17 @@ TIME_UNITS_CONVERSION = {
     TIME_UNITS.MONTH: 60 * 60 * 24 * years_days / 12,
     TIME_UNITS.YEAR: 60 * 60 * 24 * years_days,
 }
+
+MT_DICT = {
+    4: "(n,n)",
+    16: "(n,2n)",
+    28: "(n,np)",
+    102: "(n,g)",
+    103: "(n,p)",
+    104: "(n,d)",
+    105: "(n,t)",
+    107: "(n,a)",
+    112: "(n,pa)",
+}
+
+REVERSED_MT_DICT = {v: k for k, v in MT_DICT.items()}

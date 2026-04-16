@@ -54,6 +54,10 @@ class TestNuclide:
         int_string = n.write_to_int_string()
         assert int_string == "9993003900.99c"
 
+    def test_from_isotope_element(self):
+        zaid = Nuclide(element="U", isotope=235)
+        assert zaid.write_to_formula() == "U235"
+
 
 class TestIrradiationScenario:
     def test_from_fispact(self):
