@@ -175,8 +175,13 @@ class TestFispactOutput:
         df = outp.filter_by_cum_dose(95, "1e2", add_pathways=True)
         assert len(df) == 8
 
-    # def test_filter_bugged(self):
-    #     with as_file(lib_resources.joinpath("no_pathways.out")) as file:
-    #         output = FispactOutput(file, cooling_times=["1e2", "1e4"])
+    def test_decay_heat(self, outp: FispactOutput):
+        assert pytest.approx(outp.decay_heat["Cumulative heat sum"].max()) == 100
 
-    #     df = output.filter_by_cum_dose(95, "1e2", add_pathways=True)
+    def test_filter_by_cum_heat(self, outp: FispactOutput):
+        df = outp.filter_by_cum_heating(95, "1e2")
+        assert len(df) == 4
+        assert df.iloc[-1]["Cumulative heat sum"] > 95
+
+        df = outp.filter_by_cum_heating(95, "1e2", add_pathways=True)
+        assert len(df) == 10
