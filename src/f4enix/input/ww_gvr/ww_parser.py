@@ -381,11 +381,12 @@ def _write_block_3(
             particle_vals[i : i + number_of_voxels]
             for i in range(0, len(particle_vals), number_of_voxels)
         ]
-        for value_set in values_divided_by_voxels:
+        for energy_set_index, value_set in enumerate(values_divided_by_voxels):
             packs_val = [value_set[i : i + 6] for i in range(0, len(value_set), 6)]
             for value_pack in packs_val:
                 for value in value_pack:
                     f.write(f"{value:>#13.4E}")
                 f.write("\n")
-            if len(value_set) % 6 == 0:
-                f.write("\n")  # Extra new line after each energy set
+            is_last_energy_set = energy_set_index == len(values_divided_by_voxels) - 1
+            if len(value_set) % 6 == 0 and not is_last_energy_set:
+                f.write("\n")  # Extra new line between energy sets
