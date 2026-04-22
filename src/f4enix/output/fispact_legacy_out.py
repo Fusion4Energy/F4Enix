@@ -200,7 +200,7 @@ class Pathway:
     def get_MT(self) -> int | None:
         """Return the MT number associated to the first reaction in the pathway."""
         # ensure parenthesis are present and no whitespaces
-        key = f'({self.reactions[0].replace(" ", "").strip("(").strip(")")})'
+        key = f"({self.reactions[0].replace(' ', '').strip('(').strip(')')})"
         try:
             return REVERSED_MT_DICT[key]
         except KeyError:
@@ -388,7 +388,14 @@ class PathwayCollection:
 
 
 class FispactOutput:
-    def __init__(self, filepath: PathLike, cooling_times: list[str]):
+    def __init__(
+        self,
+        filepath: PathLike,
+        cooling_times: list[str],
+        parse_sddr: bool = True,
+        parse_decay_heat: bool = True,
+        parse_pathways: bool = True,
+    ) -> None:
         """Store data parsed from FISPACT legacy output files
 
         Parameters
@@ -399,6 +406,12 @@ class FispactOutput:
             list of labels associated to the different cooling times. No check is
             performed on the correct length of the label list, the last len(cooling_times)
             timesteps in the inventory data will be associated to these labels.
+        parse_sddr : bool, optional
+            whether to parse the SDDR data, by default True
+        parse_decay_heat : bool, optional
+            whether to parse the decay heat data, by default True
+        parse_pathways : bool, optional
+            whether to parse the pathways data, by default True
 
         Attributes
         ----------
@@ -408,6 +421,13 @@ class FispactOutput:
             name of the fispact output file without extension
         inventory_data : list[pp.TimeStep]
             inventory data parsed from the fispact output file. This is a pypact object.
+        sddr : pd.DataFrame
+            SDDR data extracted from the inventory data.
+        decay_heat : pd.DataFrame
+            Decay heat data extracted from the inventory data.
+        pathways_collection : PathwayCollection
+            PathwayCollection object containing the pathways extracted from the fispact
+            output file.
         """
         self.filepath = Path(filepath)
         self.name = self.filepath.stem
@@ -416,8 +436,13 @@ class FispactOutput:
             # store inventory data
             self.inventory_data = output.inventory_data
 
-        self.sddr = self._get_sddr(cooling_times)
-        self.pathways_collection = PathwayCollection.from_file(self.filepath)
+        self.sddr = self._get_sddr(cooling_times) if parse_sddr else None
+        self.decay_heat = (
+            self._get_decay_heat(cooling_times) if parse_decay_heat else None
+        )
+        self.pathways_collection = (
+            PathwayCollection.from_file(self.filepath) if parse_pathways else None
+        )
 
     def _get_sddr(self, cooling_times: list[str]) -> pd.DataFrame:
         dfs = []
@@ -441,6 +466,35 @@ class FispactOutput:
             df["isotope % dose"] = df["dose"] / df["dose"].sum() * 100
             df.sort_values(by="isotope % dose", ascending=False, inplace=True)
             df["Cumulative dose sum"] = df["isotope % dose"].values.cumsum()
+            dfs.append(df)
+
+        return pd.concat(dfs)
+
+    def _get_decay_heat(self, cooling_times: list[str]) -> pd.DataFrame:
+        dfs = []
+        for i, timestep in enumerate(self.inventory_data[-len(cooling_times) :]):
+            cooling_time_label = cooling_times[i]
+
+            heat_rows = []
+            for nuclide in timestep.nuclides:
+                heat_rows.append(
+                    {
+                        "element": nuclide.element,
+                        "isotope": nuclide.isotope,
+                        "state": nuclide.state,
+                        "heat": nuclide.heat,
+                        "alpha_heat": nuclide.alpha_heat,
+                        "beta_heat": nuclide.beta_heat,
+                        "gamma_heat": nuclide.gamma_heat,
+                        "cooling time": cooling_time_label,
+                    }
+                )
+
+            df = pd.DataFrame(heat_rows)
+            df = df[df["heat"] > 0]  # filter zero heat
+            df["isotope % heat"] = df["heat"] / df["heat"].sum() * 100
+            df.sort_values(by="isotope % heat", ascending=False, inplace=True)
+            df["Cumulative heat sum"] = df["isotope % heat"].values.cumsum()
             dfs.append(df)
 
         return pd.concat(dfs)
@@ -477,13 +531,47 @@ class FispactOutput:
             df = self.add_pathways_rows(df)
         return df
 
-    def add_pathways_rows(self, df: pd.DataFrame) -> pd.DataFrame:
+    def filter_by_cum_heating(
+        self, perc: float, label: str, add_pathways: bool = False
+    ) -> pd.DataFrame:
+        """Filter the decay heating output (at a certain cooling time)
+        to get at least a certain percent of the cumulative heat.
+
+        Parameters
+        ----------
+        perc : float
+            percent of cumulative heat to filter at
+        label : str
+            cooling time label to filter at
+        add_pathways : bool, optional
+            whether to add pathways rows, by default False
+        Returns
+        -------
+        pd.DataFrame
+            filtered dataframe
+        """
+        # select only requested label
+        df = self.decay_heat[self.decay_heat["cooling time"] == label].copy()
+        last_index = None
+        for i, (_, row) in enumerate(df.iterrows()):
+            if row["Cumulative heat sum"] > perc:
+                last_index = i + 1
+                break
+        df = df.iloc[:last_index]
+
+        if add_pathways:
+            df = self.add_pathways_rows(df, who="heat")
+        return df
+
+    def add_pathways_rows(self, df: pd.DataFrame, who="dose") -> pd.DataFrame:
         """Add pathways rows to a SDDR dataframe.
 
         Parameters
         ----------
         df : pd.DataFrame
             filtered dataframe
+        who : str, optional
+            whether to add pathways rows for 'dose' or 'heat' dataframe, by default 'dose'.
 
         Returns
         -------
@@ -499,21 +587,21 @@ class FispactOutput:
                     found = True
                     newrow = row.copy()
                     newrow["pathway"] = str(pathway)
-                    newrow["pathway % dose"] = (
-                        pathway.perc * row["isotope % dose"] / 100
+                    newrow[f"pathway % {who}"] = (
+                        pathway.perc * row[f"isotope % {who}"] / 100
                     )
                     newrows.append(newrow)
             if not found:
                 newrow = row.copy()
                 newrow["pathway"] = "N.A."
-                newrow["pathway % dose"] = row["isotope % dose"]
+                newrow[f"pathway % {who}"] = row[f"isotope % {who}"]
                 newrows.append(newrow)
 
         newdf = pd.DataFrame(newrows)
 
         # it may happen that pathways column is not created
-        if "pathway % dose" not in newdf.columns:
+        if f"pathway % {who}" not in newdf.columns:
             raise ValueError(
-                "No pathways found for any of the isotopes in the dataframe."
+                f"No pathways found for any of the isotopes in the {who} dataframe."
             )
-        return newdf.sort_values(by="pathway % dose", ascending=False)
+        return newdf.sort_values(by=f"pathway % {who}", ascending=False)
