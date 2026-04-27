@@ -1,6 +1,7 @@
 """Deals with irradiation scenarios and time correction factors for D1S methodology."""
 
 import re
+import threading
 from pathlib import Path
 from importlib.resources import files, as_file
 from pypact.input.inputdata import InputData
@@ -19,8 +20,19 @@ from f4enix.core.constants import (
 from f4enix.input.libmanager import LibManager
 from f4enix import resources
 
-LM = LibManager()
+_LM: LibManager | None = None
+_LM_LOCK = threading.Lock()
 RES = files(resources)
+
+
+def _get_lm() -> LibManager:
+    global _LM
+    if _LM is None:
+        with _LM_LOCK:
+            if _LM is None:
+                _LM = LibManager()
+    return _LM
+
 
 # D1STIME PATTERNS
 PAT_IRRADIATION = re.compile(r"^\s*irradiation", flags=re.IGNORECASE)
@@ -303,13 +315,13 @@ class Nuclide:
         """
         if zaid:
             self._zaid = int(zaid)
-            _, formula = LM.get_zaidname(str(self._zaid))
+            _, formula = _get_lm().get_zaidname(str(self._zaid))
             self._element = formula.split("-")[0].strip()
             self._isotope = int(formula.split("-")[1].strip())
         elif element and isotope:
             self._element = element
             self._isotope = int(isotope)
-            self._zaid = LM.get_zaidnum(f"{element}{isotope}")
+            self._zaid = _get_lm().get_zaidnum(f"{element}{isotope}")
 
         self.metastable = metastable
         self.IRS_active = IRS_active
@@ -350,7 +362,7 @@ class Nuclide:
         else:
             IRS_active = False
 
-        zaid = LM.get_zaidnum(zaid_str)
+        zaid = _get_lm().get_zaidnum(zaid_str)
         if len(pieces) > 1:
             lib = pieces[1]
         else:

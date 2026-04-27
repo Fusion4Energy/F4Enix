@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from itertools import chain
 from pathlib import Path
 from typing import Callable, Sequence
@@ -16,8 +17,18 @@ from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Material, Zaid
 
-# get a default library manager
-LM = LibManager()
+# lazily-initialized default library manager
+_LM: LibManager | None = None
+_LM_LOCK = threading.Lock()
+
+
+def _get_lm() -> LibManager:
+    global _LM
+    if _LM is None:
+        with _LM_LOCK:
+            if _LM is None:
+                _LM = LibManager()
+    return _LM
 
 # Special MT values
 UNITY_MT = -1
@@ -365,13 +376,13 @@ def get_xs(
     """
     if isinstance(this, str):
         # either a nuclide or an element
-        mat = Material.from_zaids([(this, 1)], LM, "00c")
+        mat = Material.from_zaids([(this, 1)], _get_lm(), "00c")
     else:
         mat = this
 
     # Force normalization and atom fractions
-    mat.switch_fraction("mass", LM, inplace=True)
-    mat.switch_fraction("atom", LM, inplace=True)
+    mat.switch_fraction("mass", _get_lm(), inplace=True)
+    mat.switch_fraction("atom", _get_lm(), inplace=True)
     # Collect all zaids
     zaids = []
     for submat in mat.submaterials:
