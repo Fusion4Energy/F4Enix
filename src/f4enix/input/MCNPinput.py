@@ -24,14 +24,14 @@ import logging
 import os
 import re
 from copy import deepcopy
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-import matplotlib.pyplot as plt
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
 import numpy as np
 import pandas as pd
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.ticker import MaxNLocator
 from numjuggler import likefunc as lf
 from numjuggler import parser
 
@@ -1870,6 +1870,9 @@ class Input:
         ... fig, ax = inp.explore_id_ranges_by_plot()
         ... fig.show()
         """
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator
+
         cell_ids = {int(x) for x in self.cells}
         surface_ids = {int(x.lstrip("*")) for x in self.surfs}
 
