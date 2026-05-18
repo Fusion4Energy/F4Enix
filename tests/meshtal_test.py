@@ -61,7 +61,8 @@ class TestMeshtal:
         meshtally.readMesh(cell_filters=[1, 2], norm=norm)
         assert meshtally._meshtal_parser.get_meshlist() == ("44",)
         bound = meshtally.mesh[44].grid.bounds
-        assert bound[-1] == 5.0
+        expected = 5.0
+        assert bound[-1] == expected
         meshtally.readMesh(cell_filters=[1], norm=norm)
 
     @pytest.mark.parametrize(
@@ -229,7 +230,8 @@ class TestMeshtal:
         meshtal.readMesh()
         dict_names = {4: ["A", "B"], 14: ["C", "D"]}
         grid = meshtal.collapse_grids(dict_names)
-        assert len(grid.array_names) == 4
+        expected = 4
+        assert len(grid.array_names) == expected
 
     def test_transform_grid(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_transform")) as inp:
@@ -258,7 +260,8 @@ class TestMeshtal:
             393.0,
         )
         assert tuple(meshtal.mesh[2124].grid.center) == (0.0, 0.0, 0.0)
-        assert pytest.approx(meshtal.mesh[2124].grid.bounds[0], 1e-5) == -3.845138
+        expected = -3.845138
+        assert pytest.approx(meshtal.mesh[2124].grid.bounds[0], 1e-5) == expected
         assert tuple(meshtal.mesh[2224].grid.center) == (1.0, 1.0, 1.0)
         assert tuple(meshtal.mesh[2224].grid.bounds) == (
             -2.0,
@@ -269,7 +272,8 @@ class TestMeshtal:
             4.0,
         )
         assert tuple(meshtal.mesh[2324].grid.center) == (10.0, 10.0, 10.0)
-        assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == 6.52463
+        expected = 6.52463
+        assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == expected
         meshtal.write_all(tmpdir)
 
     def test_time_energy_bins(self):
@@ -283,26 +287,38 @@ class TestMeshtal:
             == 1.0
         )
         filtered_mesh = meshtal.create_filtered_mesh(
-            54, binlabels=("Value - Total", "Error - Total"), ebin=0, tbin=0
+            54,
+            binlabels=("Value - Total", "Error - Total"),  # type: ignore
+            ebin=0,
+            tbin=0,
         )
         assert pytest.approx(filtered_mesh.grid.cell_data["Value - Total"][0]) == 1.0
 
         filtered_mesh = meshtal.create_filtered_mesh(
-            64, binlabels=("Value - Total", "Error - Total"), ebin=None, tbin=0
+            64,
+            binlabels=("Value - Total", "Error - Total"),  # type: ignore
+            ebin=None,
+            tbin=0,
         )
         assert (
             pytest.approx(filtered_mesh.grid.cell_data["Value - Total_e001"][0]) == 1.0
         )
 
         filtered_mesh = meshtal.create_filtered_mesh(
-            64, binlabels=("Value - Total", "Error - Total"), ebin=0, tbin=None
+            64,
+            binlabels=("Value - Total", "Error - Total"),  # type: ignore
+            ebin=0,
+            tbin=None,
         )
         assert (
             pytest.approx(filtered_mesh.grid.cell_data["Value - Total_t001"][0]) == 1.0
         )
 
         filtered_mesh = meshtal.create_filtered_mesh(
-            64, binlabels=("Value - Total", "Error - Total"), ebin=None, tbin=None
+            64,
+            binlabels=("Value - Total", "Error - Total"),  # type: ignore
+            ebin=None,
+            tbin=None,
         )
         assert (
             pytest.approx(filtered_mesh.grid.cell_data["Value - Total_t001_e001"][0])

@@ -1,15 +1,18 @@
+from importlib.resources import as_file, files
+
 import numpy as np
-from importlib.resources import files, as_file
 import pytest
 
 import tests.resources.meshinfo as res
 from f4enix.output.meshinfo import (
-    MeshInfoFile,
+    COLUMN_KEY_MASS_GRAMS,
     CoordinateType,
     MeshInfo,
     MeshInfoCyl,
-    COLUMN_KEY_MASS_GRAMS,
+    MeshInfoFile,
 )
+
+# ruff: noqa: PLR2004
 
 RESOURCES = files(res)
 
@@ -42,7 +45,7 @@ class TestMeshInfoFile:
 
         meshinfo = meshinfofile.info[4]
         assert CoordinateType.CYL == meshinfo.coordinates
-        assert pytest.approx(0.0) == meshinfo.origin.sum()
+        assert pytest.approx(0.0) == meshinfo.origin.sum()  # type: ignore
         assert 22 == len(meshinfo.vector_i)
         assert pytest.approx(100) == meshinfo.vector_i[-1]
         assert pytest.approx(550) == meshinfo.vector_j[-1]

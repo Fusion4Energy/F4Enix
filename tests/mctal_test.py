@@ -6,18 +6,20 @@ import pytest
 import tests.resources.mctal as mctal_res
 from f4enix.output.mctal import Mctal
 
-mctal_resources = files(mctal_res)
+# ruff: noqa: PLR2004
+
+MCTAL_RESOURCES = files(mctal_res)
 
 
 class TestMctal:
     def test_general(self):
-        with as_file(mctal_resources.joinpath("test_m")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("test_m")) as inp:
             MCTAL1 = Mctal(inp)
         assert len(MCTAL1.tallydata) == 11
         assert np.isclose(MCTAL1.tallydata[6]["Value"], 1.61148)
 
     def test_get_error_summary(self):
-        with as_file(mctal_resources.joinpath("error_summary.m")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("error_summary.m")) as inp:
             mctal = Mctal(inp)
         for option in [True, False]:
             df = mctal.get_error_summary(include_abs_err=option)
@@ -28,32 +30,32 @@ class TestMctal:
             assert df["max rel error"].max() == 0.4042
 
     def test_error_cmodel(self):
-        with as_file(mctal_resources.joinpath("C_Modelm")) as inp:
-            mctal = Mctal(inp)
+        with as_file(MCTAL_RESOURCES.joinpath("C_Modelm")) as inp:
+            Mctal(inp)
         assert True
 
     def test_error_detector(self):
-        with as_file(mctal_resources.joinpath("mctal_time")) as inp:
-            mctal = Mctal(inp)
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_time")) as inp:
+            Mctal(inp)
         assert True
 
     def test_error_tmesh(self):
-        with as_file(mctal_resources.joinpath("mctal_tmesh")) as inp:
-            mctal = Mctal(inp)
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_tmesh")) as inp:
+            Mctal(inp)
         assert True
 
     def test_error_cosbin(self):
-        with as_file(mctal_resources.joinpath("mctal_cosbin")) as inp:
-            mctal = Mctal(inp)
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_cosbin")) as inp:
+            Mctal(inp)
         assert True
 
     def test_error_radio(self):
-        with as_file(mctal_resources.joinpath("mctal_radio")) as inp:
-            mctal = Mctal(inp)
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_radio")) as inp:
+            Mctal(inp)
         assert True
 
     def test_detector(self):
-        with as_file(mctal_resources.joinpath("detectors.m")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("detectors.m")) as inp:
             mctal = Mctal(inp)
         assert "Dir" in mctal.tallydata[15].columns
         assert "Dir" in mctal.tallydata[5].columns
@@ -66,12 +68,12 @@ class TestMctal:
         different tally segments and a FM card with 106 reaction rates. This test checks
         that the resulting tallydata has 14*106 = 1484 rows.
         """
-        with as_file(mctal_resources.joinpath("mctal_fm")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_fm")) as inp:
             mctal = Mctal(inp)
         assert mctal.tallydata[704].shape == (1484, 4)
 
     def test_d1s_relative_contribution(self):
-        with as_file(mctal_resources.joinpath("mctal_daughter")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_daughter")) as inp:
             mctal = Mctal(inp)
         mctal.set_d1s_relative_contribution(124)
         assert (
@@ -79,7 +81,7 @@ class TestMctal:
             == 0.18430563795291874
         )
         # test normalization with many bins
-        with as_file(mctal_resources.joinpath("mctal_daughter_2")) as inp:
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_daughter_2")) as inp:
             mctal = Mctal(inp)
 
         # with pytest.raises(KeyError):

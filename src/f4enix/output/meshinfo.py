@@ -1,6 +1,4 @@
-"""This module is related to the parsing of D1S-UNED meshinfo files.
-
-"""
+"""This module is related to the parsing of D1S-UNED meshinfo files."""
 
 from __future__ import annotations
 
@@ -19,13 +17,12 @@ and limitations under the Licence.
 import json
 import os
 import re
-from typing import Optional
 from enum import Enum
-import numpy as np
 from pathlib import Path
 from typing import Optional
-import pandas as pd
 
+import numpy as np
+import pandas as pd
 
 # PARAMETERS
 INDEX_KEY_TIME = "Time"
@@ -43,7 +40,6 @@ class CoordinateType(Enum):
 
 
 class DataMass:
-
     def __init__(self, dataframe: pd.DataFrame) -> None:
         """
         The dataframe contains the mass information present in the meshinfo
@@ -316,7 +312,6 @@ class MeshInfo:
 
 
 class MeshInfoCyl(MeshInfo):
-
     def __init__(
         self,
         coordinates: CoordinateType,

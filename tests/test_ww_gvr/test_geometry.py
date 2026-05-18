@@ -5,8 +5,6 @@ from f4enix.input.ww_gvr.geometry import Geometry
 from f4enix.input.ww_gvr.models import ParticleType, Vectors
 from f4enix.input.ww_gvr.ww_parser import WWHeader, WWHeaderCyl
 
-# ruff: noqa: PLR2004
-
 
 def test_fill_grid_values_cart():
     header = WWHeader(
@@ -45,7 +43,8 @@ def test_fill_grid_values_cart():
     cell_index = grid.find_closest_cell([5, 65, 155])
     value = grid[grid.array_names[0]][cell_index]  # type: ignore
 
-    assert value == 3
+    expected = 3
+    assert value == expected
 
 
 def test_fill_grid_values_cyl():
@@ -93,7 +92,8 @@ def test_fill_grid_values_cyl():
     sphere = sphere.sample(grid)  # type: ignore
     result = sphere[grid.array_names[0]][0]  # type: ignore
 
-    assert result == 5
+    expected = 5
+    assert result == expected
 
 
 def test_fill_grid_values_cyl_two_theta_ints():
@@ -139,7 +139,8 @@ def test_fill_grid_values_cyl_two_theta_ints():
     sphere = sphere.sample(grid)  # type: ignore
     result = sphere[grid.array_names[0]][0]  # type: ignore
 
-    assert result == 5
+    expected = 5
+    assert result == expected
 
 
 def test_decide_plot_parameters_linear():

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import nbformat
 import pytest
+from nbclient.exceptions import CellExecutionError
 from nbconvert.preprocessors import ExecutePreprocessor
-from nbconvert.preprocessors.execute import CellExecutionError
 
 
 def _notebook_run(path):

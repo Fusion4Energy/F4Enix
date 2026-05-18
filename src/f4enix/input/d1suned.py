@@ -23,6 +23,8 @@ and limitations under the Licence.
 import logging
 import os
 import re
+from copy import deepcopy
+
 import numpy as np
 import pandas as pd
 
@@ -33,10 +35,9 @@ from f4enix.core.constants import (
     TIME_UNITS,
     TIME_UNITS_CONVERSION,
 )
+from f4enix.core.irradiation import IrradiationScenario, Nuclide, TCF_Computer
 from f4enix.input.libmanager import LibManager
-from f4enix.core.irradiation import Nuclide, IrradiationScenario, TCF_Computer
 from f4enix.output.fispact_legacy_out import Pathway
-from copy import deepcopy
 
 # PAT_COMMENT = re.compile('[Cc]+')
 

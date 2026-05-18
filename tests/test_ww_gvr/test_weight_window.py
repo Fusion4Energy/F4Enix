@@ -73,7 +73,7 @@ def test_init_ww_from_ww_complex_cart():
     }
     assert ww.energies == expected_energies
 
-    expected_values = expected_values_ww_complex_cart.expected_values
+    expected_values = expected_values_ww_complex_cart.EXPECTED_VALUES
     for particle in ww.particles:
         for energy in expected_values[particle].keys():
             assert_array_almost_equal(

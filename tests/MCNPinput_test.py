@@ -3,21 +3,22 @@ from copy import deepcopy
 from importlib.resources import as_file, files
 
 import numpy as np
-import pandas as pd
 import pytest
 from numjuggler import parser
 
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
+from f4enix.core.irradiation import Nuclide
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
-from f4enix.core.irradiation import Nuclide
 
-resources_inp = files(input_res)
-resources_lib = files(lib_res)
-resources_pkg = files(pkg_res)
+# ruff: noqa: PLR2004# ruff: noqa: PLR2004
+
+RESOURCES_INP = files(input_res)
+RESOURCES_LIB = files(lib_res)
+RESOURCES_PCK = files(pkg_res)
 
 # INP_EX_PATH = os.path.join(resources_inp, 'test_exceptions.i')
 # DIS_INP_PATH = os.path.join(cp, 'TestFiles/inputfile/d1stest.i')
@@ -29,16 +30,16 @@ resources_pkg = files(pkg_res)
 
 
 class TestInput:
-    with as_file(resources_inp.joinpath("test.i")) as FILE1:
+    with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
         testInput = Input.from_input(FILE1)
 
-    with as_file(resources_inp.joinpath("various_bugs.i")) as file:
+    with as_file(RESOURCES_INP.joinpath("various_bugs.i")) as file:
         bugInput = Input.from_input(file)
     # exceptInput = InputFile.from_text(INP_EX_PATH)
     with (
-        as_file(resources_lib.joinpath("Activation libs.xlsx")) as ACTIVATION_FILE,
-        as_file(resources_lib.joinpath("xsdir")) as XSDIR_FILE,
-        as_file(resources_pkg.joinpath("Isotopes.txt")) as ISOTOPES_FILE,
+        as_file(RESOURCES_LIB.joinpath("Activation libs.xlsx")) as ACTIVATION_FILE,
+        as_file(RESOURCES_LIB.joinpath("xsdir")) as XSDIR_FILE,
+        as_file(RESOURCES_PCK.joinpath("Isotopes.txt")) as ISOTOPES_FILE,
     ):
         lm = LibManager(
             XSDIR_FILE, activationfile=ACTIVATION_FILE, isotopes_file=ISOTOPES_FILE
@@ -47,8 +48,8 @@ class TestInput:
     def test_check_range(self):
         inp = self.testInput
         assert not inp.check_range([1, 2])
-        assert inp.check_range(range(1000, 10010))
-        assert not inp.check_range([1, 1e4])
+        assert inp.check_range(range(1000, 10010))  # type: ignore
+        assert not inp.check_range([1, 1e4])  # type: ignore
 
         assert not inp.check_range([89], who="surf")
         assert inp.check_range([360], who="surf")
@@ -69,9 +70,9 @@ class TestInput:
 
         # no random stuff can be added to the dictionary
         with pytest.raises(ValueError):
-            inp.cells[1] = inp.cells["1"]
+            inp.cells[1] = inp.cells["1"]  # type: ignore
         with pytest.raises(ValueError):
-            inp.cells["5"] = 1
+            inp.cells["5"] = 1  # type: ignore
 
         # verify that also the dictionary update works as expected
         inp.cells.update({"4": deepcopy(inp.cells["1"]), "2": deepcopy(inp.cells["1"])})
@@ -111,29 +112,8 @@ class TestInput:
         inp.hash_multiple_cells({12: [2, 3, 4]})
         assert inp.cells["2"].card() == "2 13 7.2058E-02 ( -128 129 1 -2 ) #12 \n"
 
-    # def test_jt60_bug(self, tmpdir):
-    #     with as_file(resources_inp.joinpath('jt60.i')) as file:
-    #         # MT AND MX CARDS
-    #         jt60_input = Input.from_input(file)
-    #     # check that writing and re-reading does not change anything
-    #     outfile = tmpdir.mkdir('sub').join('jt_tmp.i')
-    #     jt60_input.write(outfile)
-
-    #     inp1 = Input.from_input(outfile)
-    #     inp1.write(outfile)
-    #     print(inp1.materials.matdic)
-    #     print(inp1.get_materials_subset('m14').to_text())
-    #     inp2 = Input.from_input(outfile)
-    #     print(inp2.get_materials_subset('m14').to_text())
-    #     outfile2 = tmpdir.mkdir('sub2').join('jt_tmp2.i')
-    #     inp2.write(outfile2)
-
-    #     with open(outfile, 'r') as infile1, open(outfile2, 'r') as infile2:
-    #         for line1, line2 in zip(infile1, infile2):
-    #             assert line1 == line2
-
     def test_renumber(self, tmpdir):
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
         testInput.renumber(renum_all=100, update_keys=True)
         testInput.write(tmpdir.join("renum.i"))
@@ -148,11 +128,11 @@ class TestInput:
         assert newinp.transformations["TR101"]
 
     def test_add_material(self, tmpdir):
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
-        testInput.add_material_to_void_cell(testInput.cells["22"], 10, -1.1)
-        testInput.add_material_to_void_cell(testInput.cells["99"], 94, 1.1)
-        testInput.add_material_to_void_cell(testInput.cells["21"], 90, 1.1)
+        testInput.add_material_to_void_cell(testInput.cells["22"], 10, -1.1)  # type: ignore
+        testInput.add_material_to_void_cell(testInput.cells["99"], 94, 1.1)  # type: ignore
+        testInput.add_material_to_void_cell(testInput.cells["21"], 90, 1.1)  # type: ignore
         assert testInput.cells["22"].get_m() == 10
         assert testInput.cells["22"].get_d() == -1.1
         assert testInput.cells["99"].get_m() == 94
@@ -170,7 +150,7 @@ class TestInput:
         assert testInput.cells["21"].get_d() == -1.0
 
     def test_add_cell_fill_u(self, tmpdir):
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
 
         new = testInput.add_cell_fill_u(testInput.cells["99"], "U", 50, inplace=False)
@@ -222,9 +202,9 @@ class TestInput:
         assert True
 
     def test_merge(self):
-        with as_file(resources_inp.joinpath("test_1.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE1:
             inp1 = Input.from_input(FILE1)
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE2:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE2:
             inp2 = Input.from_input(FILE2)
 
         # this should not be allowed due to duplicate surf
@@ -277,13 +257,13 @@ class TestInput:
         )
 
     def test_get_cells_by_id(self):
-        cards = self.testInput.get_cells_by_id([1, 2])
-        cards = self.testInput.get_cells_by_id(["1", "2"])
+        self.testInput.get_cells_by_id([1, 2])
+        self.testInput.get_cells_by_id(["1", "2"])
         assert True
 
     def test_get_surfs_by_id(self):
-        cards = self.testInput.get_surfs_by_id([1, 2])
-        cards = self.testInput.get_surfs_by_id(["1", "2"])
+        self.testInput.get_surfs_by_id([1, 2])
+        self.testInput.get_surfs_by_id(["1", "2"])  # type: ignore
         assert True
 
     def test_get_materials_subset(self):
@@ -325,7 +305,7 @@ class TestInput:
         assert len(inp2.materials) == 3
         assert list(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
 
-        with as_file(resources_inp.joinpath("test_1.i")) as FILE:
+        with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
         outfile = os.path.join(os.path.dirname(outfile), "extract_fillers.i")
@@ -345,10 +325,10 @@ class TestInput:
         result.extract_cells([550], outfile)
 
         # test extract with strings instead of ints
-        result.extract_cells(["550"], outfile)
+        result.extract_cells(["550"], outfile)  # type: ignore
 
     def test_extract_universe(self, tmpdir):
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
         outfile = tmpdir.mkdir("sub").join("extract_universe.i")
@@ -373,7 +353,7 @@ class TestInput:
 
     def test_missing_data_cards(self, tmpdir):
         # Check that all these data do not go missing after a rewrite
-        with as_file(resources_inp.joinpath("various_bugs.i")) as file:
+        with as_file(RESOURCES_INP.joinpath("various_bugs.i")) as file:
             inp = Input.from_input(file)
         inp.write(tmpdir.join("bug.i"))
 
@@ -428,7 +408,7 @@ class TestInput:
         assert keys == expected
 
     def test_get_tally_summary(self):
-        with as_file(resources_inp.joinpath("test_complex_fm.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_complex_fm.i")) as FILE1:
             testInput = Input.from_input(FILE1)
         summary = testInput.get_tally_summary()
         assert len(summary) == 8
@@ -504,7 +484,7 @@ class TestInput:
         assert text == "49   0     -128 129 48  -49               $imp:n,p=1\n"
 
     def test_replace_material(self):
-        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as inp_file:
             newinp = Input.from_input(inp_file)
         newinp.replace_material(10, "-2", 4)
         assert newinp.cells["21"].get_m() == 10
@@ -513,7 +493,7 @@ class TestInput:
         newinp.replace_material(0, "10", 10, u_list=[125])
         assert newinp.cells["21"].get_m() == 0
 
-        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as inp_file:
             newinp = Input.from_input(inp_file)
         newinp.replace_material(10, "10", 0, u_list=[125])
         assert newinp.cells["22"].get_m() == 10
@@ -521,12 +501,12 @@ class TestInput:
         assert newinp.cells["1"].get_m() == 0
 
     def test_cells_union(self):
-        with as_file(resources_inp.joinpath("test_universe.i")) as inp_file:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as inp_file:
             newinp = Input.from_input(inp_file)
 
         newinp_2 = deepcopy(newinp)
 
-        newinp.cells_union(["1", "22", "299"], None)
+        newinp.cells_union(["1", "22", "299"], None)  # type: ignore
         assert "1" in newinp.cells
         assert not "22" in newinp.cells
         assert not "299" in newinp.cells
@@ -546,7 +526,7 @@ class TestInput:
         )
 
     def test_delete_fill_cards(self):
-        with as_file(resources_inp.joinpath("test_universe2.i")) as inp_file:
+        with as_file(RESOURCES_INP.joinpath("test_universe2.i")) as inp_file:
             newinp = Input.from_input(inp_file)
         newinp.delete_fill_cards()
         assert newinp.cells["1"].get_f() is None
@@ -602,7 +582,7 @@ C a breaking comment
             -sur
         )
 
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
         new_cell = Input.add_surface(mcnp_input.cells["1"], sur, None, "union", False)
         assert new_cell.values[0][0] == 1
@@ -675,7 +655,7 @@ C a breaking comment
         assert mcnp_input.cells["22"].card(wrap=False, comment=False).split()[0] == "50"
 
     def test_get_density_range(self):
-        with as_file(resources_inp.joinpath("test_rho_range.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_rho_range.i")) as FILE1:
             inp = Input.from_input(FILE1)
         d_range = inp.get_densities_range()
         assert d_range.loc[30]["Min density [g/cc]"] == 0.945
@@ -687,7 +667,7 @@ C a breaking comment
         )
 
     def test_remove_tallies(self, tmpdir):
-        with as_file(resources_inp.joinpath("test.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
             inp = Input.from_input(FILE1)
         inp.remove_tallies()
         assert "F94" not in inp.other_data
@@ -700,14 +680,14 @@ C a breaking comment
         assert "F94" not in newinp.other_data
         assert "F54" not in newinp.other_data
 
-        with as_file(resources_inp.joinpath("test.i")) as FILE2:
+        with as_file(RESOURCES_INP.joinpath("test.i")) as FILE2:
             inp2 = Input.from_input(FILE2)
         inp2.remove_tallies([94])
         assert "F94" not in inp2.other_data
         assert "F54" in inp2.other_data
 
     def test_remove_sdef(self, tmpdir):
-        with as_file(resources_inp.joinpath("test.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
             inp = Input.from_input(FILE1)
         inp.remove_sdef()
         assert "SDEF" not in inp.other_data
@@ -719,7 +699,7 @@ C a breaking comment
         assert "SDEF" not in newinp.other_data
 
     def test_prepare_void_check(self, tmpdir):
-        with as_file(resources_inp.joinpath("test.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
             inp = Input.from_input(FILE1)
 
         surface = 1
@@ -753,12 +733,12 @@ C a breaking comment
 
     def test_explore_id_ranges_by_plot(self):
         # This method creates a plot. Here we just check that it runs without errors.
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             test_input = Input.from_input(FILE1)
         test_input.explore_id_ranges_by_plot()
 
     def test_find_first_free_id_range(self):
-        with as_file(resources_inp.joinpath("test_universe.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             test_input = Input.from_input(FILE1)
 
         first_id_that_fits_15 = 2
@@ -773,18 +753,18 @@ C a breaking comment
 
 class TestD1S_Input:
     with (
-        as_file(resources_inp.joinpath("d1stest.i")) as inp_file,
-        as_file(resources_inp.joinpath("d1stest_irrad")) as irrad_file,
-        as_file(resources_inp.joinpath("d1stest_react")) as react_file,
+        as_file(RESOURCES_INP.joinpath("d1stest.i")) as inp_file,
+        as_file(RESOURCES_INP.joinpath("d1stest_irrad")) as irrad_file,
+        as_file(RESOURCES_INP.joinpath("d1stest_react")) as react_file,
     ):
         inp = D1S_Input.from_input(
             inp_file, reac_file=react_file, irrad_file=irrad_file
         )
 
     with (
-        as_file(resources_lib.joinpath("Activation libs.xlsx")) as ACTIVATION_FILE,
-        as_file(resources_lib.joinpath("xsdir")) as XSDIR_FILE,
-        as_file(resources_pkg.joinpath("Isotopes.txt")) as ISOTOPES_FILE,
+        as_file(RESOURCES_LIB.joinpath("Activation libs.xlsx")) as ACTIVATION_FILE,
+        as_file(RESOURCES_LIB.joinpath("xsdir")) as XSDIR_FILE,
+        as_file(RESOURCES_PCK.joinpath("Isotopes.txt")) as ISOTOPES_FILE,
     ):
         lm = LibManager(
             XSDIR_FILE, activationfile=ACTIVATION_FILE, isotopes_file=ISOTOPES_FILE
@@ -793,8 +773,8 @@ class TestD1S_Input:
     def test_smart_translate(self):
         # This test needs to be improved
         with (
-            as_file(resources_inp.joinpath("d1stest_irrad_st")) as irrad_file,
-            as_file(resources_inp.joinpath("d1stest_react_st")) as react_file,
+            as_file(RESOURCES_INP.joinpath("d1stest_irrad_st")) as irrad_file,
+            as_file(RESOURCES_INP.joinpath("d1stest_react_st")) as react_file,
         ):
             react_file = ReactionFile.from_text(react_file)
             irrad_file = IrradiationFile.from_text(irrad_file)
@@ -816,7 +796,7 @@ class TestD1S_Input:
         assert newinp.reac_file.reactions[0].parent.write_to_int_string() == "24050.98c"
 
     def test_add_PKMT_card(self):
-        with as_file(resources_inp.joinpath("d1stest_noPKMT.i")) as inp_file:
+        with as_file(RESOURCES_INP.joinpath("d1stest_noPKMT.i")) as inp_file:
             newinp = D1S_Input.from_input(inp_file)
         newinp.reac_file = self.inp.reac_file
 
@@ -826,8 +806,8 @@ class TestD1S_Input:
 
     def test_get_reaction_file(self):
         with (
-            as_file(resources_inp.joinpath("d1stest_getreact.i")) as inp_file,
-            as_file(resources_inp.joinpath("d1stest_irrad_getreact")) as irr_file,
+            as_file(RESOURCES_INP.joinpath("d1stest_getreact.i")) as inp_file,
+            as_file(RESOURCES_INP.joinpath("d1stest_irrad_getreact")) as irr_file,
         ):
             newinp = D1S_Input.from_input(inp_file, irrad_file=irr_file)
 
@@ -919,7 +899,7 @@ class TestD1S_Input:
         )
 
     def test_column_format(self, tmp_path):
-        with as_file(resources_inp.joinpath("column_format.i")) as FILE1:
+        with as_file(RESOURCES_INP.joinpath("column_format.i")) as FILE1:
             inp = Input.from_input(FILE1)
 
         outfile = tmp_path / "column_format_output.i"

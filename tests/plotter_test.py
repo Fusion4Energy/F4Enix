@@ -8,7 +8,6 @@ import pytest
 import pyvista as pv
 
 import tests.resources.plotter as pkg_res
-from f4enix.core.constants import ITER_Z_LEVELS
 from f4enix.output.plotter import Atlas, CDFplot, MeshPlotter
 
 RESOURCES = files(pkg_res)
@@ -25,7 +24,7 @@ def plotter() -> MeshPlotter:
     with as_file(RESOURCES.joinpath("iter1D.stl")) as infile:
         stl = pv.read(infile)
 
-    plotter = MeshPlotter(mesh, stl.scale(10))
+    plotter = MeshPlotter(mesh, stl.scale(10))  # type: ignore
 
     return plotter
 
@@ -35,7 +34,7 @@ def plotter_no_stl() -> MeshPlotter:
     with as_file(RESOURCES.joinpath("meshtal_1004_vtk.vtr")) as infile:
         mesh = pv.read(infile)
 
-    plotter = MeshPlotter(mesh)
+    plotter = MeshPlotter(mesh)  # type: ignore
 
     return plotter
 
@@ -48,7 +47,7 @@ class TestMeshPlotter:
         # Check that they are not empty
         for slice in slices:
             assert slice[1].bounds is not None
-            assert slice[2].bounds is not None
+            assert slice[2].bounds is not None  # type: ignore
 
         slices = plotter_no_stl.slice_toroidal(20)
         assert len(slices) == 9
@@ -65,7 +64,7 @@ class TestMeshPlotter:
         # Check that they are not empty
         for slice in slices:
             assert slice[1].bounds is not None
-            assert slice[2].bounds is not None
+            assert slice[2].bounds is not None  # type: ignore
 
         slices = plotter_no_stl.slice_on_axis(axis, 3)
         # Check that they are not empty
@@ -79,18 +78,19 @@ class TestMeshPlotter:
         slices = plotter.slice_on_axis("y", 5)[1:-1]
         outpath = tmpdir.mkdir("meshplotter")
         plotter.plot_slices(slices, "Value - Total", outpath=outpath)
-        assert len(os.listdir(outpath)) == 3
+        expected = 3
+        assert len(os.listdir(outpath)) == expected
 
         slices = plotter_no_stl.slice_on_axis("y", 5)[1:-1]
         im = plotter_no_stl.plot_slices(slices, "Value - Total")
-        assert len(im) == 3
+        assert len(im) == expected
 
         # test with categories
         slices = plotter_no_stl.slice_on_axis("y", 5)[1:-1]
         im = plotter_no_stl.plot_slices(
             slices, "Value - Total", custom_categories="TNF"
         )
-        assert len(im) == 3
+        assert len(im) == expected
 
     def test_slice(self, plotter: MeshPlotter, plotter_no_stl: MeshPlotter):
         slices = plotter.slice(
@@ -115,7 +115,7 @@ class TestAtlas:
         # cannot run this test on linux architecture
         name = "test"
         atlas = Atlas(name=name)
-        atlas.build_from_root(os.path.join(RESOURCES_PATH, "root"))
+        atlas.build_from_root(os.path.join(RESOURCES_PATH, "root"))  # type: ignore
         outfolder = tmpdir.mkdir("atlas")
         try:
             atlas.save(outfolder)
@@ -123,7 +123,8 @@ class TestAtlas:
             # try to open it
             with open(os.path.join(outfolder, name + ".docx"), "rb") as infile:
                 doc = docx.Document(infile)
-                assert len(doc.paragraphs) == 15
+                expected = 15
+                assert len(doc.paragraphs) == expected
 
         except NotImplementedError:
             # cannot be tested if word is not installed
@@ -141,7 +142,8 @@ class TestAtlas:
 
         outfolder = tmpdir.mkdir("atlas2")
 
-        assert len(atlas.doc.paragraphs) == 9
+        expected = 9
+        assert len(atlas.doc.paragraphs) == expected
 
         atlas.save(outfolder)
 
@@ -156,4 +158,4 @@ class TestCDFplot:
 
         plotter = CDFplot(suptitle="title", xlabel="xlabel", ylabel="ylabel")
         plotter.plot(data_list, datalabels=labels)
-        plotter.save(os.path.join(tmpdir, "trial.png"))
+        plotter.save(os.path.join(tmpdir, "trial.png"))  # type: ignore

@@ -870,7 +870,9 @@ def _get_mesh_boundaries(
     return geom, trsf, (x1bin, x2bin, x3bin, ebin, tbin)
 
 
-def _get_cdgsmesh_boundaries(fic: myOpen, position: int) -> tuple[
+def _get_cdgsmesh_boundaries(
+    fic: myOpen, position: int
+) -> tuple[
     str,
     tuple[np.ndarray, np.ndarray] | None,
     tuple[np.ndarray, np.ndarray, np.ndarray, ExtraBin, ExtraBin],

@@ -42,13 +42,13 @@ class TestACEplots:
             this=self.hydrogen,
             types=["total", "(n,total)"],
             library="31c",
-            ace_filepaths=RESOURCES.joinpath("xsdir_test"),
+            ace_filepaths=RESOURCES.joinpath("xsdir_test"),  # type: ignore
             temperature=300,
         )
         assert len(e_li) == len(xs_li[0]) == len(xs_li[1])
 
     def test_xsdir_to_ace_filepaths(self):
         file = RESOURCES.joinpath("xsdir_test")
-        res = _xsdir_to_ace_filepaths(file)
+        res = _xsdir_to_ace_filepaths(file)  # type: ignore
         for isotope in ["1001", "1002"]:
             assert (isotope, "31c") in res.keys()

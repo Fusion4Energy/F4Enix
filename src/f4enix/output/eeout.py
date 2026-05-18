@@ -17,11 +17,12 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import re
-import os
 import logging
-import pyvista as pv
+import os
+import re
+
 import numpy as np
+import pyvista as pv
 
 from f4enix.core.constants import PAT_DIGIT, PAT_SPACE, SCIENTIFIC_PAT
 

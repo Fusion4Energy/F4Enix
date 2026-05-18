@@ -9,6 +9,8 @@ from f4enix.input.MCNPinput import Input
 from f4enix.output.MCNPoutput import Output
 from f4enix.output.mctal import Mctal
 
+# ruff: noqa: PLR2004
+
 RESOURCES = files(resources)
 
 

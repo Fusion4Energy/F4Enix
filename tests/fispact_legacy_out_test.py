@@ -1,16 +1,18 @@
+from importlib.resources import as_file, files
+
 import pytest
-from importlib.resources import files, as_file
 
 import tests.resources.fispact_legacy_out as lib_res
+from f4enix.core.irradiation import Nuclide, TCF_Computer
 from f4enix.output.fispact_legacy_out import (
+    FispactOutput,
     Pathway,
     PathwayCollection,
-    FispactOutput,
 )
-from f4enix.core.irradiation import Nuclide
-from f4enix.core.irradiation import TCF_Computer
 
-lib_resources = files(lib_res)
+# ruff: noqa: PLR2004
+
+LIB_RESOURCES = files(lib_res)
 
 
 class TestPathway:
@@ -57,7 +59,7 @@ class TestPathway:
         reduce1 = pathway.reduce(600, tfc_computer=tfc_computer)
         reduce2 = pathway.reduce(650, tfc_computer=tfc_computer)
 
-        assert len(reduce1.intermediates) == 1
+        assert len(reduce1.intermediates) == 1  # type: ignore
         assert reduce2.intermediates is None
 
     def test_from_string(self):
@@ -115,15 +117,15 @@ class TestPathway:
 
 class TestPathwayCollection:
     def test_from_file(self):
-        with as_file(lib_resources.joinpath("testSS.out")) as file:
+        with as_file(LIB_RESOURCES.joinpath("testSS.out")) as file:
             collection = PathwayCollection.from_file(file)
         assert len(collection.pathways) == 56
         assert collection.pathways[0].parent.write_to_formula() == "Mn55"
         assert str(collection.pathways[1]) == "Fe56 -(n,p)-> Mn56"
-        assert len(collection.pathways[-1].intermediates) == 8
+        assert len(collection.pathways[-1].intermediates) == 8  # type: ignore
 
     def test_to_dataframe(self):
-        with as_file(lib_resources.joinpath("testSS.out")) as file:
+        with as_file(LIB_RESOURCES.joinpath("testSS.out")) as file:
             collection = PathwayCollection.from_file(file)
         df = collection.to_dataframe()
         assert len(df) == 56
@@ -132,7 +134,7 @@ class TestPathwayCollection:
         "file", ["testSS.out", "test_weird_pathways.out", "no_pathways.out"]
     )
     def test_weird_pathways(self, file):
-        with as_file(lib_resources.joinpath(file)) as file:
+        with as_file(LIB_RESOURCES.joinpath(file)) as file:
             collection = PathwayCollection.from_file(file)
             assert len(collection.pathways) > 0
 
@@ -163,7 +165,7 @@ class TestPathwayCollection:
 class TestFispactOutput:
     @pytest.fixture
     def outp(self) -> FispactOutput:
-        with as_file(lib_resources.joinpath("testSS.out")) as file:
+        with as_file(LIB_RESOURCES.joinpath("testSS.out")) as file:
             output = FispactOutput(file, cooling_times=["1e2", "1e4"])
         return output
 
@@ -176,7 +178,7 @@ class TestFispactOutput:
         assert len(df) == 8
 
     def test_decay_heat(self, outp: FispactOutput):
-        assert pytest.approx(outp.decay_heat["Cumulative heat sum"].max()) == 100
+        assert pytest.approx(outp.decay_heat["Cumulative heat sum"].max()) == 100  # type: ignore
 
     def test_filter_by_cum_heat(self, outp: FispactOutput):
         df = outp.filter_by_cum_heating(95, "1e2")

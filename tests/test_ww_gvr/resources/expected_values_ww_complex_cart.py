@@ -2,7 +2,7 @@ import numpy as np
 
 from f4enix.input.ww_gvr.models import ParticleType
 
-expected_values = {
+EXPECTED_VALUES = {
     ParticleType.NEUTRON: {
         1.1: np.array(
             [

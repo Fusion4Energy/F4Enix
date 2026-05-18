@@ -48,7 +48,7 @@ def test_add_sampling_error_to_vtk(tmpdir):
     meshtal.readMesh(norm="ctot")
     meshtal.mesh[44].write(tmpdir)
     grid = pv.read(tmpdir / "Tally_44_vtk.vtr")
-    assert type(grid) == pv.RectilinearGrid
+    assert type(grid) is pv.RectilinearGrid
 
     grid_with_errors = add_sampling_error_to_vtk(
         grid=grid, cuv_file_path=PATH_TO_CUV_FILE, voxel_sampling_points=1000

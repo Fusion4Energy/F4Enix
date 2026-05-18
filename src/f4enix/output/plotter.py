@@ -19,25 +19,25 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
-import os
-import pyvista as pv
-import numpy as np
-import logging
-import docx
-
-from typing import Union
-from docx.shared import Inches, Mm
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.section import WD_ORIENT
-from PIL import Image, ImageOps
 import io
-from copy import deepcopy
+import logging
+import os
 from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
+from copy import deepcopy
+from math import degrees, radians
+from typing import Union
 
-from math import radians, degrees
-from f4enix.core.constants import TID_CATEGORIES, TNF_CATEGORIES, SDDR_CATEGORIES
+import docx
+import matplotlib.pyplot as plt
+import numpy as np
+import pyvista as pv
+from docx.enum.section import WD_ORIENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Mm
+from matplotlib.ticker import PercentFormatter
+from PIL import Image, ImageOps
+
+from f4enix.core.constants import SDDR_CATEGORIES, TID_CATEGORIES, TNF_CATEGORIES
 
 pv.set_plot_theme("document")
 

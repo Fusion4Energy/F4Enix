@@ -1,6 +1,5 @@
 from f4enix.output.fispact_legacy_out import Pathway, PathwayCollection
 
-
 available_99c = [
     "F19 -(n,2n)-> F18",
     "Na23 -(n,2n)-> Na22",
