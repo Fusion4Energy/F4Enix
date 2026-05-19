@@ -1,10 +1,12 @@
-from f4enix.core.spectra import Spectra, SpectraParsingError
-from importlib.resources import files, as_file
-import tests.resources.spectra as res
-import pytest
-import numpy as np
-from f4enix.core.egroups import GROUP_STRUCTURES
+from importlib.resources import as_file, files
 from pathlib import Path
+
+import numpy as np
+import pytest
+
+import tests.resources.spectra as res
+from f4enix.core.egroups import GROUP_STRUCTURES
+from f4enix.core.spectra import Spectra, SpectraParsingError
 
 RES = files(res)
 
@@ -20,7 +22,7 @@ class TestSpectra:
     def test_from_fispact(self, file):
         # check that spectra are read correctly from fispact files
         with as_file(RES.joinpath(file)) as fisp_file:
-            spectra = Spectra.from_fispact(GROUP_STRUCTURES["VITAMIN-J-175"], fisp_file)
+            Spectra.from_fispact(GROUP_STRUCTURES["VITAMIN-J-175"], fisp_file)
 
     def test_to_fispact_fluxes(self, tmp_path: Path):
         with as_file(RES.joinpath("FLUXESS1")) as fisp_file:
@@ -30,8 +32,8 @@ class TestSpectra:
 
         # Check that the file is the same as the original one
         with as_file(RES.joinpath("FLUXESS1")) as f_original_ctxt:
-            with open(tmp_path.joinpath("FLUX1"), "r") as f_new, open(
-                f_original_ctxt, "r"
+            with open(tmp_path.joinpath("FLUX1")) as f_new, open(
+                f_original_ctxt
             ) as f_original:
                 lines_new = f_new.readlines()
                 lines_original = f_original.readlines()
@@ -47,7 +49,7 @@ class TestSpectra:
     def test_to_arb_flux_file(self, spectra: Spectra, tmp_path: Path):
         spectra.to_arb_flux_file(tmp_path)
 
-        with open(tmp_path.joinpath("arb_flux_FLUX1.txt"), "r") as f:
+        with open(tmp_path.joinpath("arb_flux_FLUX1.txt")) as f:
             # get all tokens
             lines = f.readlines()
             tokens = []

@@ -1,17 +1,18 @@
-import os
-import math
 import copy
 import logging
-import pandas as pd
-import numpy as np
+import math
+import os
 
-from f4enix.input.MCNPinput import Input
+import numpy as np
+import pandas as pd
+
 from f4enix.core.constants import (
+    PLASMA_CELLS,
     SECTOR_BOUNDARIES,
     SECTOR_BOUNDARIES_ANGLES,
     SECTOR_NAMES,
-    PLASMA_CELLS,
 )
+from f4enix.input.MCNPinput import Input
 
 
 class Elite_Input(Input):

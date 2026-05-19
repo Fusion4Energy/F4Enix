@@ -1,10 +1,12 @@
-import numpy as np
-from f4enix.core.constants import PathLike
-from pathlib import Path
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
 import logging
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+
+from f4enix.core.constants import PathLike
 from f4enix.core.material_library import TUNGSTEN
 
 LINESTYLES = ["--", "-.", ":"] * 20

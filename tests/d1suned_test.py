@@ -1,21 +1,23 @@
 import os
-import pytest
-import numpy as np
-from importlib.resources import files, as_file
+from importlib.resources import as_file, files
 
+import numpy as np
+import pytest
+
+import f4enix.resources as pkg_res
+import tests.resources.d1suned as res
 from f4enix.core.constants import TIME_UNITS
+from f4enix.core.irradiation import IrradiationScenario, Nuclide, Pulse
 from f4enix.input.d1suned import (
-    Reaction,
-    ReactionFile,
     Irradiation,
     IrradiationFile,
+    Reaction,
+    ReactionFile,
 )
 from f4enix.input.libmanager import LibManager
-import tests.resources.d1suned as res
-import f4enix.resources as pkg_res
-from f4enix.core.irradiation import Nuclide
-from f4enix.core.irradiation import IrradiationScenario, Pulse
 from f4enix.output.fispact_legacy_out import Pathway
+
+# ruff: noqa: PLR2004
 
 RESOURCES = files(res)
 PKG_RESOURCES = files(pkg_res)
@@ -121,7 +123,7 @@ class TestIrradiationFile:
         assert irradiation is None
         # Check true value
         irradiation = irrfile.get_irrad("26055")
-        assert irradiation.daughter.write_to_int_string() == "26055"
+        assert irradiation.daughter.write_to_int_string() == "26055"  # type: ignore
 
     def test_select_daughters_irradiation_file(self):
         """

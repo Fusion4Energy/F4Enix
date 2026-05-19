@@ -1,16 +1,20 @@
-import pytest
 import math
 from importlib.resources import as_file, files
+
+import pytest
+
 from f4enix.core.irradiation import (
-    Nuclide,
-    IrradiationScenario,
-    _process_irr_line,
-    TCF_Computer,
-    Pulse,
     TIME_UNITS,
+    IrradiationScenario,
+    Nuclide,
+    Pulse,
+    TCF_Computer,
+    _process_irr_line,
 )
 from f4enix.input.d1suned import IrradiationFile
 from tests.resources import irradiation
+
+# ruff: noqa: PLR2004
 
 RES = files(irradiation)
 

@@ -27,8 +27,8 @@ and limitations under the Licence.
 
 import os
 import re
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 
 # --- Typing ---
 PathLike = Path | str | os.PathLike

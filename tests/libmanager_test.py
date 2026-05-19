@@ -8,11 +8,11 @@ import tests.resources.libmanager as lib_res
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Zaid
 
-resources = files(pkg_res)
-lib_resources = files(lib_res)
-ACTIVATION_FILE = as_file(lib_resources.joinpath("Activation libs.xlsx"))
-XSDIR_FILE = as_file(lib_resources.joinpath("xsdir"))
-ISOTOPES_FILE = as_file(resources.joinpath("Isotopes.txt"))
+RESOURCES = files(pkg_res)
+LIB_RESOURCES = files(lib_res)
+ACTIVATION_FILE = as_file(LIB_RESOURCES.joinpath("Activation libs.xlsx"))
+XSDIR_FILE = as_file(LIB_RESOURCES.joinpath("xsdir"))
+ISOTOPES_FILE = as_file(RESOURCES.joinpath("Isotopes.txt"))
 
 
 class TestLibManger:
@@ -187,17 +187,17 @@ class TestLibManger:
         # Normal zaid
         zaid = "99235.31c  -1"
         zaid = Zaid.from_string(zaid)
-        mass = self.lm.get_zaid_mass(zaid)
+        mass = self.lm.get_zaid_mass(zaid)  # type: ignore
         assert mass == 252.08298
         # Natural zaid
         zaid = "8000.21c  1"
         zaid = Zaid.from_string(zaid)
-        mass = self.lm.get_zaid_mass(zaid)
+        mass = self.lm.get_zaid_mass(zaid)  # type: ignore
         assert mass == 15.99937442590581
 
     def test_default_file_generation(self):
         # both default files
-        lm = LibManager()
+        LibManager()
 
         # these need to be reinitialized because they have already been
         # "consumed"
@@ -207,10 +207,10 @@ class TestLibManger:
 
         # only xsdir default
         with ISOTOPES_FILE2 as isotopes_file:
-            lm = LibManager(isotopes_file=isotopes_file)
+            LibManager(isotopes_file=isotopes_file)
         # only isotopes default
         with XSDIR_FILE2 as xsdir_file:
-            lm = LibManager(xsdir_path=xsdir_file)
+            LibManager(xsdir_path=xsdir_file)
 
 
 class TestMultiCodeLibManger:

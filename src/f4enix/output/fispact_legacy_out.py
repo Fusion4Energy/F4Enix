@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import re
 import os
-import pandas as pd
-import pypact as pp
+import re
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from f4enix.input.libmanager import LibManager
-from f4enix.core.constants import PathLike, REVERSED_MT_DICT
-from f4enix.core.irradiation import Nuclide, TCF_Computer
-from copy import deepcopy
 
+import pandas as pd
+import pypact as pp
+
+from f4enix.core.constants import REVERSED_MT_DICT, PathLike
+from f4enix.core.irradiation import Nuclide, TCF_Computer
+from f4enix.input.libmanager import LibManager
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
 target_pathway_zaids = re.compile(r"[A-Z][a-z]*\s*\d+m*")

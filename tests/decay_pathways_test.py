@@ -1,7 +1,7 @@
 from f4enix.core.material_library import CONCRETE, MICROTHERM
 from f4enix.output.decay_pathways import (
-    AVAIL_SPECTRUM,
     AVAIL_IRR_SCENARIO,
+    AVAIL_SPECTRUM,
     PathwayLibrary,
 )
 

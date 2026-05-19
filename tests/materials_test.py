@@ -76,7 +76,7 @@ class TestZaid:
             == "1001.31c       -2.300000E+0     $        WEIGHT(%)  AB(%)"
         )
         zaid.elem_mass_fraction = 0.1116316166
-        zaid.ab = 0.514343484384
+        zaid.ab = 0.514343484384  # type: ignore
 
         assert (
             zaid.to_text().strip()
@@ -130,7 +130,7 @@ class TestSubmaterial:
             "8018.31c        2.741100E-5     $ O-18   AB(%) 0.205",
         ]
 
-        submat = SubMaterial.from_text(txt)
+        submat = SubMaterial.from_text(txt)  # type: ignore
         df_el, df_zaid = submat.get_info(LIBMAN)
         assert len(df_el) == 1
         assert len(df_zaid) == 3
@@ -138,14 +138,14 @@ class TestSubmaterial:
         assert len(df_zaid.columns) == 3
 
     def test_dosimetry(self):
-        lm = LibManager(dosimetry_lib="21c")
+        lm = LibManager(dosimetry_lib="21c")  # type: ignore
         txt = [
             "C header",
             "8016.31c        1     $ O-16   AB(%) 99.757",
             "8017.31c        1     $ O-17   AB(%) 0.038",
             "8018.21c        1     $ O-18   AB(%) 0.205",
         ]
-        material = SubMaterial.from_text(txt)
+        material = SubMaterial.from_text(txt)  # type: ignore
         material.translate("00c", lm)
         assert material.zaidList[2].library == "21c"
         assert material.zaidList[0].library == "00c"
@@ -155,7 +155,7 @@ class TestSubmaterial:
             "C header",
             "8001.31c        1     $ O-16   AB(%) 99.757",
         ]
-        material = SubMaterial.from_text(txt)
+        material = SubMaterial.from_text(txt)  # type: ignore
         material.translate("00c", LIBMAN)
 
 
@@ -336,12 +336,12 @@ M1
             "8017.31c        5.081060E-6     $ O-17   AB(%) 0.038",
             "8018.31c        2.741100E-5     $ O-18   AB(%) 0.205",
         ]
-        submat1 = SubMaterial.from_text(txt)
+        submat1 = SubMaterial.from_text(txt)  # type: ignore
         txt = ["C header", "1001.31c  1e-2", "8016.31c  1e-2"]
-        submat2 = SubMaterial.from_text(txt)
-        material = Material(None, None, "M1", submaterials=[submat1, submat2])
+        submat2 = SubMaterial.from_text(txt)  # type: ignore
+        material = Material(None, None, "M1", submaterials=[submat1, submat2])  # type: ignore
         lm = LibManager()
-        df, df_elem = material.get_info(lib_manager=lm, zaids=True)
+        df, df_elem = material.get_info(lib_manager=lm, zaids=True)  # type: ignore
         assert df.iloc[0]["Atom Fraction"] != df.iloc[0]["Mass Fraction"]
 
     def test_update_info(self):
@@ -500,7 +500,7 @@ class TestMatCardList:
         newmat = matcard.generate_material(
             materials, percentages, newlib, LIBMAN, fractiontype=fraction_type
         )
-        fileA = os.path.join(resources, "newmat_atom")
+        fileA = os.path.join(resources, "newmat_atom")  # type: ignore
         text_A = ""
         with open(fileA, "r") as infile:
             for line in infile:
@@ -518,9 +518,9 @@ class TestMatCardList:
             fractiontype=fraction_type,
             mat_name="m500",
         )
-        fileB = os.path.join(resources, "newmat_mass")
+        fileB = os.path.join(resources, "newmat_mass")  # type: ignore
         text_B = ""
-        with open(fileB, "r") as infile:
+        with open(fileB) as infile:
             for line in infile:
                 text_B = text_B + line
 
@@ -531,7 +531,7 @@ class TestMatCardList:
         density = 2
 
         submats = matcard["m1"].switch_fraction("mass", LIBMAN, inplace=False)
-        newmat = Material(None, None, "", submaterials=submats)
+        newmat = Material(None, None, "", submaterials=submats)  # type: ignore
         submats = newmat.switch_fraction("atom", LIBMAN, inplace=False)
         fraction = submats[0].zaidList[0].fraction
 

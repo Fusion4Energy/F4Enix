@@ -1,6 +1,7 @@
-from importlib.resources import files, as_file
-from numjuggler.parser import Card
+from importlib.resources import as_file, files
+
 import pytest
+from numjuggler.parser import Card
 
 from f4enix.core.auxiliary import get_comments
 

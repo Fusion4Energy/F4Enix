@@ -8,6 +8,8 @@ from f4enix.core.egroups import GROUP_STRUCTURES
 from f4enix.output.rssa import RSSA, PlotParameters, SpectraPlotParameters
 from f4enix.output.rssa.rssa_reader import parse_header, scan_tracks
 
+# ruff: noqa: PLR2004
+
 RESOURCES = files(res)
 
 

@@ -11,8 +11,6 @@ from f4enix.input.ww_gvr.ww_parser import (
     write,
 )
 
-# ruff: noqa: PLR2004
-
 
 def test_parse_simple_cart():
     expected_ww_header = WWHeader(
@@ -108,7 +106,8 @@ def test_parse_complex_cart():
     assert expected_ww_header == result.header
     assert expected_b2_vectors == result.b2_vectors
     assert expected_energies == result.energies
-    assert 0.010889 == result.values[0][-3]
+    expected = 0.010889
+    assert expected == result.values[0][-3]
 
 
 def test_read_meshtally_file_cart():

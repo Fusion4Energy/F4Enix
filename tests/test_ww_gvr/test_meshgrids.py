@@ -11,8 +11,6 @@ from f4enix.input.ww_gvr.meshgrids import (
     create_cylindrical_grid,
 )
 
-# ruff: noqa: PLR2004
-
 
 def test_create_cartesian_grid():
     grid = create_cartesian_grid(
@@ -42,7 +40,8 @@ def test_create_cartesian_grid_translated():
         vector_k=np.array([5, 6, 7]),
         origin=np.array([100, 100, 100]),
     )
-    assert 8 == grid.n_cells
+    expected = 8
+    assert grid.n_cells == expected
 
     cell_0 = grid.extract_cells(0)
     cell_1 = grid.extract_cells(1)
@@ -115,7 +114,8 @@ def test_create_cylindrical_grid_rotated_axis():
     )
 
     assert_array_almost_equal([110.0, 100.0, 100.0], np.array(grid.center))
-    assert 20 == grid.n_cells
+    expected = 20
+    assert grid.n_cells == expected
 
 
 def test_create_cylindrical_grid_rotated_vec():

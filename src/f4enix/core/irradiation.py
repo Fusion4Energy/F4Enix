@@ -1,23 +1,25 @@
 """Deals with irradiation scenarios and time correction factors for D1S methodology."""
 
+import json
 import re
+from copy import deepcopy
+from importlib.resources import as_file, files
 from pathlib import Path
-from importlib.resources import files, as_file
+
+import numpy as np
+import pandas as pd
 from pypact.input.inputdata import InputData
 from pypact.input.serialization import from_file
-from copy import deepcopy
-import numpy as np
-import json
-import pandas as pd
+
+from f4enix import resources
 from f4enix.core.constants import (
+    PAT_DIGIT,
+    SCIENTIFIC_PAT,
     TIME_UNITS,
     TIME_UNITS_CONVERSION,
     PathLike,
-    SCIENTIFIC_PAT,
-    PAT_DIGIT,
 )
 from f4enix.input.libmanager import LibManager
-from f4enix import resources
 
 LM = LibManager()
 RES = files(resources)
