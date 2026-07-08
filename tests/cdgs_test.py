@@ -160,7 +160,7 @@ class TestCDGS:
             cdgs._write_mesh_boundaries(f)
             text = f.getvalue()
             lines = text.splitlines()
-            assert len(lines) == 8
+            assert len(lines) == 5
 
     def test_write_values(self, easy_cdgs: CDGS):
         cdgs = easy_cdgs
