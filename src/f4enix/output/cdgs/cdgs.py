@@ -520,11 +520,11 @@ energy_type {self.energy_type.value}
             prob = self.isotopes[isotope]["intensities"]
             return prob / prob.sum()  # Normalize to sum to 1
 
-    def _write_translation_matrix(self, f: TextIOWrapper) -> None:
-        """Write the three rows of the translation matrix to the file."""
-        f.write(_floats_to_multiline_string(self.translation[0, :]))
-        f.write(_floats_to_multiline_string(self.translation[1, :]))
-        f.write(_floats_to_multiline_string(self.translation[2, :]))
+    # def _write_translation_matrix(self, f: TextIOWrapper) -> None:
+    #     """Write the three rows of the translation matrix to the file."""
+    #     f.write(_floats_to_multiline_string(self.translation[0, :]))
+    #     f.write(_floats_to_multiline_string(self.translation[1, :]))
+    #     f.write(_floats_to_multiline_string(self.translation[2, :]))
 
 
 def _floats_to_multiline_string(

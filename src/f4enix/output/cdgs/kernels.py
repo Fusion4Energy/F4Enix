@@ -98,7 +98,11 @@ class DistanceKernel(SphereKernel):
         """simply distribute the EM force components proportionally to the inverse of the
         distance"""
         distances = np.linalg.norm(dest_coords[dest_idx, :] - source_coord, axis=1)
-        max_distance = np.max(distances)
-        weights = 1 / (distances / max_distance)  # inverse distance weights
-        weights /= np.sum(weights)  # normalize the weights so that they sum to 1
+        if np.any(distances == 0):
+            # Coincident point: assign full weight to it, zero to others
+            weights = np.zeros_like(distances)
+        else:
+            max_distance = np.max(distances)
+            weights = 1 / (distances / max_distance)  # inverse distance weights
+            weights /= np.sum(weights)  # normalize the weights so that they sum to 1
         interpolation[dest_idx] += weights * activity

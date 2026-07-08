@@ -8,10 +8,10 @@ import tests.resources.cdgs as res
 from f4enix.output.cdgs import (
     CDGS,
     SphereKernel,
+    DistanceKernel,
     MeshByAverageDistance,
     MeshByNumberOfVoxels,
     MeshByBinSize,
-    CDGS_ENERGY_TYPE,
 )
 from f4enix.output.cdgs.cdgs import (
     ACTIVITY_TAG,
@@ -30,6 +30,29 @@ class TestKernel:
         assert list(neighbours_idx[0]) == [0, 1]
         assert list(neighbours_idx[1]) == [0, 1]
         assert list(neighbours_idx[2]) == [2]
+
+        interp1 = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=source_coords[0],
+            dest_idx=neighbours_idx[0],
+            dest_coords=dest_coords,
+            interpolation=interp1,
+            activity=1.0,
+        )
+
+        interp2 = np.zeros(dest_coords.shape[0])
+        kernel = DistanceKernel(radius=0.75)
+        kernel._kernel(
+            source_coord=source_coords[0],
+            dest_idx=neighbours_idx[0],
+            dest_coords=dest_coords,
+            interpolation=interp2,
+            activity=1.0,
+        )
+
+        assert np.not_equal(
+            interp1, interp2
+        ).any()  # The two interpolations should differ
 
 
 class TestMeshDefinition:
