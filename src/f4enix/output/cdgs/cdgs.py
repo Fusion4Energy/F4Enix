@@ -1,6 +1,7 @@
 from enum import Enum
 from io import TextIOWrapper
 import logging
+from matplotlib.pyplot import grid
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -18,7 +19,7 @@ ATOM_DENSITY_TAG = "_specific_atom_density [atom/m3]"
 
 class CDGS_ENERGY_TYPE(Enum):
     LINE = "line"
-    # BINS = "bins"
+    BINS = "bins"
 
 
 class CDGS_MESH_TYPE(Enum):
@@ -32,6 +33,8 @@ class CDGS:
         self,
         mesh: pv.StructuredGrid,
         energy_type: CDGS_ENERGY_TYPE = CDGS_ENERGY_TYPE.LINE,
+        particle: str = "gamma",
+        e_bins: np.ndarray | None = None,
     ):
         """CDGS object. Handles all operations with respect to .cdgs and .vtk format.
         Computes lines and emission probabilities for isotopes.
@@ -42,6 +45,14 @@ class CDGS:
             The mesh containing the activity and atom density data for isotopes.
         energy_type : CDGS_ENERGY_TYPE, optional
             The type of energy representation, by default CDGS_ENERGY_TYPE.LINE
+        particle : str, optional
+            The type of particle, by default "gamma". Other supported one is
+            "neutron". Be sure that the radioisotopes you are using have the
+            corresponding particle emission data in the actigamma database.
+        e_bins : np.ndarray, optional
+            The energy bins for the CDGS object, by default None.
+            Mandatory if energy_type is CDGS_ENERGY_TYPE.BINS. Should be a 1D array of
+            bin edges in eV.
         """
 
         # TODO: this may be extended to other type of geometries
@@ -51,6 +62,12 @@ class CDGS:
 
         self.energy_type: CDGS_ENERGY_TYPE = energy_type
 
+        if particle not in ["gamma", "neutron"]:
+            raise ValueError(
+                f"Particle type {particle} not supported. Supported types are 'gamma' and 'neutron'."
+            )
+        self._particle: str = particle
+
         self._translation: np.ndarray = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         self._cooling_time: float = 0.0
 
@@ -59,17 +76,49 @@ class CDGS:
             if ACTIVITY_TAG in name:
                 isotopes.append(name.replace(ACTIVITY_TAG, ""))
 
-        # Compute the lines for each isotope
         self.isotopes: dict[str, dict[str, np.ndarray]] = {}
         db = ag.Decay2012Database()
         self._db = db
-        for isotope in isotopes:
-            lines = db.getenergies(isotope, spectype="gamma")  # eV
-            intensities = db.getintensities(isotope, spectype="gamma")
-            self.isotopes[isotope] = {
-                "lines": np.array(lines),
-                "intensities": np.array(intensities),
-            }
+
+        if energy_type == CDGS_ENERGY_TYPE.LINE:
+            # Compute the lines for each isotope
+            for isotope in isotopes:
+                lines = db.getenergies(isotope, spectype=particle)  # eV
+                intensities = db.getintensities(isotope, spectype=particle)
+                self.isotopes[isotope] = {
+                    "lines": np.array(lines),
+                    "intensities": np.array(intensities),
+                }
+
+            # merge all lines and intensities for all isotopes
+            to_concat = []
+            for isotope in isotopes:
+                df = pd.DataFrame()
+                df["lines"] = self.isotopes[isotope]["lines"]
+                df["intensities"] = self.isotopes[isotope]["intensities"]
+                df["isotope"] = isotope
+                to_concat.append(df)
+            all_df = pd.concat(to_concat, ignore_index=True).sort_values(by="lines")
+            self.all_df = all_df
+
+        elif energy_type == CDGS_ENERGY_TYPE.BINS:
+            e_bins = np.array(e_bins)  # be sure e_bins is a numpy array
+            if e_bins is None:
+                raise ValueError(
+                    "Energy bins must be provided when energy_type is CDGS_ENERGY_TYPE.BINS."
+                )
+            self.e_bins = e_bins
+            grid = ag.EnergyGrid(bounds=e_bins)
+            self._lc = ag.LineAggregator(db, grid)
+
+            # create an aggegated inventory for each isotope first
+            for isotope in isotopes:
+                inv = ag.UnstablesInventory(
+                    # 1 Bq
+                    data=[(db.getzai(isotope), 1)]
+                )
+                intensities, _ = self._lc(inv, spectype="gamma")
+                self.isotopes[isotope] = {"intensities": np.array(intensities)}
 
         # add the intensities to the mesh cell data for each isotope
         for isotope, vals in self.isotopes.items():
@@ -80,51 +129,43 @@ class CDGS:
             )  # photons/s
             self.mesh.cell_data[f"{isotope}{INTENSITY_TAG}"] = values
 
-        # merge all lines and intensities for all isotopes
-        to_concat = []
-        for isotope in isotopes:
-            df = pd.DataFrame()
-            df["lines"] = self.isotopes[isotope]["lines"]
-            df["intensities"] = self.isotopes[isotope]["intensities"]
-            df["isotope"] = isotope
-            to_concat.append(df)
-        all_df = pd.concat(to_concat, ignore_index=True).sort_values(by="lines")
-        self.all_df = all_df
-
         # Store original mesh at shutdown
         self._mesh_zero_cooling = mesh.copy()
 
+    def particle(self) -> str:
+        return self._particle
+
     def __repr__(self) -> str:
-        return f"CDGS(mesh={self.mesh}, energy_type={self.energy_type}, isotopes={list(self.isotopes.keys())})"
+        return f"CDGS(mesh={self.mesh}, energy_type={self.energy_type}, isotopes={list(self.isotopes.keys())}, particle={self._particle}, cooling_time={self.cooling_time})"
 
     def __str__(self) -> str:
         return f"CDGS object with mesh of dimensions {self.mesh.dimensions} and energy type {self.energy_type.value}"
 
-    @property
-    def translation(self) -> np.ndarray:
-        """Get the translation matrix of the CDGS object.
+    # @property
+    # def translation(self) -> np.ndarray:
+    #     """Get the translation matrix of the CDGS object.
 
-        Returns
-        -------
-        np.ndarray
-            The translation matrix of the CDGS object.
-        """
-        return self._translation
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         The translation matrix of the CDGS object.
+    #     """
+    #     return self._translation
 
-    @translation.setter
-    def translation(self, value: np.ndarray) -> None:
-        """Set the translation matrix of the CDGS object.
+    # @translation.setter
+    # def translation(self, value: np.ndarray) -> None:
+    #     """Set the translation matrix of the CDGS object.
 
-        Parameters
-        ----------
-        value : np.ndarray
-            The new translation matrix to set.
-        """
-        if not isinstance(value, np.ndarray):
-            raise TypeError("Translation must be a numpy ndarray.")
-        if value.shape != (3, 3):
-            raise ValueError("Translation matrix must be of shape (3, 3).")
-        self._translation = value
+    #     Parameters
+    #     ----------
+    #     value : np.ndarray
+    #         The new translation matrix to set.
+    #     """
+    #     if not isinstance(value, np.ndarray):
+    #         raise TypeError("Translation must be a numpy ndarray.")
+    #     if value.shape != (3, 3):
+    #         raise ValueError("Translation matrix must be of shape (3, 3).")
+    #     self._translation = value
 
     def to_vtk(self, outfile: str | Path) -> None:
         """Write the CDGS object to a VTK file.
@@ -135,7 +176,7 @@ class CDGS:
             Path to the output VTK file.
         """
         mesh = self.mesh.copy()
-        mesh.translate(self.translation[0] * self.translation[1] * self.translation[2])
+        # mesh.translate(self.translation[0] * self.translation[1] * self.translation[2])
         mesh.save(outfile)
 
     @property
@@ -226,6 +267,8 @@ class CDGS:
         interpolation_kernel: InterpolationKernel,
         mesh_definition: RegularMeshDefinition,
         col_names: dict[str, str] | None = None,
+        e_bins: np.ndarray | None = None,
+        particle: str = "gamma",
     ) -> "CDGS":
         """Read a csv (typically produced from fluent) that contains a cloud
         point of data and convert it into a CDGS object.
@@ -251,6 +294,14 @@ class CDGS:
                 "z": "z-coordinate",
                 "vol": "cell-volume",
             }
+        e_bins : np.ndarray, optional
+            The energy bins for the CDGS object, by default None. If provided, the
+            emission lines will be computed in the energy bins. Otherwise,
+            pure emission lines will be used.
+        particle : str, optional
+            The type of particle, by default "gamma". Other supported one is
+            "neutron". Be sure that the radioisotopes you are using have the
+            corresponding particle emission data in the actigamma database.
 
         Returns
         -------
@@ -327,7 +378,12 @@ class CDGS:
                 atoms_array / vol
             )  # atoms/m3
 
-        return cls(mesh)
+        if e_bins is not None:
+            e_type = CDGS_ENERGY_TYPE.BINS
+        else:
+            e_type = CDGS_ENERGY_TYPE.LINE
+
+        return cls(mesh, energy_type=e_type, particle=particle, e_bins=e_bins)
 
     def to_cdgs(self, outfile: str | Path, isotope: str) -> None:
         # Assume only one mesh for now
@@ -369,6 +425,13 @@ energy_type {self.energy_type.value}
                 energies = self.isotopes[isotope]["lines"] * 1e-6  # convert eV to MeV
             f.write(f"energy_boundaries {len(energies)}\n")
             f.write(_floats_to_multiline_string(energies))
+
+        elif self.energy_type == CDGS_ENERGY_TYPE.BINS:
+            f.write(f"energy_boundaries {len(self.e_bins)}\n")
+            f.write(
+                _floats_to_multiline_string(self.e_bins * 1e-6)
+            )  # convert eV to MeV
+
         else:
             raise NotImplementedError(
                 f"Energy type {self.energy_type} not implemented yet."
@@ -391,7 +454,7 @@ energy_type {self.energy_type.value}
                 f"Mesh type {self.mesh_type} not implemented yet."
             )
 
-        self._write_translation_matrix(f)
+        # self._write_translation_matrix(f)
 
         f.write(_floats_to_multiline_string(edges1))
         f.write(_floats_to_multiline_string(edges2))
@@ -416,30 +479,43 @@ energy_type {self.energy_type.value}
                 # Cell ID, volume fraction, intensity (ph/s).
                 f.write(f"0 1.0 {val:.5e}\n")  # All homogenous
 
-                if self.energy_type == CDGS_ENERGY_TYPE.LINE:
-                    probabilities = self._get_probabilities(isotope, i)
-                    intensities = probabilities * val  # ph/s
-                    f.write(_floats_to_multiline_string(intensities))
-                    # List of gamma source uncertainties is set to 0 for all values
-                    f.write(_floats_to_multiline_string([0] * len(intensities)))
-                else:
-                    raise NotImplementedError(
-                        f"Energy type {self.energy_type} not implemented yet."
-                    )
+                probabilities = self._get_probabilities(isotope, i)
+                intensities = probabilities * val  # ph/s
+                f.write(_floats_to_multiline_string(intensities))
+                # List of gamma source uncertainties is set to 0 for all values
+                f.write(_floats_to_multiline_string([0] * len(intensities)))
 
     def _get_probabilities(self, isotope: str, idx: int) -> np.ndarray:
         """Return normalised per-line emission probabilities for a voxel and isotope."""
         if isotope == "all":
-            df = self.all_df.copy()
-            df["intensity"] = 0.0  # Initialize the intensity column
-            # assign intensities to the dataframe using the isotope column
-            for iso in self.isotopes.keys():
-                df.loc[df["isotope"] == iso, "intensity"] = self.mesh.cell_data[
-                    f"{iso}{INTENSITY_TAG}"
-                ][idx]  # ph/s
-            df["probability"] = df["intensity"] * df["intensities"]
-            df["probability"] /= df["probability"].sum()  # Normalize to sum to 1
-            return df["probability"].to_numpy()
+            if self.energy_type == CDGS_ENERGY_TYPE.LINE:
+                df = self.all_df.copy()
+                df["intensity"] = 0.0  # Initialize the intensity column
+                # assign intensities to the dataframe using the isotope column
+                for iso in self.isotopes.keys():
+                    df.loc[df["isotope"] == iso, "intensity"] = self.mesh.cell_data[
+                        f"{iso}{INTENSITY_TAG}"
+                    ][idx]  # ph/s
+                df["probability"] = df["intensity"] * df["intensities"]
+                df["probability"] /= df["probability"].sum()  # Normalize to sum to 1
+                return df["probability"].to_numpy()
+            elif self.energy_type == CDGS_ENERGY_TYPE.BINS:
+                data = []
+                for iso in self.isotopes.keys():
+                    data.append(
+                        (
+                            self._db.getzai(iso),
+                            self.mesh.cell_data[f"{iso}{ACTIVITY_TAG}"][idx]
+                            * self.voxel_vol,
+                        )
+                    )
+                inv = ag.UnstablesInventory(data)
+                hist, _ = self._lc(inv, spectype=self._particle)
+                return hist / hist.sum()  # Normalize to sum to 1
+            else:
+                raise NotImplementedError(
+                    f"Energy type {self.energy_type} not implemented yet."
+                )
         else:
             prob = self.isotopes[isotope]["intensities"]
             return prob / prob.sum()  # Normalize to sum to 1

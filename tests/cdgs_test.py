@@ -2,6 +2,7 @@ from importlib.resources import as_file, files
 import numpy as np
 import pyvista as pv
 import io
+import pytest
 
 import tests.resources.cdgs as res
 from f4enix.output.cdgs import (
@@ -10,13 +11,13 @@ from f4enix.output.cdgs import (
     MeshByAverageDistance,
     MeshByNumberOfVoxels,
     MeshByBinSize,
+    CDGS_ENERGY_TYPE,
 )
 from f4enix.output.cdgs.cdgs import (
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
     _floats_to_multiline_string,
 )
-import pytest
 
 
 class TestKernel:
@@ -197,10 +198,28 @@ class TestCDGS:
 
         assert len(probabilities2) > len(probabilities1)
 
-    def test_exports(self, cdgs: CDGS, tmp_path):
+    @pytest.mark.parametrize(
+        ["particle", "e_bins", "isotopes"],
+        [
+            ("gamma", None, {"N16": "n16", "O19": "o19"}),
+            ("neutron", None, {"N17": "n17"}),
+            ("gamma", [1, 1e4, 1e6], {"N16": "n16", "O19": "o19"}),
+        ],
+    )
+    def test_exports(self, tmp_path, particle, e_bins, isotopes):
+        with as_file(files(res).joinpath("test_activity.csv")) as file:
+            cdgs = CDGS.from_cloud_point(
+                file,
+                isotopes,
+                interpolation_kernel=SphereKernel(n_voxels=10),
+                mesh_definition=MeshByAverageDistance(factor=10),
+                col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
+                particle=particle,
+                e_bins=e_bins,
+            )
         cdgs.cooling_time = 100
         cdgs.to_cdgs(tmp_path.joinpath("all.cdgs"), "all")
-        cdgs.to_cdgs(tmp_path.joinpath("n16.cdgs"), "N16")
+        cdgs.to_cdgs(tmp_path.joinpath("isotope.cdgs"), list(cdgs.isotopes.keys())[0])
         cdgs.to_vtk(tmp_path.joinpath("cdgs.vtk"))
 
 

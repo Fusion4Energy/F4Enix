@@ -5,7 +5,7 @@ from f4enix.output.cdgs.mesh_definitions import (
     MeshByBinSize,
     RegularMeshDefinition,
 )
-from f4enix.output.cdgs.cdgs import CDGS
+from f4enix.output.cdgs.cdgs import CDGS, CDGS_ENERGY_TYPE
 
 __all__ = [
     "MeshByAverageDistance",
@@ -16,4 +16,5 @@ __all__ = [
     "SphereKernel",
     "DistanceKernel",
     "CDGS",
+    "CDGS_ENERGY_TYPE",
 ]
