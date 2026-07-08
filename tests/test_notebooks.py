@@ -36,7 +36,7 @@ def _notebook_run(path):
     return nb, errors
 
 
-WINDOWS_ACCESS_ERROR = ["meshtal.ipynb", "tutorial.ipynb"]
+WINDOWS_ACCESS_ERROR = ["meshtal.ipynb", "tutorial.ipynb", "cdgs.ipynb"]
 
 
 @pytest.mark.parametrize(
@@ -59,4 +59,7 @@ def test_plotting_jupyters():
     _, errors = _notebook_run(
         Path("docs/source/examples/output/jupyters/meshtal.ipynb")
     )
+    assert errors == []
+
+    _, errors = _notebook_run(Path("docs/source/examples/output/jupyters/cdgs.ipynb"))
     assert errors == []
