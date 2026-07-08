@@ -117,7 +117,7 @@ class CDGS:
                     # 1 Bq
                     data=[(db.getzai(isotope), 1)]
                 )
-                intensities, _ = self._lc(inv, spectype="gamma")
+                intensities, _ = self._lc(inv, spectype=self._particle)
                 self.isotopes[isotope] = {"intensities": np.array(intensities)}
 
         # add the intensities to the mesh cell data for each isotope
@@ -446,9 +446,9 @@ energy_type {self.energy_type.value}
             nx, ny, nz = self.mesh.dimensions
             f.write(f"mesh_boundaries {nx} {ny} {nz}\n")
             # Bin limits (grid edges) per direction
-            edges1 = sorted(set(self.mesh.points[:, 0]))
-            edges2 = sorted(set(self.mesh.points[:, 1]))
-            edges3 = sorted(set(self.mesh.points[:, 2]))
+            edges1 = sorted(np.unique(self.mesh.points[:, 0]))
+            edges2 = sorted(np.unique(self.mesh.points[:, 1]))
+            edges3 = sorted(np.unique(self.mesh.points[:, 2]))
         else:
             raise NotImplementedError(
                 f"Mesh type {self.mesh_type} not implemented yet."

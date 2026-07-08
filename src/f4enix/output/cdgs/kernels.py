@@ -1,6 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
-
+import logging
 from sklearn.neighbors import KDTree
 
 
@@ -62,6 +62,13 @@ class SphereKernel(InterpolationKernel):
 
         tree = KDTree(dest_coords)
         neighbours_idx = tree.query_radius(source_coords, r=search_radius)
+        # check if there are empty queries and log a warning
+        for i, idx in enumerate(neighbours_idx):
+            if len(idx) == 0:
+                logging.warning(
+                    f"No neighbours found for source coordinate {source_coords[i]} within radius {search_radius}."
+                )
+
         return neighbours_idx
 
     def _kernel(

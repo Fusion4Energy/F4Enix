@@ -28,9 +28,9 @@ class RegularMeshDefinition(ABC):
             x_max, y_max, z_max = coords.max(axis=0) + np.array(steps) / 2
 
         # build the grid
-        xrng = np.linspace(x_min, x_max, int((x_max - x_min) / steps[0]) + 1)
-        yrng = np.linspace(y_min, y_max, int((y_max - y_min) / steps[1]) + 1)
-        zrng = np.linspace(z_min, z_max, int((z_max - z_min) / steps[2]) + 1)
+        xrng = np.linspace(x_min, x_max, round((x_max - x_min) / steps[0]) + 1)
+        yrng = np.linspace(y_min, y_max, round((y_max - y_min) / steps[1]) + 1)
+        zrng = np.linspace(z_min, z_max, round((z_max - z_min) / steps[2]) + 1)
         x, y, z = np.meshgrid(xrng, yrng, zrng, indexing="ij")
         grid = pv.StructuredGrid(x, y, z)
         return grid
