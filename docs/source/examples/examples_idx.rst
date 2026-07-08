@@ -40,3 +40,4 @@ Post-Processing
     output/jupyters/eeout
     output/jupyters/fispact_legacy
     output/jupyters/pathwaylib
+    output/jupyters/cdgs
