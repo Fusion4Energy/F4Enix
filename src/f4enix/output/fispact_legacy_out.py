@@ -203,7 +203,11 @@ class Pathway:
         # ensure parenthesis are present and no whitespaces
         key = f"({self.reactions[0].replace(' ', '').strip('(').strip(')')})"
         try:
-            return REVERSED_MT_DICT[key]
+            if self.daughter.metastable:
+                offset = 300
+            else:
+                offset = 0
+            return REVERSED_MT_DICT[key] + offset
         except KeyError:
             return None
 

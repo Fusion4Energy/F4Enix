@@ -114,6 +114,12 @@ class TestPathway:
         path = PathwayCollection._parse_pathway(text)
         assert path.is_multistep() == expected
 
+    def test_get_MT(self):
+        parent = Nuclide(element="Mo", isotope=92)
+        daughter = Nuclide(element="Nb", isotope=92, metastable=True)
+        pathway = Pathway(parent, daughter, 1, ["(n,p)"])
+        assert pathway.get_MT() == 403
+
 
 class TestPathwayCollection:
     def test_from_file(self):
