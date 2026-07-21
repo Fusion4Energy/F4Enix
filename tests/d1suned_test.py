@@ -326,7 +326,7 @@ class TestReactionFile:
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
         print(reac_file.reactions)
-        assert len(reac_file.reactions) == 11
+        assert len(reac_file.reactions) == 12
 
     def test_write(self, tmpdir):
         """
@@ -342,7 +342,7 @@ class TestReactionFile:
         os.remove(outpath)
         # do some operations
         newfile.change_lib("31c")
-        assert len(newfile.reactions) == 11
+        assert len(newfile.reactions) == 12
         # Check also first line
         rx = newfile.reactions[0]
         assert rx.parent.write_to_int_string() == "26054.31c"
@@ -355,7 +355,7 @@ class TestReactionFile:
         test translation with libmanager where parents are available
 
         """
-        newlib = "98c"
+        newlib = "93c"
 
         with as_file(RESOURCES.joinpath("reac_fe")) as inp:
             reac_file = ReactionFile.from_text(inp)
@@ -395,7 +395,8 @@ class TestReactionFile:
         paths = [
             "Fe58 -(n,g)-> Fe59",
             "Co59 -(n,p)-> Fe59",
+            "Ag109 -(n,g)-> Ag110m",
         ]
         paths = [Pathway.from_string(path) for path in paths]
         reac_file.filter_by_paths(paths)
-        assert len(reac_file.reactions) == 1
+        assert len(reac_file.reactions) == 2

@@ -502,7 +502,7 @@ class IrradiationFile:
                 "Lambda": float(irradiation.lambd),
             }
             for i, time in enumerate(irradiation.times):
-                row[f"Time_Factor_{i+1}"] = float(time)
+                row[f"Time_Factor_{i + 1}"] = float(time)
             data.append(row)
 
         df = pd.DataFrame(data)
@@ -966,7 +966,10 @@ class ReactionFile:
                     and reaction.parent.metastable == pathway.parent.metastable
                     and reaction.daughter.zaid == pathway.daughter.zaid
                     and reaction.daughter.metastable == pathway.daughter.metastable
-                    and int(reaction.MT) == pathway.get_MT()
+                    and (
+                        int(reaction.MT) == pathway.get_MT()
+                        or int(reaction.MT) == pathway.get_MT() - 300
+                    )  # allow for non-consistent use of metastable MT
                 ):
                     found = True
                     break

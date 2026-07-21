@@ -9,8 +9,7 @@ from f4enix.output.fispact_legacy_out import (
     Pathway,
     PathwayCollection,
 )
-
-# ruff: noqa: PLR2004
+from f4enix.input.libmanager import LibManager
 
 LIB_RESOURCES = files(lib_res)
 
@@ -115,10 +114,18 @@ class TestPathway:
         assert path.is_multistep() == expected
 
     def test_get_MT(self):
-        parent = Nuclide(element="Mo", isotope=92)
-        daughter = Nuclide(element="Nb", isotope=92, metastable=True)
-        pathway = Pathway(parent, daughter, 1, ["(n,p)"])
-        assert pathway.get_MT() == 403
+
+        lm = LibManager()
+        lib = "93c"
+        for _, row in lm.reactions[lib].iterrows():
+            parent = Nuclide.from_formula(row["Parent"])
+            daughter = Nuclide.from_formula(row["Daughter"])
+            mt = row["MT"]
+            reaction_name = row["Reaction"].split("+")[0].strip().strip("*")
+            pathway = Pathway(parent, daughter, 1, [reaction_name])
+            assert (
+                pathway.get_MT() == mt or (pathway.get_MT() - 300) == mt
+            )  # metastable offset
 
 
 class TestPathwayCollection:
