@@ -76,6 +76,7 @@ class Elite_Input(Input):
         outfile: os.PathLike = "sector",
         tol: float = 1e-5,
         check_Elite: bool = False,
+        fix_source: bool = True,
     ) -> None:
         """Writes a working input of a user-selected E-Lite sector.
 
@@ -124,6 +125,9 @@ class Elite_Input(Input):
         check_Elite : bool, optional
             Automatically checks if the envelope structure of the model is
             consistent with the one reported in the Excel, by default False
+        fix_source : bool, optional
+            If True, the source will be modified to be consistent with the
+            extracted sector(s), by default True
         """
         if not self.__initialized:
             self._initialize_elite(excel_file, check_Elite)
@@ -171,7 +175,8 @@ class Elite_Input(Input):
         #     if pattern.match(key):
         #         modified_data_cards.pop(key)
         # modify sdef
-        Elite_Input._set_sdef(sectors, modified_data_cards)
+        if fix_source:
+            Elite_Input._set_sdef(sectors, modified_data_cards)
         # set L0 as periodic and modify L1 planes
         Elite_Input._set_boundaries(
             Elite_Input._get_boundaries_angles(sectors),
