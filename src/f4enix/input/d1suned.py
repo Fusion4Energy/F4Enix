@@ -1119,14 +1119,14 @@ def _get_irradiation_header(
     irr_scenarios: list[IrradiationScenario], norm: float
 ) -> str:
     header = """
-# *******************************
-#     Irradiation Scenarios
-# *******************************    
+C *******************************
+C     Irradiation Scenarios
+C *******************************
 """
-    header += f"# norm: {norm}\n\n"
+    header += f"C norm: {norm}\n\n"
     for irr_scenario in irr_scenarios:
-        header += f"# Scenario: {irr_scenario.name}\n"
+        header += f"C Scenario: {irr_scenario.name}\n"
         for pulse in irr_scenario.pulses:
-            header += f"#   - {pulse}\n"
+            header += f"C   - {pulse}\n"
         header += "\n"
     return header
