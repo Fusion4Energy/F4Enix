@@ -121,9 +121,11 @@ class IrradiationScenario:
         self.pulses = [deepcopy(pulse) for pulse in pulses]
         if cooling_times is not None:
             self._cooling_times = cooling_times
-            self._cooling_labels = [
-                f"{pulse.get_time(TIME_UNITS.SECOND)}s" for pulse in cooling_times
-            ]
+            cumulative = 0.0
+            self._cooling_labels = []
+            for pulse in cooling_times:
+                cumulative += pulse.get_time(TIME_UNITS.SECOND)
+                self._cooling_labels.append(f"{cumulative}s")
         else:
             self._cooling_times = [
                 Pulse(time=0.0, intensity=0.0, unit=TIME_UNITS.SECOND)
@@ -241,20 +243,6 @@ class IrradiationScenario:
         """Compile a dataframe with the irradiation sceario data. Pulses or sequences
         of pulses that are repeated are collapsed into single entries with a multiplier."""
 
-        def scan_sequence(pulses: list[Pulse]) -> tuple[int, int]:
-            "How many repetitions containing the pulse at index zero are there?"
-            multiplier = 1
-            for len_sequence in range(1, (len(pulses) // 2 + 1)):
-                seq = pulses[:len_sequence]
-                for check_idx in range(len_sequence, len(pulses), len_sequence):
-                    if pulses[check_idx : check_idx + len_sequence] == seq:
-                        multiplier += 1
-                    else:
-                        break
-                if multiplier > 1:
-                    return multiplier, len_sequence
-            return 1, 1
-
         def get_record(pulse: Pulse, multiplier: int) -> dict:
             record = {
                 "Time": f"{pulse.get_time(pulse.unit)} {pulse.unit.value}",
@@ -266,7 +254,7 @@ class IrradiationScenario:
         remaining_pulses = self.pulses
         records = []
         while len(remaining_pulses) > 0:
-            multiplier, len_sequence = scan_sequence(remaining_pulses)
+            multiplier, len_sequence = _scan_sequence(remaining_pulses)
             if multiplier > 1:
                 sequence = remaining_pulses[:len_sequence]
                 remaining_pulses = remaining_pulses[len_sequence * multiplier :]
