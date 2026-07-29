@@ -102,6 +102,61 @@ class TestIrradiationScenario:
         table = scenario.get_collapsed_table()
         assert len(table) == 3
 
+    def test_to_from_ascii(self, tmp_path):
+        pulses = [Pulse(1, 1e10, TIME_UNITS.DAY), Pulse(2, 0, TIME_UNITS.DAY)] * 4 + [
+            Pulse(1, 1e11, TIME_UNITS.HOUR)
+        ]
+        scenario = IrradiationScenario(pulses, name="test_scenario")
+        scenario.set_cooling_times(
+            [(1, TIME_UNITS.HOUR), (1, TIME_UNITS.DAY), (1, TIME_UNITS.YEAR)]
+        )
+
+        out_path = tmp_path / "test.irr"
+        scenario.to_ascii(out_path)
+        loaded = IrradiationScenario.from_ascii(out_path)
+
+        assert loaded.name == "test_scenario"
+        assert len(loaded.pulses) == len(scenario.pulses)
+        for orig, read in zip(scenario.pulses, loaded.pulses):
+            assert pytest.approx(orig.time) == read.time
+            assert pytest.approx(orig.intensity) == read.intensity
+            assert orig.unit == read.unit
+        assert len(loaded.cooling_times) == len(scenario.cooling_times)
+        for orig, read in zip(scenario.cooling_times, loaded.cooling_times):
+            assert pytest.approx(orig.time) == read.time
+        assert loaded.cooling_labels == scenario.cooling_labels
+
+    def test_to_from_ascii_two_same_rep_blocks(self, tmp_path):
+        # Two separate repeated blocks that happen to share the same multiplier;
+        # the writer must not merge them into one block.
+        p1 = Pulse(1, 0.0, TIME_UNITS.SECOND)
+        p2 = Pulse(2, 1e10, TIME_UNITS.SECOND)
+        p3 = Pulse(3, 2e10, TIME_UNITS.SECOND)
+        pulses = [p1] * 3 + [p2, p3] * 3
+        scenario = IrradiationScenario(pulses)
+
+        out_path = tmp_path / "rep.irr"
+        scenario.to_ascii(out_path)
+        loaded = IrradiationScenario.from_ascii(out_path)
+
+        assert len(loaded.pulses) == 9
+        for orig, read in zip(scenario.pulses, loaded.pulses):
+            assert pytest.approx(orig.time) == read.time
+            assert pytest.approx(orig.intensity) == read.intensity
+
+    def test_from_ascii_no_name_default_cooling(self, tmp_path):
+        # Minimal file: no NAME, no COOLING section → name is None, one 0s cooling
+        content = "IRRADIATION\n  1  h  1e10\n  2  h  0\n"
+        out_path = tmp_path / "minimal.irr"
+        out_path.write_text(content)
+        loaded = IrradiationScenario.from_ascii(out_path)
+
+        assert loaded.name is None
+        assert len(loaded.pulses) == 2
+        assert pytest.approx(loaded.pulses[0].time) == 3600.0
+        assert len(loaded.cooling_times) == 1
+        assert loaded.cooling_times[0].time == 0.0
+
 
 class TestTFC_Computer:
     def test_get_lambda(self):

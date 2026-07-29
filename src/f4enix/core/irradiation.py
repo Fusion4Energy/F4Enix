@@ -27,6 +27,10 @@ RES = files(resources)
 # D1STIME PATTERNS
 PAT_IRRADIATION = re.compile(r"^\s*irradiation", flags=re.IGNORECASE)
 
+# ASCII SCENARIO FORMAT PATTERNS
+_PAT_ASCII_BLOCK_END = re.compile(r"^\)\s*\*\s*(\d+)$")
+_PAT_LABEL_TIME = re.compile(r"^(\d+(?:\.\d+)?)(s|min|h|d|w|m|y)$")
+
 METASTABLE_TAG = "900"
 IRS_TAG = "999"
 
@@ -273,6 +277,169 @@ class IrradiationScenario:
                 remaining_pulses = remaining_pulses[1:]
 
         return pd.DataFrame(records).set_index(["Repetition", "Time"])
+
+    def to_ascii(self, path: PathLike) -> None:
+        """Serialize the irradiation scenario to a human-readable ASCII file.
+
+        The file uses three sections separated by keyword headers:
+
+        - ``NAME`` (optional): the scenario name.
+        - ``IRRADIATION``: one pulse per line as ``time unit intensity``.
+          Repeated sequences are written compactly as ``( ... ) * N`` blocks.
+        - ``COOLING``: one line per cooling time as
+          ``cumulative_time unit [label]``.  Times are absolute (measured
+          from the end of irradiation).
+
+        Lines starting with ``#`` are treated as comments and ignored on
+        reading.
+
+        Parameters
+        ----------
+        path : PathLike
+            Destination file path (conventionally ``*.irr``).
+        """
+        lines = [
+            "# F4Enix Irradiation Scenario",
+            "# Cooling times are cumulative (absolute) from end of irradiation",
+            "",
+        ]
+
+        if self.name is not None:
+            lines += [f"NAME  {self.name}", ""]
+
+        lines += ["IRRADIATION", "# time  unit  intensity"]
+
+        remaining = list(self.pulses)
+        while remaining:
+            mult, len_seq = _scan_sequence(remaining)
+            if mult > 1:
+                seq = remaining[:len_seq]
+                remaining = remaining[len_seq * mult :]
+                lines.append("  (")
+                for pulse in seq:
+                    t = pulse.get_time(pulse.unit)
+                    lines.append(f"    {t:g}  {pulse.unit.value}  {pulse.intensity:g}")
+                lines.append(f"  ) * {mult}")
+            else:
+                pulse = remaining[0]
+                remaining = remaining[1:]
+                t = pulse.get_time(pulse.unit)
+                lines.append(f"  {t:g}  {pulse.unit.value}  {pulse.intensity:g}")
+
+        lines += ["", "COOLING", "# cumulative_time  unit  [label]"]
+
+        cumulative_sec = 0.0
+        for pulse, label in zip(self._cooling_times, self._cooling_labels):
+            cumulative_sec += pulse.time
+            time_str, unit_str = _format_cooling_line(cumulative_sec, label)
+            lines.append(f"  {time_str}  {unit_str}  {label}")
+
+        lines.append("")
+
+        with open(path, "w") as f:
+            f.write("\n".join(lines))
+
+    @classmethod
+    def from_ascii(cls, path: PathLike) -> "IrradiationScenario":
+        """Load an irradiation scenario from a human-readable ASCII file.
+
+        See :meth:`to_ascii` for the file format specification.
+
+        Parameters
+        ----------
+        path : PathLike
+            Path to the ``.irr`` file to read.
+
+        Returns
+        -------
+        IrradiationScenario
+            The loaded irradiation scenario.
+        """
+        with open(path, "r") as f:
+            raw_lines = f.readlines()
+
+        name = None
+        pulses: list[Pulse] = []
+        cooling_abs: list[tuple[float, TIME_UNITS]] = []
+        cooling_labels: list[str] = []
+
+        section = None
+        in_block = False
+        block_pulses: list[Pulse] = []
+
+        for raw_line in raw_lines:
+            line = raw_line.split("#")[0].strip()
+            if not line:
+                continue
+
+            upper = line.upper()
+
+            if upper.startswith("NAME"):
+                tokens = line.split(None, 1)
+                if len(tokens) > 1:
+                    name = tokens[1].strip()
+                continue
+
+            if upper == "IRRADIATION":
+                section = "IRRADIATION"
+                continue
+
+            if upper == "COOLING":
+                section = "COOLING"
+                continue
+
+            if section == "IRRADIATION":
+                if line == "(":
+                    in_block = True
+                    block_pulses = []
+                    continue
+
+                m = _PAT_ASCII_BLOCK_END.match(line)
+                if m and in_block:
+                    n = int(m.group(1))
+                    pulses.extend(block_pulses * n)
+                    in_block = False
+                    block_pulses = []
+                    continue
+
+                tokens = line.split()
+                if len(tokens) >= 3:
+                    pulse = _parse_ascii_pulse_line(tokens)
+                    if in_block:
+                        block_pulses.append(pulse)
+                    else:
+                        pulses.append(pulse)
+
+            elif section == "COOLING":
+                tokens = line.split()
+                if len(tokens) >= 2:
+                    time_val = float(tokens[0])
+                    unit = TIME_UNITS(tokens[1])
+                    label = tokens[2] if len(tokens) >= 3 else f"{tokens[0]}{tokens[1]}"
+                    cooling_abs.append((time_val, unit))
+                    cooling_labels.append(label)
+
+        # Convert absolute cumulative cooling times to relative deltas
+        cooling_pulses: list[Pulse] = []
+        prev_sec = 0.0
+        for time_val, unit in cooling_abs:
+            abs_sec = time_val * TIME_UNITS_CONVERSION[unit]
+            rel_sec = abs_sec - prev_sec
+            prev_sec = abs_sec
+            cooling_pulses.append(
+                Pulse(time=rel_sec, intensity=0.0, unit=TIME_UNITS.SECOND)
+            )
+
+        scenario = cls(
+            pulses=pulses,
+            name=name,
+            cooling_times=cooling_pulses if cooling_pulses else None,
+        )
+
+        if cooling_labels:
+            scenario._cooling_labels = cooling_labels
+
+        return scenario
 
 
 class Nuclide:
@@ -604,3 +771,43 @@ def _process_pulses(pulse_str: str) -> list[Pulse]:
         pulses.append(Pulse(time=float(val), intensity=flux, unit=unit))
 
     return pulses
+
+
+def _scan_sequence(pulses: list[Pulse]) -> tuple[int, int]:
+    """Return (multiplier, len_sequence) for the repeating block starting at pulses[0].
+
+    Returns (1, 1) when no repetition is detected.
+    """
+    multiplier = 1
+    for len_sequence in range(1, (len(pulses) // 2 + 1)):
+        seq = pulses[:len_sequence]
+        for check_idx in range(len_sequence, len(pulses), len_sequence):
+            if pulses[check_idx : check_idx + len_sequence] == seq:
+                multiplier += 1
+            else:
+                break
+        if multiplier > 1:
+            return multiplier, len_sequence
+    return 1, 1
+
+
+def _format_cooling_line(abs_sec: float, label: str) -> tuple[str, str]:
+    """Return (time_str, unit_str) for writing a cooling line.
+
+    If *label* encodes a time value and unit (e.g. ``"1y"``, ``"10d"``), those
+    are used directly so the file stays human-readable.  Otherwise the
+    absolute seconds value is written with unit ``"s"``.
+    """
+    m = _PAT_LABEL_TIME.match(label)
+    if m:
+        return m.group(1), m.group(2)
+    return f"{abs_sec:g}", "s"
+
+
+def _parse_ascii_pulse_line(tokens: list[str]) -> Pulse:
+    """Parse a ``time unit intensity`` token list into a :class:`Pulse`."""
+    return Pulse(
+        time=float(tokens[0]),
+        intensity=float(tokens[2]),
+        unit=TIME_UNITS(tokens[1]),
+    )
