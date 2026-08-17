@@ -1,8 +1,8 @@
 import re
 from copy import deepcopy
 
+import migjorn
 import pyvista as pv
-from numjuggler import parser
 
 from f4enix.core.constants import PathLike
 from f4enix.input.MCNPinput import Input
@@ -206,34 +206,32 @@ class Meshtal:
         """
         transf_dict = {}
         pattern = r"tr\s*=\s*\d+"
-        for key, data_card in inp.other_data.items():
+        for key, card_text in inp.other_data.items():
             if "FMESH" in key:
-                fmesh_num = data_card.name
+                fmesh_num = (
+                    int(re.search(r"\d+", key).group())
+                    if re.search(r"\d+", key)
+                    else None
+                )
                 if fmesh_num not in self.mesh.keys():
                     continue
-                match = False
-                for line in data_card.lines:
-                    # Search for the pattern in the line
-                    match = re.search(pattern, line)
-                    if match:
-                        break
+                match = re.search(pattern, card_text, re.IGNORECASE)
                 if match:
-                    transf_dict[fmesh_num] = inp.transformations[
-                        "TR" + str(match.group().split("=")[-1])
-                    ]
+                    tr_num = int(match.group().split("=")[-1].strip())
+                    tr = inp.transformations.get(f"TR{tr_num}")
+                    if tr is not None:
+                        transf_dict[fmesh_num] = tr
         self.transform_multiple_fmesh(transf_dict)
 
-    def transform_multiple_fmesh(self, transf_dict: dict[int, parser.Card]) -> None:
-        """Transforms multiple fmeshes in the meshtal object.
-        Given a dictionary of fmeshes numbers and transformation cards,
-        rototranslate the fmeshes in the meshtal object according to the associated
-        transformation card in the dict
-
+    def transform_multiple_fmesh(
+        self, transf_dict: dict[int, migjorn.Transform]
+    ) -> None:
+        """Transform multiple fmeshes using a dict of migjorn Transform objects.
 
         Parameters
         ----------
-        transf_dict : dict[int, parser.Card]
-            dictionary of fmeshes numbers and transformation cards.
+        transf_dict : dict[int, migjorn.Transform]
+            dictionary of fmesh numbers and transformation objects.
         """
         for key, transf in transf_dict.items():
             self.mesh[key].apply_transformation(transf)

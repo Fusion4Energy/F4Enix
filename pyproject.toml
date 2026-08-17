@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numjuggler >= 2.42.37",
+    "migjorn >= 0.2.5",
     "pyvista >= 0.39.1",
     "pandas",
     "polars",
@@ -30,7 +30,6 @@ dependencies = [
     "tables",
     "endf",
     "pypact >= 1.3.8",
-    "chardet < 7.0.0", # breaks numjuggler
     "actigamma",
     "scikit-learn",
 ]

@@ -3,10 +3,10 @@ import logging
 import os
 import re
 
+import migjorn
 import numpy as np
 import pandas as pd
 import pyvista as pv
-from numjuggler import parser
 from tqdm import tqdm
 
 from f4enix.core.constants import PathLike
@@ -650,37 +650,26 @@ class Fmesh(MeshData):
         grid = pv.read(vtk_file)
         self.grid = grid
 
-    def apply_transformation(self, tr: parser.Card) -> None:
-        """Apply a transformation to the mesh object
+    def apply_transformation(self, tr: migjorn.Transform) -> None:
+        """Apply a transformation to the mesh object.
 
         Parameters
         ----------
-        tr : parser.Card
-            transformation card to be applied to the fmesh
+        tr : migjorn.Transform
+            transformation card to be applied
 
         Raises
         ------
         ValueError
-            If a non-transformation card is passed
-        ValueError
-            If the transformation card has not 4 (translation) or 13 (affine transformation) values
+            If the transformation has not 3 (translation) or 12 (rototranslation) rotation values
         """
-        if tr.ctype != 5:
-            raise ValueError("Numjuggler card is not a transformation")
-        if len(tr.values) not in [4, 13]:
-            raise ValueError(
-                "Numjuggler transformation card has not 4 (translation) or 13 (rototranslation) values"
-            )
-        transf_values = []
-
-        if len(tr.values) == 13:
-            for k, val in enumerate(tr.values[1:]):
-                if k < 3:
-                    transf_values.append(val[0])
-                elif tr.unit == "*":
-                    transf_values.append(np.cos(np.radians(val[0])))
-                else:
-                    transf_values.append(val[0])
+        n_rot = len(tr.rotation)
+        transf_values = list(tr.displacement)
+        if n_rot == 9:
+            rot = tr.rotation
+            if tr.degrees:
+                rot = [np.cos(np.radians(v)) for v in rot]
+            transf_values.extend(rot)
             transf_matrix_dcm = np.array(
                 [
                     transf_values[3:6],
@@ -688,10 +677,7 @@ class Fmesh(MeshData):
                     transf_values[9:],
                 ]
             )
-            # Compute the transpose of the matrix
             transposed_matrix = np.transpose(transf_matrix_dcm)
-
-            # Compute the inverse of the transposed matrix
             try:
                 inverted_transposed_matrix = np.linalg.inv(transposed_matrix)
             except np.linalg.LinAlgError:
@@ -719,14 +705,18 @@ class Fmesh(MeshData):
                     [0, 0, 0, 1],
                 ]
             )
-        else:
+        elif n_rot == 0:
             transform_matrix = np.array(
                 [
-                    [1, 0, 0, tr.values[1][0]],
-                    [0, 1, 0, tr.values[2][0]],
-                    [0, 0, 1, tr.values[3][0]],
+                    [1, 0, 0, transf_values[0]],
+                    [0, 1, 0, transf_values[1]],
+                    [0, 0, 1, transf_values[2]],
                     [0, 0, 0, 1],
                 ]
+            )
+        else:
+            raise ValueError(
+                f"Transformation has {n_rot} rotation values; expected 0 (translation) or 9 (rototranslation)"
             )
         if isinstance(self.grid, pv.RectilinearGrid):
             # If the grid is a RectilinearGrid, cast it to StructuredGrid to avoid

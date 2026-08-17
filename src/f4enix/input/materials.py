@@ -36,7 +36,6 @@ from contextlib import contextmanager
 from decimal import Decimal
 
 import pandas as pd
-from numjuggler import parser as par
 
 from f4enix.core.constants import AVOGADRO_NUMBER, PAT_COMMENT, PAT_MAT, PAT_MX
 from f4enix.input.libmanager import LibManager
@@ -422,6 +421,7 @@ class SubMaterial:
         patName = PAT_MAT
         searchHeader = True
         header = ""
+        name = None  # default if only comment lines precede the zaids
         zaidList = []
         additional_keys_list = []
         for line in text:
@@ -1466,11 +1466,8 @@ class MatCardsList(Sequence):
         return matdic
 
     @classmethod
-    def from_input(cls, inputfile: os.PathLike) -> MatCardsList:
-        """
-        This method use the numjuggler parser to help identify the mcards in
-        the input. Then the mcards are parsed using the classes defined in this
-        module
+    def from_input(cls, inputfile: os.PathLike) -> "MatCardsList":
+        """Parse material cards from an MCNP input file using migjorn.
 
         Parameters
         ----------
@@ -1480,58 +1477,45 @@ class MatCardsList(Sequence):
         Returns
         -------
         MatCardsList
-            new material card list generated.
-
         """
-        matPat = PAT_MAT
-        mxPat = PAT_MX
-        commentPat = PAT_COMMENT
-        # Using parser the data cards are extracted from the input.
-        # Comment section are interpreted as cards by the parser
-        with suppress_stdout():
-            # Suppress output from tab replacing
-            cards = par.get_cards_from_input(inputfile)
-            cardsDic = par.get_blocks(cards)
-        datacards = cardsDic[5]
+        import migjorn
+
+        model = migjorn.Model.from_file(str(inputfile))
+
+        groups: dict[str, list[tuple[str, str]]] = {}
+        for mat in model.materials:
+            groups.setdefault(str(mat.id), []).append(("M", mat.text))
+
+        # Collect MT/MX lines from the data section
+        source = model.to_source()
+        lines_seen = source.splitlines(keepends=True)
+        in_data = False
+        blank_count = 0
+        for line in lines_seen:
+            if line.strip() == "":
+                blank_count += 1
+                if blank_count >= 2:
+                    in_data = True
+                continue
+            if not in_data:
+                continue
+            m = re.match(r"^(MT|MX)(\d+)", line.strip(), re.IGNORECASE)
+            if m:
+                prefix = m.group(1).upper()
+                mat_id = m.group(2)
+                groups.setdefault(mat_id, []).append((prefix, line))
 
         materials = []
-        previous_lines = [""]
-        mx_cards = []
-        mx_found = False
-
-        for datacard in datacards:
-            lines = datacard.lines
-
-            # Check if it is a material card
-            if matPat.match(lines[0]) is not None:
-                # Check if previous card is the header
-                if commentPat.match(previous_lines[0]):
-                    previous_lines.extend(lines)
-                    material = Material.from_text(previous_lines)
-                else:
-                    material = Material.from_text(lines)
-
-                materials.append(material)
-
-            # Check if the current is an mx cards
-            if mxPat.match(lines[0]) is not None:
-                mx_cards.append(lines)
-                mx_found = True
-
-            # If not Add mx cards if previous one was an mx
-            elif mx_found:
-                materials[-1].add_mx(mx_cards)
-                mx_cards = []
-                mx_found = False
-
-            else:
-                mx_found = False
-
-            previous_lines = lines
-
-        # If material is last datacard
-        if mx_found:
-            materials[-1].add_mx(mx_cards)
+        for mat_id in sorted(groups, key=lambda x: int(x)):
+            cards = groups[mat_id]
+            m_text = next((t for p, t in cards if p == "M"), None)
+            if m_text is None:
+                continue
+            mat = Material.from_text(m_text.splitlines(keepends=True))
+            mx_cards = [t.splitlines(keepends=True) for p, t in cards if p != "M"]
+            for mx in mx_cards:
+                mat.add_mx(mx)
+            materials.append(mat)
 
         return cls(materials)
 

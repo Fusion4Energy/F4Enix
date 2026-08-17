@@ -21,36 +21,31 @@ and limitations under the Licence.
 import os
 import re
 
-from numjuggler.parser import Card
-
 from f4enix.core.constants import PAT_COMMENT_TEXT, PAT_DOLLAR_COMMENT
 
 _surrogates = re.compile(r"[\uDC80-\uDCFF]")
 
 
-def get_comments(card: Card) -> str:
-    """Analyze the lines of a card and get the comments
+def get_comments(card_text: str) -> str:
+    """Extract inline and C-style comments from MCNP card text.
 
     Parameters
     ----------
-    card : Card
-        card to be analyzed
+    card_text : str
+        raw text of the card (migjorn cell.text / surface.text etc.)
 
     Returns
     -------
     str
-        comments as a single string
+        comments concatenated as a single string
     """
     comments = ""
-    for line in card.lines:
-        # check if either dollar or c comments are matched and store them
+    for line in card_text.splitlines(keepends=True):
         c_comm = PAT_COMMENT_TEXT.match(line)
         d_comm = PAT_DOLLAR_COMMENT.search(line)
-
         for match in [c_comm, d_comm]:
             if match is not None:
                 comments = comments + match.group()
-
     return comments
 
 
