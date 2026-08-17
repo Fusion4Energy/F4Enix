@@ -6,9 +6,9 @@ name: testing Linux
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main, developing ]
+    branches: [ developing ]
   pull_request:
-    branches: [ main, developing ]
+    branches: [ developing ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -21,16 +21,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Install python
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       
@@ -51,8 +51,8 @@ jobs:
           pytest --cov=src/f4enix -cov-config=".coveragerc"  --cov-report xml
 
       - name: Upload coverage to Codecov
-        # do it only once for python 3.10
-        if: matrix.python-version == '3.10'
+        # do it only once
+        if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
           verbose: true
