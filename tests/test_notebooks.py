@@ -40,7 +40,7 @@ WINDOWS_ACCESS_ERROR = ["meshtal.ipynb", "tutorial.ipynb", "cdgs.ipynb"]
 
 
 @pytest.mark.parametrize(
-    "filename", Path(os.path.join("docs", "source")).rglob("*.ipynb")
+    "filename", list(Path(os.path.join("docs", "source")).rglob("*.ipynb"))
 )
 def test_task_1(filename):
     if os.path.basename(filename) in WINDOWS_ACCESS_ERROR:

@@ -400,7 +400,7 @@ class Output:
             if the cell is not found in the file.
         """
         trigger = re.compile(
-            "           results of 10 statistical .+\s{}\n".format(tally)
+            r"           results of 10 statistical .+\s" + str(tally) + r"\n"
         )
         found = False
 
