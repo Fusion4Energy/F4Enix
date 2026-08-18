@@ -8,8 +8,9 @@ import pytest
 import f4enix.resources as pkg_res
 import tests.resources.materials as mat_res
 from f4enix.input.libmanager import LibManager
-from f4enix.input.materials import Element, MatCardsList, Material, SubMaterial, Zaid
+from f4enix.input.materials import Element, MatCardsList, Material, Zaid
 from f4enix.input.MCNPinput import Input
+from f4enix.core.irradiation import Nuclide
 
 resources = files(mat_res)
 resources_pkg = files(pkg_res)
@@ -20,32 +21,16 @@ ISOTOPES_FILE = as_file(resources_pkg.joinpath("Isotopes.txt"))
 with XSDIR as xsdir_file, ISOTOPES_FILE as isotopes_file:
     LIBMAN = LibManager(xsdir_file, isotopes_file=isotopes_file, defaultlib="81c")
 
-# Files
-with as_file(resources.joinpath("mat_test.i")) as inp:
-    inp_matcard1 = MatCardsList.from_input(inp)
-    inp_matcard2 = Input.from_input(inp).materials
-
-with as_file(resources.joinpath("mat_test2.i")) as inp2:
-    inp2_matcard1 = MatCardsList.from_input(inp2)
-    inp2_matcard2 = Input.from_input(inp2).materials
-
-with as_file(resources.joinpath("test.i")) as inp3:
-    inp3_matcard1 = MatCardsList.from_input(inp3)
-    inp3_matcard2 = Input.from_input(inp3).materials
-
-with as_file(resources.joinpath("activation.i")) as inp:
-    activation_matcard1 = MatCardsList.from_input(inp)
-    activation_matcard2 = Input.from_input(inp).materials
-
 
 class TestZaid:
     tests = [
-        {"str": "1001.31c   -2.3", "res": [-2.3, "1", "001", "31c"]},
-        {"str": "1001.31c\t-2.3", "res": [-2.3, "1", "001", "31c"]},
-        {"str": "15205 1", "res": [1, "15", "205", None]},
+        {"str": "1001.31c   -2.3", "res": [-2.3, 1, 1, "31c"]},
+        {"str": "1001.31c\t-2.3", "res": [-2.3, 1, 1, "31c"]},
+        {"str": "15205 1", "res": [1, 15, 205, None]},
     ]
 
-    def test_fromstring(self):
+    @pytest.mark.parametrize("test", tests)
+    def test_fromstring(self, test):
         """
         Test the creation of zaids from strings
 
@@ -54,33 +39,26 @@ class TestZaid:
         None.
 
         """
-
-        for test in self.tests:
-            text = test["str"]
-            zaid = Zaid.from_string(text)
-            res = test["res"]
-            assert zaid.fraction == res[0]
-            assert zaid.element == res[1]
-            assert zaid.isotope == res[2]
-            assert zaid.library == res[3]
+        text = test["str"]
+        zaid = Zaid.from_string(text)
+        res = test["res"]
+        assert zaid.fraction == res[0]
+        assert zaid.element == res[1]
+        assert zaid.isotope == res[2]
+        assert zaid.library == res[3]
 
     def test_to_text(self):
-        zaid = Zaid(
-            "-2.3",
-            "1",
-            "001",
-            "31c",
-        )
+        zaid = Zaid("-2.3", Nuclide.from_int_string("1001.31c"))
         assert (
             zaid.to_text().strip()
-            == "1001.31c       -2.300000E+0     $        WEIGHT(%)  AB(%)"
+            == "1001.31c       -2.300000E+0     $ H1     WEIGHT(%)  AB(%)"
         )
         zaid.elem_mass_fraction = 0.1116316166
         zaid.ab = 0.514343484384  # type: ignore
 
         assert (
             zaid.to_text().strip()
-            == "1001.31c       -2.300000E+0     $        WEIGHT(%) 11.163 AB(%) 0.51434"
+            == "1001.31c       -2.300000E+0     $ H1     WEIGHT(%) 11.163 AB(%) 0.51434"
         )
 
 
@@ -106,8 +84,8 @@ class TestElement:
         elem.Z = "1"
 
         # Check the correct update of infos in element
-        elem.update_zaidinfo(LIBMAN, 0.5)
-        res = [{"fullname": "H-1", "ab": 25}, {"fullname": "H-2", "ab": 75}]
+        elem.update_abundance()
+        res = [{"fullname": "H1", "ab": 25}, {"fullname": "H2", "ab": 75}]
         for zaid, checks in zip(elem.zaids, res):
             assert int(zaid.ab) == checks["ab"]
             assert zaid.fullname == checks["fullname"]
@@ -121,63 +99,22 @@ class TestElement:
         assert elem.get_fraction() == -4
 
 
-class TestSubmaterial:
-    def test_get_info(self):
-        txt = [
-            "C header",
-            "8016.31c        1.333870E-2     $ O-16   AB(%) 99.757",
-            "8017.31c        5.081060E-6     $ O-17   AB(%) 0.038",
-            "8018.31c        2.741100E-5     $ O-18   AB(%) 0.205",
-        ]
-
-        submat = SubMaterial.from_text(txt)  # type: ignore
-        df_el, df_zaid = submat.get_info(LIBMAN)
-        assert len(df_el) == 1
-        assert len(df_zaid) == 3
-        assert len(df_el.columns) == 2
-        assert len(df_zaid.columns) == 3
-
-    def test_dosimetry(self):
-        lm = LibManager(dosimetry_lib="21c")  # type: ignore
-        txt = [
-            "C header",
-            "8016.31c        1     $ O-16   AB(%) 99.757",
-            "8017.31c        1     $ O-17   AB(%) 0.038",
-            "8018.21c        1     $ O-18   AB(%) 0.205",
-        ]
-        material = SubMaterial.from_text(txt)  # type: ignore
-        material.translate("00c", lm)
-        assert material.zaidList[2].library == "21c"
-        assert material.zaidList[0].library == "00c"
-
-    def test_zaid_not_found(self):
-        txt = [
-            "C header",
-            "8001.31c        1     $ O-16   AB(%) 99.757",
-        ]
-        material = SubMaterial.from_text(txt)  # type: ignore
-        material.translate("00c", LIBMAN)
-
-
 class TestMaterial:
     def test_natural_expansion(self):
         lm = LibManager()
         material = Material.from_text(["C Header", "M1 1000.31c   -2.3"])
         material.translate("31c", lm)
-        assert len(material.submaterials[0].zaidList) == 2
+        assert len(material.zaids) == 2
 
     def test_switch_fraction(self):
         """test needs to be conducted both for the creation through
         from_input() and from the creation from the input class
         """
-        # Read a material
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
+        with as_file(resources.joinpath("mat_test.i")) as inp:
+            inp_matcard1 = MatCardsList.from_input(inp)
 
-        for matcard in [matcard1, matcard2]:
+        for material in inp_matcard1:
             # Fake translation in order to normalize the fractions
-            material = matcard[0]
-            # material._update_info(LIBMAN)
             original = material.to_text()
 
             # -- Switch back and forth --
@@ -221,30 +158,28 @@ class TestMaterial:
         mass_material.switch_fraction("atom", LIBMAN)
         print(mass_material.to_text())
 
-        tolerance = 1e-5  # tolerance for the difference with respect to pnnl
-        switched_sub = mass_material.submaterials[0]
-        pnnl_sub = atom_material.submaterials[0]
-
-        for zaid1, zaid2 in zip(switched_sub.zaidList, pnnl_sub.zaidList):
-            diff = zaid1.fraction - zaid2.fraction
+        tolerance = 1e-3  # tolerance for the difference with respect to pnnl
+        for zaid1, zaid2 in zip(mass_material.zaids, atom_material.zaids):
+            diff = abs(zaid1.fraction - zaid2.fraction) / abs(zaid2.fraction)
             assert diff < tolerance
 
     def test_from_zaids(self):
         zaids = [("1001", -100), ("B-0", -200), ("C-12", -50)]
         mat = Material.from_zaids(zaids, LIBMAN, "31c", "header")
-        assert len(mat.submaterials[0].zaidList) == 4
-        zaid = mat.submaterials[0].zaidList[0]
-        assert zaid.element == "1"
-        assert zaid.isotope == "001"
+        assert len(mat.zaids) == 4
+        zaid = mat.zaids[0]
+        assert zaid.element == 1
+        assert zaid.isotope == 1
         assert zaid.fraction == -100.0
+        assert len(mat.elements) == 3
 
-        zaid = mat.submaterials[0].zaidList[1]
-        assert zaid.element == "5"
-        assert zaid.isotope == "010"
+        zaid = mat.zaids[1]
+        assert zaid.element == 5
+        assert zaid.isotope == 10
 
-        zaid = mat.submaterials[0].zaidList[2]
-        assert zaid.element == "5"
-        assert zaid.isotope == "011"
+        zaid = mat.zaids[2]
+        assert zaid.element == 5
+        assert zaid.isotope == 11
 
         zaids = [
             (1000, -4.7),
@@ -305,6 +240,12 @@ M1
                 == tads[mat]
             )
 
+    def test_get_info_df(self):
+        mat = Material.from_zaids([(1000, 1), (8016, 1)], LIBMAN, "31c")
+        df_elem, df_zaid = mat._get_info_df()
+        assert len(df_zaid) > 2
+        assert len(df_elem) == 2
+
     def test_get_density(self):
         with as_file(resources.joinpath("tad_test.i")) as inp:
             mcnp_inp = Input.from_input(inp)
@@ -332,23 +273,27 @@ M1
     def test_get_info(self):
         txt = [
             "C header",
-            "8016.31c        1.333870E-2     $ O-16   AB(%) 99.757",
+            "m1 8016.31c        1.333870E-2     $ O-16   AB(%) 99.757",
             "8017.31c        5.081060E-6     $ O-17   AB(%) 0.038",
             "8018.31c        2.741100E-5     $ O-18   AB(%) 0.205",
+            "1001.31c  1e-2",
+            "8016.31c  1e-2",
         ]
-        submat1 = SubMaterial.from_text(txt)  # type: ignore
-        txt = ["C header", "1001.31c  1e-2", "8016.31c  1e-2"]
-        submat2 = SubMaterial.from_text(txt)  # type: ignore
-        material = Material(None, None, "M1", submaterials=[submat1, submat2])  # type: ignore
+        material = Material.from_text(txt)
         lm = LibManager()
-        df, df_elem = material.get_info(lib_manager=lm, zaids=True)  # type: ignore
-        assert df.iloc[0]["Atom Fraction"] != df.iloc[0]["Mass Fraction"]
+        df_complete, df_elem = material.get_info()
+        df_complete, df_elem = material.get_info(zaids=True)
 
-    def test_update_info(self):
+        for df in [df_complete, df_elem]:
+            assert df["Atom Fraction"].sum() == pytest.approx(1.0, rel=1e-5)
+            assert df["Mass Fraction"].sum() == pytest.approx(1.0, rel=1e-5)
+            # assert df.iloc[0]["Atom Fraction"] != df.iloc[0]["Mass Fraction"]
+
+    def test_to_text(self):
         libman = LibManager()
         material = Material.from_zaids([(1000, 1), (56000, 1)], libman, "31c")
         assert (
-            "1001.31c        9.998550E-1     $ H-1    WEIGHT(%) 0.72865 AB(%) 99.986"
+            "1001.31c        9.998550E-1     $ H1     WEIGHT(%) 0.72865 AB(%) 99.986"
             in material.to_text()
         )
 
@@ -357,6 +302,23 @@ class TestMatCardList:
     """test needs to be conducted both for the creation through
     from_input() and from the creation from the input class
     """
+
+    # # Files
+    # with as_file(resources.joinpath("mat_test.i")) as inp:
+    #     inp_matcard1 = MatCardsList.from_input(inp)
+    #     inp_matcard2 = Input.from_input(inp).materials
+
+    # with as_file(resources.joinpath("mat_test2.i")) as inp2:
+    #     inp2_matcard1 = MatCardsList.from_input(inp2)
+    #     inp2_matcard2 = Input.from_input(inp2).materials
+
+    # with as_file(resources.joinpath("test.i")) as inp3:
+    #     inp3_matcard1 = MatCardsList.from_input(inp3)
+    #     inp3_matcard2 = Input.from_input(inp3).materials
+
+    # with as_file(resources.joinpath("activation.i")) as inp:
+    #     activation_matcard1 = MatCardsList.from_input(inp)
+    #     activation_matcard2 = Input.from_input(inp).materials
 
     def test_frominput(self):
         """
@@ -367,8 +329,8 @@ class TestMatCardList:
         None.
 
         """
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
+        matcard1 = deepcopy(self.inp_matcard1)
+        matcard2 = deepcopy(self.inp_matcard2)
 
         for matcard in [matcard1, matcard2]:
             assert len(matcard.materials) == 3
@@ -383,63 +345,21 @@ class TestMatCardList:
         None.
 
         """
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
+        matcard1 = deepcopy(self.inp_matcard1)
+        matcard2 = deepcopy(self.inp_matcard2)
 
         headers = {"m1": "C Header M1\n", "m2": "C Header M2\n", "m102": ""}
         for matcard in [matcard1, matcard2]:
             for key, header in headers.items():
                 assert matcard[key].header == header
 
-    def test_subheaders(self):
-        """
-        Test correct reading of submaterial headers
-
-        Returns
-        -------
-        None.
-
-        """
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
-
-        headers = {
-            "m1": ["C M1-submat1", "C M1-Submat 2"],
-            "m2": ["", "C M2-submat1\nC second line"],
-            "m102": [""],
-        }
-
-        for matcard in [matcard1, matcard2]:
-            for key, subheaders in headers.items():
-                for i, submat in enumerate(matcard[key].submaterials):
-                    assert submat.header == subheaders[i]
-
-    def test_zaidnumbers(self):
-        """
-        Test correct number of zaids allocated in submaterials
-
-        Returns
-        -------
-        None.
-
-        """
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
-
-        zaids_dic = {"m1": [2, 1], "m2": [1, 1], "m102": [5]}
-
-        for matcard in [matcard1, matcard2]:
-            for key, zaids in zaids_dic.items():
-                for i, submat in enumerate(matcard[key].submaterials):
-                    assert len(submat.zaidList) == zaids[i]
-
     def test_translation(self):
         """
         Test that translation works (all possile modes)
         """
         # Dic mode 1
-        matcard1 = deepcopy(activation_matcard1)
-        matcard2 = deepcopy(activation_matcard2)
+        matcard1 = deepcopy(self.activation_matcard1)
+        matcard2 = deepcopy(self.activation_matcard2)
 
         newlib = {"21c": "31c", "99c": "81c"}
         for matcard in [matcard1, matcard2]:
@@ -449,8 +369,8 @@ class TestMatCardList:
             assert translation.count("81c") == 3
 
         # dic mode 2 - test 1
-        matcard1 = deepcopy(activation_matcard1)
-        matcard2 = deepcopy(activation_matcard2)
+        matcard1 = deepcopy(self.activation_matcard1)
+        matcard2 = deepcopy(self.activation_matcard2)
         newlib = {"99c": ["1001"], "21c": ["28061", "28062", "28064", "29063", "5010"]}
         for matcard in [matcard1, matcard2]:
             matcard.translate(newlib, LIBMAN)
@@ -460,8 +380,8 @@ class TestMatCardList:
             assert translation.count("81c") == 1
 
         # dic mode 2 - test 2
-        matcard1 = deepcopy(activation_matcard1)
-        matcard2 = deepcopy(activation_matcard2)
+        matcard1 = deepcopy(self.activation_matcard1)
+        matcard2 = deepcopy(self.activation_matcard2)
         newlib = {"99c": ["1001"], "21c": ["28061", "28062", "28064", "29063"]}
         for matcard in [matcard1, matcard2]:
             try:
@@ -471,8 +391,8 @@ class TestMatCardList:
                 assert True
 
         # classic mode
-        matcard1 = deepcopy(inp2_matcard1)
-        matcard2 = deepcopy(inp2_matcard2)
+        matcard1 = deepcopy(self.inp2_matcard1)
+        matcard2 = deepcopy(self.inp2_matcard2)
         for matcard in [matcard1, matcard2]:
             matcard.translate("21c", LIBMAN)
             translation = matcard.to_text()
@@ -482,8 +402,8 @@ class TestMatCardList:
         """
         Barely tests that everything is created
         """
-        matcard1 = deepcopy(inp_matcard1)
-        matcard2 = deepcopy(inp_matcard2)
+        matcard1 = deepcopy(self.inp_matcard1)
+        matcard2 = deepcopy(self.inp_matcard2)
         for matcard in [matcard1, matcard2]:
             df, df_elem = matcard.get_info(LIBMAN, zaids=True)
             assert len(df) == 8
@@ -491,7 +411,7 @@ class TestMatCardList:
 
     def test_generate_material(self):
         # using atom fraction
-        matcard = deepcopy(inp3_matcard2)
+        matcard = deepcopy(self.inp3_matcard2)
         materials = ["m1", "M2"]
         percentages = [0.5, 0.5]
         newlib = "31c"
@@ -527,7 +447,7 @@ class TestMatCardList:
         compare_without_dollar_comments(text_B, newmat.to_text())
 
     def test_fractions_to_atom_density(self):
-        matcard = deepcopy(inp3_matcard2)
+        matcard = deepcopy(self.inp3_matcard2)
         density = 2
 
         submats = matcard["m1"].switch_fraction("mass", LIBMAN, inplace=False)

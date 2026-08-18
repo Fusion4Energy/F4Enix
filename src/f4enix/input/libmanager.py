@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from f4enix.input.materials import Zaid
+
 # -*- coding: utf-8 -*-
 """
 This modules is related to handling nuclear data libraries.
@@ -357,9 +362,7 @@ class LibManager:
         """
         return self.isotopes[self.isotopes["E"] == element]
 
-    def convertZaid(
-        self, zaid: str, lib: str, code: str = "mcnp"
-    ) -> dict[str, tuple[str, float, float]]:
+    def convertZaid(self, zaid: str, lib: str) -> dict[str, tuple[str, float, float]]:
         # Needs fixing
         """
         This methods will convert a zaid into the requested library
@@ -376,8 +379,6 @@ class LibManager:
             zaid name (ex. 1001).
         lib : str
             library suffix (ex. 21c).
-        code : str, optional
-            code for which the translation is performed. default is MCNP
 
         Raises
         ------
@@ -391,6 +392,9 @@ class LibManager:
             {zaidname:(lib,nat_abundance,Atomic mass)}.
 
         """
+        code = (
+            "mcnp"  # TODO: this was introduced for older JADE versions, to be removed
+        )
         # Check if library is available in Xsdir
         if lib not in self.libraries[code]:
             raise ValueError("Library " + lib + " is not available in xsdir file")
@@ -605,13 +609,13 @@ class LibManager:
                 flag_present = False
         return flag_present
 
-    def get_zaid_mass(self, zaid: str) -> float:
+    def get_zaid_mass(self, zaid: Zaid) -> float:
         """
         Get the atomic mass of one zaid
 
         Parameters
         ----------
-        zaid : matreader.Zaid
+        zaid : f4enix.input.materials.Zaid
             Zaid to examinate.
 
         Returns
@@ -621,12 +625,12 @@ class LibManager:
 
         """
         try:
-            m = self.isotopes["Atomic Mass"].loc[zaid.element + zaid.isotope]
+            m = self.isotopes["Atomic Mass"].loc[zaid.nuclide.zaid]
         except KeyError:  # It means that it is a natural zaid
             # For a natural zaid the natural abundance mass is used
             df = self.isotopes.reset_index()
             df["Partial mass"] = df["Atomic Mass"] * df["Mean value"]
-            masked = df.set_index("Z").loc[int(zaid.element)]
+            masked = df.set_index("Z").loc[zaid.element]
             m = masked["Partial mass"].sum()
 
         return float(m)
