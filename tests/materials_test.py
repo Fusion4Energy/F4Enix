@@ -53,11 +53,11 @@ class TestZaid:
             zaid.to_text().strip()
             == "1001.31c       -2.300000E+0     $ H1     WEIGHT(%)  AB(%)"
         )
-        zaid.elem_mass_fraction = 0.1116316166
-        zaid.ab = 0.514343484384  # type: ignore
 
         assert (
-            zaid.to_text().strip()
+            zaid.to_text(
+                abundance=0.514343484384, elem_mass_fraction=0.1116316166
+            ).strip()
             == "1001.31c       -2.300000E+0     $ H1     WEIGHT(%) 11.163 AB(%) 0.51434"
         )
 
@@ -73,7 +73,7 @@ class TestElement:
         elem = Element(zaids)
         return elem
 
-    def test_update_zaidinfo(self):
+    def test_abundances(self):
         """
         Test ability to get additional info for the zaids
         """
@@ -84,10 +84,10 @@ class TestElement:
         elem.Z = "1"
 
         # Check the correct update of infos in element
-        elem.update_abundance()
+        abundances = elem._get_abundances()
         res = [{"fullname": "H1", "ab": 25}, {"fullname": "H2", "ab": 75}]
         for zaid, checks in zip(elem.zaids, res):
-            assert int(zaid.ab) == checks["ab"]
+            assert int(abundances[zaid.name]) == checks["ab"]
             assert zaid.fullname == checks["fullname"]
 
     def test_get_fraction(self):
@@ -158,9 +158,9 @@ class TestMaterial:
         mass_material.switch_fraction("atom", LIBMAN)
         print(mass_material.to_text())
 
-        tolerance = 1e-3  # tolerance for the difference with respect to pnnl
+        tolerance = 1e-5  # tolerance for the difference with respect to pnnl
         for zaid1, zaid2 in zip(mass_material.zaids, atom_material.zaids):
-            diff = abs(zaid1.fraction - zaid2.fraction) / abs(zaid2.fraction)
+            diff = abs(zaid1.fraction - zaid2.fraction)
             assert diff < tolerance
 
     def test_from_zaids(self):
@@ -242,9 +242,9 @@ M1
 
     def test_get_info_df(self):
         mat = Material.from_zaids([(1000, 1), (8016, 1)], LIBMAN, "31c")
-        df_elem, df_zaid = mat._get_info_df()
+        df_zaid = mat._get_info_df()
         assert len(df_zaid) > 2
-        assert len(df_elem) == 2
+        assert len(df_zaid["Element"].unique()) == 2
 
     def test_get_density(self):
         with as_file(resources.joinpath("tad_test.i")) as inp:
@@ -280,14 +280,23 @@ M1
             "8016.31c  1e-2",
         ]
         material = Material.from_text(txt)
-        lm = LibManager()
-        df_complete, df_elem = material.get_info()
-        df_complete, df_elem = material.get_info(zaids=True)
+        df = material.get_info()
 
-        for df in [df_complete, df_elem]:
-            assert df["Atom Fraction"].sum() == pytest.approx(1.0, rel=1e-5)
-            assert df["Mass Fraction"].sum() == pytest.approx(1.0, rel=1e-5)
-            # assert df.iloc[0]["Atom Fraction"] != df.iloc[0]["Mass Fraction"]
+        for col in [
+            "Atom Fraction",
+            "Mass Fraction",
+        ]:
+            assert df[col].sum() == pytest.approx(1.0, rel=1e-5)
+
+        for col in [
+            "Element Mass Fraction",
+            "Element Atom Fraction",
+        ]:
+            assert df.groupby("Element")[col].mean().sum() == pytest.approx(
+                1.0, rel=1e-5
+            )
+
+        assert len(df) == 4
 
     def test_to_text(self):
         libman = LibManager()

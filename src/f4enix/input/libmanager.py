@@ -625,7 +625,7 @@ class LibManager:
 
         """
         try:
-            m = self.isotopes["Atomic Mass"].loc[zaid.nuclide.zaid]
+            m = self.isotopes["Atomic Mass"].loc[str(zaid.nuclide.zaid)]
         except KeyError:  # It means that it is a natural zaid
             # For a natural zaid the natural abundance mass is used
             df = self.isotopes.reset_index()
