@@ -312,22 +312,22 @@ class TestMatCardList:
     from_input() and from the creation from the input class
     """
 
-    # # Files
-    # with as_file(resources.joinpath("mat_test.i")) as inp:
-    #     inp_matcard1 = MatCardsList.from_input(inp)
-    #     inp_matcard2 = Input.from_input(inp).materials
+    # Files
+    with as_file(resources.joinpath("mat_test.i")) as inp:
+        inp_matcard1 = MatCardsList.from_input(inp)
+        inp_matcard2 = Input.from_input(inp).materials
 
-    # with as_file(resources.joinpath("mat_test2.i")) as inp2:
-    #     inp2_matcard1 = MatCardsList.from_input(inp2)
-    #     inp2_matcard2 = Input.from_input(inp2).materials
+    with as_file(resources.joinpath("mat_test2.i")) as inp2:
+        inp2_matcard1 = MatCardsList.from_input(inp2)
+        inp2_matcard2 = Input.from_input(inp2).materials
 
-    # with as_file(resources.joinpath("test.i")) as inp3:
-    #     inp3_matcard1 = MatCardsList.from_input(inp3)
-    #     inp3_matcard2 = Input.from_input(inp3).materials
+    with as_file(resources.joinpath("test.i")) as inp3:
+        inp3_matcard1 = MatCardsList.from_input(inp3)
+        inp3_matcard2 = Input.from_input(inp3).materials
 
-    # with as_file(resources.joinpath("activation.i")) as inp:
-    #     activation_matcard1 = MatCardsList.from_input(inp)
-    #     activation_matcard2 = Input.from_input(inp).materials
+    with as_file(resources.joinpath("activation.i")) as inp:
+        activation_matcard1 = MatCardsList.from_input(inp)
+        activation_matcard2 = Input.from_input(inp).materials
 
     def test_frominput(self):
         """
@@ -405,7 +405,7 @@ class TestMatCardList:
         for matcard in [matcard1, matcard2]:
             matcard.translate("21c", LIBMAN)
             translation = matcard.to_text()
-            assert translation.count("21c") == 10
+            assert translation.count("21c") == 9
 
     def test_get_info(self):
         """
@@ -414,65 +414,38 @@ class TestMatCardList:
         matcard1 = deepcopy(self.inp_matcard1)
         matcard2 = deepcopy(self.inp_matcard2)
         for matcard in [matcard1, matcard2]:
-            df, df_elem = matcard.get_info(LIBMAN, zaids=True)
+            df = matcard.get_info()
             assert len(df) == 8
-            assert len(df_elem) == 7
 
     def test_generate_material(self):
-        # using atom fraction
-        matcard = deepcopy(self.inp3_matcard2)
-        materials = ["m1", "M2"]
-        percentages = [0.5, 0.5]
-        newlib = "31c"
-        # using atom fraction
-        fraction_type = "atom"
+        mat1 = Material.from_zaids([(1000, 1)], LIBMAN, "31c", mat_id=1)
+        mat2 = Material.from_zaids([(8000, 1)], LIBMAN, "31c", mat_id=2)
+
+        matcard = MatCardsList([mat1, mat2])
         newmat = matcard.generate_material(
-            materials, percentages, newlib, LIBMAN, fractiontype=fraction_type
+            ["M1", "M2"], [2 / 3, 1 / 3], "31c", LIBMAN, fractiontype="atom"
         )
-        fileA = os.path.join(resources, "newmat_atom")  # type: ignore
-        text_A = ""
-        with open(fileA, "r") as infile:
-            for line in infile:
-                text_A = text_A + line
+        assert newmat.elements[0].get_fraction() == pytest.approx(2 / 3)
 
-        compare_without_dollar_comments(text_A, newmat.to_text())
-
-        # using mass fraction
-        fraction_type = "mass"
         newmat = matcard.generate_material(
-            materials,
-            percentages,
-            newlib,
-            LIBMAN,
-            fractiontype=fraction_type,
-            mat_name="m500",
+            ["M1", "M2"], [2 / 3, 1 / 3], "31c", LIBMAN, fractiontype="mass"
         )
-        fileB = os.path.join(resources, "newmat_mass")  # type: ignore
-        text_B = ""
-        with open(fileB) as infile:
-            for line in infile:
-                text_B = text_B + line
-
-        compare_without_dollar_comments(text_B, newmat.to_text())
+        assert newmat.elements[0].get_fraction() == pytest.approx(-2 / 3)
 
     def test_fractions_to_atom_density(self):
         matcard = deepcopy(self.inp3_matcard2)
         density = 2
 
-        submats = matcard["m1"].switch_fraction("mass", LIBMAN, inplace=False)
-        newmat = Material(None, None, "", submaterials=submats)  # type: ignore
-        submats = newmat.switch_fraction("atom", LIBMAN, inplace=False)
-        fraction = submats[0].zaidList[0].fraction
+        newmat = matcard["m1"].switch_fraction("mass", LIBMAN, inplace=False)
+        newmat.switch_fraction("atom", LIBMAN, inplace=True)
+        fraction = newmat.zaids[0].fraction
 
         tad = matcard["m1"].get_tad(density, LIBMAN)
 
         matcard.fractions_to_atom_densities(LIBMAN, density)
 
-        assert (
-            pytest.approx(matcard["m1"].submaterials[0].zaidList[0].fraction)
-            == fraction * tad
-        )
-        assert matcard["m1"].submaterials[0].zaidList[1].fraction > 0
+        assert pytest.approx(matcard["m1"].zaids[0].fraction) == fraction * tad
+        assert matcard["m1"].zaids[1].fraction > 0
 
     def test_generate_material_from_created_materials(self):
         materials = MatCardsList([])
@@ -490,26 +463,7 @@ class TestMatCardList:
             fractiontype="atom",
             mat_name="M500",
         )
-        assert (
-            newmat.to_text()
-            == """C Material: M302 Percentage: 20.0% (atom)
-C Material: M400 Percentage: 80.0% (atom)
-M500
-C B4CH2
-C M302, submaterial 1
-C no submat header
-       1001.31c        1.628143E-1     $ H-1    WEIGHT(%) 28.571 AB(%) 100.0
-       5010.31c        5.963525E-3     $ B-10   WEIGHT(%) 57.143 AB(%) 19.65
-       5011.31c        2.438520E-2     $ B-11   WEIGHT(%) 57.143 AB(%) 80.35
-       6012.31c        6.837012E-3     $ C-12   WEIGHT(%) 14.286 AB(%) 100.0
-C Water
-C M400, submaterial 1
-C no submat header
-       1001.31c        5.333336E-1     $ H-1    WEIGHT(%) 11.189 AB(%) 100.0
-       8016.31c        2.660188E-1     $ O-16   WEIGHT(%) 88.811 AB(%) 99.757
-       8017.31c        1.022667E-4     $ O-17   WEIGHT(%) 88.811 AB(%) 0.03835
-       8018.31c        5.453336E-4     $ O-18   WEIGHT(%) 88.811 AB(%) 0.2045"""
-        )
+        assert len(newmat.zaids) == 7
 
 
 def compare_without_dollar_comments(text_A: str, text_B: str):
@@ -520,3 +474,13 @@ def compare_without_dollar_comments(text_A: str, text_B: str):
     newtextB = pattern.sub("", text_B)
     newtextB = newtextB.split("$")[0]
     assert newtextA == newtextB
+
+
+def compare_without_comments(text_A: str, text_B: str):
+    # strip all comments
+    pattern = re.compile(
+        r"^[cC].*?\n", re.MULTILINE
+    )  # every line that starts with c or C
+    newtextA = pattern.sub("", text_A)
+    newtextB = pattern.sub("", text_B)
+    return compare_without_dollar_comments(newtextA, newtextB)

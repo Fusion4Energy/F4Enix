@@ -5,9 +5,8 @@ The information is organized as follows:
 
 MatCardsList
      Material
-         Submaterial
-               Element
-                   Zaid
+         Element
+             Zaid
 
 """
 
@@ -40,10 +39,8 @@ import pandas as pd
 
 from f4enix.core.constants import (
     AVOGADRO_NUMBER,
-    PAT_COMMENT,
     PAT_MAT,
     PAT_MX,
-    PAT_SPACE,
 )
 from f4enix.input.libmanager import LibManager
 from f4enix.core.irradiation import Nuclide
@@ -78,9 +75,20 @@ class Zaid:
 
         Attributes
         ----------
-        name: str
-            AAZZZ[lib]
-
+        name : str
+            integer string representation of the nuclide including library,
+            e.g. ``8016.81c``.
+        fullname : str
+            element-isotope formula without library, e.g. ``O16``.
+        element : int
+            atomic number of the element.
+        isotope : int
+            isotope number of the element.
+        library : str
+            library suffix of the nuclide, e.g. ``81c``.
+        nuclide : Nuclide
+            nuclide object containing the element, isotope and library.
+            Some of its properties are already exposed.
         """
         self.fraction = float(fraction)
         self.nuclide = nuclide
@@ -131,7 +139,16 @@ class Zaid:
         self, abundance: float | None = None, elem_mass_fraction: float | None = None
     ) -> str:
         """
-         Get the zaid string ready for MCNP material card
+        Get the zaid string ready for MCNP material card.
+
+        Parameters
+        ----------
+        abundance : float, optional
+            percentage abundance of the zaid within its element, written as
+            an inline comment. If None no abundance comment is added.
+        elem_mass_fraction : float, optional
+            mass fraction of the parent element in the material, written as
+            an inline comment. If None no weight comment is added.
 
         Returns
         -------
@@ -167,7 +184,7 @@ class Element:
 
         Parameters
         ----------
-        zaidList : list
+        zaidList : list[Zaid]
             list of zaids constituting the element.
 
         Returns
@@ -176,8 +193,10 @@ class Element:
 
         Attributes
         ----------
-        Z : str
-            element str notation (AA) read from the zaids.
+        Z : int
+            atomic number of the element.
+        name : str
+            element symbol (e.g. 'O').
         zaids: list[Zaid]
 
         """
@@ -199,17 +218,12 @@ class Element:
 
     def _get_abundances(self) -> dict[str, float]:
         """
-        Update zaids abundance and mass fraction in the submaterial.
-
-        Parameters
-        ----------
-        mass_fraction : float
-            mass fraction of the element in the submaterial.
+        Compute the fractional abundance of each zaid within the element.
 
         Returns
         -------
         dict[str, float]
-            dictionary of zaid abundances.
+            mapping of zaid name to its percentage abundance within the element.
 
         """
         abundances = {}
@@ -257,14 +271,13 @@ class Material:
         Parameters
         ----------
         name : str
-            if the first submaterial, the name is the name of the material
-            (e.g. m1).
+            name of the material card (e.g. m1).
         zaids : list[Zaid]
             list of zaids composing the material.
         header : str, optional
-            Header of the submaterial. The default is None.
+            Header comment of the material card. The default is None.
         additional_keys : list[str], optional
-            list of additional keywords in the submaterial. The default is
+            list of additional keywords in the material card. The default is
             None.
         mx_cards : list, optional
             list of mx_cards in the material if present. The default is None.
@@ -283,6 +296,8 @@ class Material:
             comment in the MCNP input file that is the header of the material
         additional_keys: list[str]
             list of additional keys that may be part of the material
+        mx_cards: list
+            list of mx cards that may be part of the material
         """
 
         # List of zaids object of the submaterial
@@ -388,7 +403,7 @@ class Material:
     @classmethod
     def from_text(cls, text: list[str] | str) -> Material:
         """
-        Generate a submaterial from MCNP input text
+        Generate a material from MCNP input text.
 
         Parameters
         ----------
@@ -398,7 +413,7 @@ class Material:
         Returns
         -------
         Material
-            generated submaterial.
+            generated material.
 
         """
         # Get a list of string splitting on newlines if a simple
@@ -473,12 +488,12 @@ class Material:
 
     def to_text(self) -> str:
         """
-        Write to text in MNCP format the submaterial
+        Write the material card to MCNP-formatted text.
 
         Returns
         -------
         str
-            formatted submaterial text.
+            MCNP-formatted material card text.
 
         """
         # get additional data for the comments
@@ -570,7 +585,7 @@ class Material:
                     # The assignment is explicit, all libs need to be searched
                     newtag = None
                     for lib, zaids in newlib.items():
-                        if zaid.nuclide.zaid in zaids:
+                        if str(zaid.nuclide.zaid) in zaids:
                             newtag = lib
                             break
                     # Check that a library has been actually found
@@ -586,7 +601,7 @@ class Material:
             # if it is a dosimetry library, the translation needs to be ignored
             if zaid.library in lib_manager.dosimetry_lib:
                 # fake a 1to1 translation where the original suffix is retained
-                translation = {zaid.nuclide.zaid: (zaid.library, 1, 1)}
+                translation = {str(zaid.nuclide.zaid): (zaid.library, 1, 1)}
             else:
                 try:
                     translation = lib_manager.convertZaid(
@@ -635,7 +650,12 @@ class Material:
 
     def get_tot_fraction(self) -> float:
         """
-        Returns the total material fraction
+        Return the sum of all zaid fractions.
+
+        Returns
+        -------
+        float
+            Negative if mass fractions are used, positive if atom fractions.
         """
         fraction = 0
         for zaid in self.zaids:
@@ -657,8 +677,8 @@ class Material:
         lib_manager : libmanager.LibManager
             Handles zaid data.
         inplace : bool
-            if True the densities of the isotopes are changed inplace,
-            otherwise a copy of the material is provided. DEFAULT is True
+            if True the fractions of the isotopes are changed inplace,
+            otherwise a copy of the material is returned. DEFAULT is True
 
         Raises
         ------
@@ -716,12 +736,12 @@ class Material:
 
     def _get_info_df(self) -> pd.DataFrame:
         """
-        Returns DataFrame containing the different fractions of the elements
-        and zaids.
+        Returns DataFrame containing the raw fractions of the elements and zaids.
 
         Returns
         -------
-        table of information of fractions of elements and zaids in the material
+        pd.DataFrame
+            Columns: ``Element``, ``Isotope``, ``Zaid Fraction``, ``Elem Fraction``.
 
         """
         dic_zaids = {
@@ -747,15 +767,15 @@ class Material:
         return df_zaids
 
     def get_info(self) -> pd.DataFrame:
-        """Get information on the fraction of the different elements and zaids contained
-        in the materials.
+        """Get information on the fraction of the different elements and zaids
+        contained in the material.
 
         Returns
         -------
-        df_complete: pd.DataFrame
-            detailed dataframe
-        df_elem: pd.DataFrame
-            dataframe grouped at element level
+        pd.DataFrame
+            DataFrame indexed by (Material, Element, Isotope) with columns for
+            atom fraction, mass fraction, element atom fraction, and element
+            mass fraction.
         """
         material_atom = self.switch_fraction("atom", LM, inplace=False)
         material_mass = self.switch_fraction("mass", LM, inplace=False)
@@ -949,7 +969,7 @@ class MatCardsList(Sequence):
         Examples
         --------
 
-        >>> from f4enix.input.inputAPI import MatCardsList
+        >>> from f4enix.input.materials import MatCardsList
         ... # initialize from file
         ... materials = MatCardsList.from_input('inputfile.i')
         ... # get a specific material
@@ -1017,7 +1037,17 @@ class MatCardsList(Sequence):
 
     @classmethod
     def from_migjorn(cls, model: migjorn.Model) -> "MatCardsList":
+        """Build a MatCardsList from a parsed migjorn Model.
 
+        Parameters
+        ----------
+        model : migjorn.Model
+            parsed migjorn model containing materials and data cards.
+
+        Returns
+        -------
+        MatCardsList
+        """
         # build the materials
         materials = []
         for mat in model.materials:
@@ -1083,40 +1113,25 @@ class MatCardsList(Sequence):
         for material in self.materials:
             material.translate(newlib, lib_manager)
 
-    def get_info(
-        self, lib_manager: LibManager, zaids: bool = False
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def get_info(self) -> pd.DataFrame:
         """
-        Get the material informations in terms of fraction and composition
-        of the material card
-
-        Parameters
-        ----------
-        lib_manager : libmanager.LibManager
-            To handle element name recovering.
-        zaids : bool, optional
-            Consider or not the zaid level. The default is False.
+        Get fraction and composition information for all materials in the list.
 
         Returns
         -------
-        df : pd.DataFrame
-            Raw infos on the fractions.
-        df_elem : pd.DataFrame
-            processed info for the element: normalized fraction added both for
-            material and submaterial.
+        pd.DataFrame
+            Concatenation of each material's :meth:`Material.get_info` result,
+            indexed by (Material, Element, Isotope).
 
         """
         df_list = []
-        df_elem_list = []
         for mat in self.materials:
-            df, df_elem = mat.get_info(lib_manager, zaids=zaids)
+            df = mat.get_info()
             df_list.append(df)
-            df_elem_list.append(df_elem)
 
         df = pd.concat(df_list)
-        df_elem = pd.concat(df_elem_list)
 
-        return df, df_elem
+        return df
 
     def generate_material(
         self,
@@ -1136,11 +1151,13 @@ class MatCardsList(Sequence):
         materials : list[str]
             list of materials to mix (e.g. ['m1', 'M2']).
         percentages : list[float]
-            percentages associated to the source materials in the new materials
-            (e.g. [0.1, 0.9)]. Their are intended as atom or mass fraction
+            percentages associated to the source materials in the new material
+            (e.g. [0.1, 0.9]). They are intended as atom or mass fraction
             depending on the fractiontype that is specified.
         newlib : str
             library for the new material.
+        libmanager : LibManager
+            Library manager for translation and fraction conversion.
         fractiontype : str, optional
             type of fraction to use in the new material (either 'atom' or
             'mass'. The default is 'atom'.
