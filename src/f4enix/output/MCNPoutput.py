@@ -223,7 +223,7 @@ class Output:
                 cells.append(cell_ID)
                 # add the universe if requested
                 if input_mcnp is not None:
-                    universe = input_mcnp.cells[cell_ID].get_u()
+                    universe = input_mcnp.cells[cell_ID].universe
                     universes.append(universe)
 
                 point = SCIENTIFIC_PAT.findall(self.lines[i + 6])  # [0:3]

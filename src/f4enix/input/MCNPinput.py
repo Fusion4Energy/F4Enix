@@ -23,7 +23,8 @@ import logging
 import os
 import re
 from copy import deepcopy
-from typing import Sequence
+from collections.abc import MutableMapping
+from typing import Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import migjorn
@@ -46,6 +47,12 @@ from f4enix.core.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import MatCardsList, Material
+from f4enix.input.migjorn_proxies import (
+    _CellsProxy,
+    _OtherDataProxy,
+    _SurfsProxy,
+    _TransformsProxy,
+)
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -56,130 +63,11 @@ _PAT_TR_CARD = re.compile(r"^\*?TR\d", re.IGNORECASE)
 _PAT_CONTINUATION = re.compile(r"^[ \t]{5,}|^\t")
 
 
-def _is_mat_card(name: str) -> bool:
-    return bool(_PAT_MAT_CARD.match(name))
-
-
-def _is_tr_card(name: str) -> bool:
-    return bool(_PAT_TR_CARD.match(name))
-
-
-def _split_mcnp_sections(source: str) -> tuple[str, str, str]:
-    """Split migjorn source text into (cells_with_header, surfaces, data) blocks."""
-    lines = source.splitlines(keepends=True)
-    blank_idx = [i for i, ln in enumerate(lines) if ln.strip() == ""]
-    if len(blank_idx) >= 2:
-        s1, s2 = blank_idx[0], blank_idx[1]
-        return (
-            "".join(lines[:s1]),
-            "".join(lines[s1 + 1 : s2]),
-            "".join(lines[s2 + 1 :]),
-        )
-    if len(blank_idx) == 1:
-        s1 = blank_idx[0]
-        return "".join(lines[:s1]), "".join(lines[s1 + 1 :]), ""
-    return source, "", ""
-
-
-def _parse_other_data(data_text: str) -> dict[str, str]:
-    """Split the data section into {card_name: full_text} excluding mat/tr cards."""
-    result: dict[str, str] = {}
-    current_key: str | None = None
-    current_lines: list[str] = []
-
-    def _flush():
-        if current_key and current_lines:
-            result[current_key] = "".join(current_lines)
-
-    for line in data_text.splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped == "":
-            _flush()
-            current_key = None
-            current_lines = []
-            continue
-        # Continuation or comment attached to current card
-        if _PAT_CONTINUATION.match(line) or re.match(r"^[cC](\s|$)", stripped):
-            if current_key is not None:
-                current_lines.append(line)
-            continue
-        # New card
-        _flush()
-        raw_name = stripped.split()[0].upper()
-        current_key = _clean_card_name_str(raw_name)
-        current_lines = [line]
-
-    _flush()
-    return {
-        k: v for k, v in result.items() if not _is_mat_card(k) and not _is_tr_card(k)
-    }
-
-
-def _clean_card_name_str(raw: str) -> str:
-    """Normalise a raw card mnemonic (handles *TR1, F6:N, TF, DF edge-cases)."""
-    raw = raw.upper()
-    try:
-        newkey = PAT_F_TR_CARD_KEY.search(raw).group()
-        if "TF" in raw:
-            newkey = "T" + newkey
-        elif "DF" in raw:
-            newkey = "D" + newkey
-    except AttributeError:
-        newkey = raw
-    return newkey
-
-
-class _MXCard:
-    """Thin wrapper giving MX card text a .lines attribute for Material.add_mx."""
-
-    __slots__ = ("lines",)
-
-    def __init__(self, text: str) -> None:
-        self.lines = text.replace("\r", "").splitlines(keepends=True)
-
-
-def _build_materials(model: migjorn.Model) -> MatCardsList:
-    """Construct a MatCardsList from migjorn material cards."""
-    # Group M cards with companion MT/MX by material number
-    groups: dict[str, list[tuple[str, str]]] = {}
-    for mat in model.materials:
-        groups.setdefault(str(mat.id), []).append(("M", mat.text))
-    # Collect MT/MX via data_cards (they appear as DataCard entries)
-    source = model.to_source()
-    _, __, data_text = _split_mcnp_sections(source)
-    for line in data_text.splitlines(keepends=True):
-        m = re.match(r"^(MT|MX)(\d+)", line.strip(), re.IGNORECASE)
-        if m:
-            prefix = m.group(1).upper()
-            mat_id = m.group(2)
-            groups.setdefault(mat_id, []).append((prefix, line))
-
-    materials_list: list[Material] = []
-    for mat_id in sorted(groups, key=lambda x: int(x)):
-        cards = groups[mat_id]
-        m_text = next((t for p, t in cards if p == "M"), None)
-        if m_text is None:
-            continue
-        # Strip trailing comment-only lines (migjorn includes them for losslessness)
-        lines = m_text.replace("\r", "").splitlines(keepends=True)
-        while lines and re.match(r"^[cC](\s|$)", lines[-1].strip()):
-            lines.pop()
-        if not lines:
-            continue
-        mat = Material.from_text(lines)
-        for p, t in cards:
-            if p != "M":
-                mat.add_mx(_MXCard(t))
-        materials_list.append(mat)
-
-    return MatCardsList(materials_list)
-
-
 class Input:
     def __init__(
         self,
         model: migjorn.Model,
-        materials: MatCardsList,
+        mat_section: MatCardsList,
     ) -> None:
         """Class representing an MCNP input file.
 
@@ -191,94 +79,115 @@ class Input:
         ----------
         model : migjorn.Model
             parsed MCNP model (lossless)
-        materials : MatCardsList
+        mat_section : MatCardsList
             material cards section of the input
 
         Attributes
         ----------
-        cells : dict[str, migjorn.Cell]
-            live view of cells keyed by string cell ID
-        surfs : dict[str, migjorn.Surface]
-            live view of surfaces keyed by string surface ID
-        materials : MatCardsList
-            material cards section of the input
-        transformations : dict[str, migjorn.Transform]
-            live view of TR cards keyed by ``'TR{n}'``
-        other_data : dict[str, str]
-            mutable dict of non-material, non-transform data card texts
-        tally_keys : list[int]
-            IDs of the tallies available in the input
-        fmesh_keys : list[int]
-            IDs of the FMESHes available in the input
-        header : list[str]
-            title and leading comment lines before the first cell
-
-        Examples
-        --------
-        The most common way to initialise an Input object is from a file:
-
-        >>> from f4enix.input.MCNPinput import Input
-        ... inp = Input.from_input(inpfile)
-
-        >>> inp.cells
-        {'1': Cell(id=1, ...), '2': Cell(id=2, ...), ...}
-
-        Translate the input to another library and write it:
-
-        >>> from f4enix.input.libmanager import LibManager
-        ... libmanager = LibManager()
-        ... inp.translate('21c', libmanager)
-        ... inp.write(outfile_path)
-
-        Retrieve cards from the input:
-
-        >>> print(inp.get_cells_by_id([1]))
-        {'1': Cell(id=1, ...)}
-        >>> print(inp.get_surfs_by_id([10, 20]))
-        {'10': Surface(id=10, ...), '20': Surface(id=20, ...)}
-        >>> print(inp.get_cells_by_matID(1))
-        {'22': Cell(id=22, ...)}
-
-        Extract a subset of cells into a minimal working file:
-
-        >>> inp = Input.from_input(inpfile)
-        ... cells_ids = [key for key, cell in inp.cells.items()
-        ...              if cell.material == 11]
-        ... inp.extract_cells(cells_ids, 'outfile.i')
+        # TODO: add attributes
 
         """
         self._model = model
-        self._materials = materials
-        # Extract non-material, non-transform data card texts from the model
-        _, __, data_text = _split_mcnp_sections(model.to_source())
-        self._other_data: dict[str, str] = _parse_other_data(data_text)
-        # Keys that originated from the model file (updated on refresh)
-        self._model_data_keys: set[str] = set(self._other_data)
-        # Tally and fmesh keys derived on construction and kept in sync
-        self._tally_keys: list[int] = self._derive_tally_keys()
-        self._fmesh_keys: list[int] = self._derive_fmesh_keys()
+        self._mat_section = mat_section
+
+        # TODO: migjorn should have a header attribute
+        lines = self._model.to_source().splitlines(keepends=True)
+        header: list[str] = []
+        for line in lines:
+            if re.match(r"^\d", line.strip()):
+                break
+            header.append(line.replace("\r", ""))
+        self._header = header
 
     def __deepcopy__(self, memo: dict) -> "Input":
-        # migjorn.Model can't be pickled; rebuild from source text
-        new_model = migjorn.Model(self._model.to_source())
-        from copy import deepcopy as _dc
-
+        # migjorn.Model can't be pickled; rebuild from its text source
         new_obj = self.__class__.__new__(self.__class__)
-        new_obj._model = new_model
-        new_obj._materials = _dc(self._materials, memo)
-        new_obj._other_data = _dc(self._other_data, memo)
-        new_obj._model_data_keys = set(self._model_data_keys)
-        new_obj._tally_keys = list(self._tally_keys)
-        new_obj._fmesh_keys = list(self._fmesh_keys)
+        memo[id(self)] = new_obj
+        new_obj.__init__(
+            migjorn.Model(self._model.to_source()), deepcopy(self._mat_section, memo)
+        )
         return new_obj
 
     # ------------------------------------------------------------------
-    # Private helpers
+    # Properties
     # ------------------------------------------------------------------
 
-    def _derive_tally_keys(self) -> list[int]:
+    @property
+    def cells(self) -> _CellsProxy:
+        """Proxy mapping of cells keyed by string cell ID.
+
+        Supports ``inp.cells["800"] = cell`` to replace a cell in the model.
+        Assigning a mapping replaces all cells: ``inp.cells = other_inp.cells``.
+        """
+        return _CellsProxy(self._model)
+
+    @cells.setter
+    def cells(self, value: list[migjorn.Cell]) -> None:
+        # TODO: this can be improved migjorn side
+        # delete all cells from model and add the new ones
+        for cell in list(self._model.cells):
+            self._model.remove_cell(cell.id)
+        for cell in value:
+            self._model.add_cell(cell.text)
+
+    @property
+    def surfs(self) -> _SurfsProxy:
+        """Proxy mapping of surfaces keyed by string surface ID (with * prefix if reflective).
+
+        Supports ``inp.surfs["10"] = surf`` to replace a surface in the model.
+        Assigning a mapping replaces all surfaces: ``inp.surfs = other_inp.surfs``.
+        """
+        return _SurfsProxy(self._model)
+
+    @surfs.setter
+    def surfs(self, value: list[migjorn.Surface]) -> None:
+        # TODO: this can be improved migjorn side
+        for surf in list(self._model.surfaces):
+            self._model.remove_surface(surf.id)
+        for surf in value:
+            self._model.add_surface(surf.text)
+
+    @property
+    def transformations(self) -> _TransformsProxy:
+        """Proxy mapping of TR cards keyed by 'TRn'.
+
+        Supports ``del inp.transformations['TR5']`` to remove a transform.
+        Assigning a mapping removes all current transforms (add is unsupported by migjorn).
+        Setting is not supported; modify the live handle in-place instead.
+        """
+        return _TransformsProxy(self._model)
+
+    @transformations.setter
+    def transformations(self, value: list[migjorn.Transform]) -> None:
+        # TODO: migjorn has no add_transform; this setter is a no-op for now
+        raise NotImplementedError
+
+    @property
+    def other_data(self) -> _OtherDataProxy:
+        """Proxy mapping of non-material, non-transform data card texts.
+
+        Supports ``inp.other_data['SI70'] = 'SI70 L 1\\n'`` to add or replace a card.
+        """
+        return _OtherDataProxy(self._model)
+
+    @other_data.setter
+    def other_data(self, value: list[migjorn.DataCard]) -> None:
+        # TODO: there is no setter in migjorn
+        raise NotImplementedError
+
+    @property
+    def mat_section(self) -> MatCardsList:
+        return self._mat_section
+
+    @mat_section.setter
+    def mat_section(self, value: MatCardsList) -> None:
+        self._mat_section = value
+
+    @property
+    def tally_keys(self) -> list[int]:
         keys = []
-        for name in self._other_data:
+        for card in self.other_data:
+            name = card.name
             m = PAT_ALL_TALLY_KEYS.match(name)
             if (
                 m
@@ -292,100 +201,26 @@ class Input:
                     pass
         return keys
 
-    def _derive_fmesh_keys(self) -> list[int]:
+    @property
+    def fmesh_keys(self) -> list[int]:
         keys = []
-        for name in self._other_data:
-            if PAT_FMESH_KEY.match(name):
+        for card in self.other_data:
+            if PAT_FMESH_KEY.match(card.name):
                 try:
-                    keys.append(int(re.search(r"\d+", name).group()))
+                    keys.append(int(re.search(r"\d+", card.name).group()))
                 except (AttributeError, ValueError):
                     pass
         return keys
 
-    def _refresh_other_data(self) -> None:
-        """Update model-owned data cards from the current model source.
-
-        User-added entries (cards not present in the original file) are
-        preserved; only cards that originated from the model are refreshed.
-        """
-        _, __, data_text = _split_mcnp_sections(self._model.to_source())
-        model_data = _parse_other_data(data_text)
-        # User additions: present in _other_data but never part of model file
-        user_added = {
-            k: v for k, v in self._other_data.items() if k not in self._model_data_keys
-        }
-        self._other_data = model_data
-        self._other_data.update(user_added)
-        self._model_data_keys = set(model_data)
-        self._tally_keys = self._derive_tally_keys()
-        self._fmesh_keys = self._derive_fmesh_keys()
-
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
-
-    @property
-    def cells(self) -> dict[str, migjorn.Cell]:
-        """Live dict of cells keyed by string cell ID."""
-        return {str(c.id): c for c in self._model.cells}
-
-    @property
-    def surfs(self) -> dict[str, migjorn.Surface]:
-        """Live dict of surfaces keyed by string surface ID (with * prefix if reflective)."""
-        result = {}
-        for s in self._model.surfaces:
-            key = ("*" if s.reflective else "") + str(s.id)
-            result[key] = s
-        return result
-
-    @property
-    def transformations(self) -> dict[str, migjorn.Transform]:
-        """Live dict of TR cards keyed by 'TR{n}'."""
-        return {f"TR{t.id}": t for t in self._model.transforms}
-
-    @property
-    def other_data(self) -> dict[str, str]:
-        """Mutable dict of non-material, non-transform data card texts."""
-        return self._other_data
-
-    @other_data.setter
-    def other_data(self, value: dict[str, str]) -> None:
-        self._other_data = value
-
-    @property
-    def materials(self) -> MatCardsList:
-        return self._materials
-
-    @materials.setter
-    def materials(self, value: MatCardsList) -> None:
-        self._materials = value
-
-    @property
-    def tally_keys(self) -> list[int]:
-        return self._tally_keys
-
-    @tally_keys.setter
-    def tally_keys(self, value: list[int]) -> None:
-        self._tally_keys = value
-
-    @property
-    def fmesh_keys(self) -> list[int]:
-        return self._fmesh_keys
-
-    @fmesh_keys.setter
-    def fmesh_keys(self, value: list[int]) -> None:
-        self._fmesh_keys = value
-
     @property
     def header(self) -> list[str]:
         """Title and leading comment lines before the first cell."""
-        lines = self._model.to_source().splitlines(keepends=True)
-        header: list[str] = []
-        for line in lines:
-            if re.match(r"^\d", line.strip()):
-                break
-            header.append(line.replace("\r", ""))
-        return header
+        return self._header
+
+    @header.setter
+    def header(self, value: list[str]) -> None:
+        """Set the title and leading comment lines before the first cell."""
+        self._header = value
 
     # ------------------------------------------------------------------
     # Construction
@@ -410,8 +245,10 @@ class Input:
         for d in model.diagnostics:
             logging.warning(f"migjorn [{d.severity}]: {d.message}")
         logging.debug("Reading has finished")
-        materials = _build_materials(model)
-        return cls(model, materials)
+        logging.debug("building material section")
+        mat_section = MatCardsList.from_migjorn(model)
+        logging.debug("Material section built")
+        return cls(model, mat_section)
 
     # ------------------------------------------------------------------
     # Serialisation
@@ -428,27 +265,42 @@ class Input:
             ignored (kept for API compatibility); migjorn output is lossless
         """
         logging.info(f"Writing to {outfilepath}")
-        _write_input(outfilepath, self._model, self._materials, self._other_data)
+        with open(outfilepath, "w", newline="\n") as f:
+            f.writelines(self.header)
+            for cell in self._model.cells:
+                f.write(cell.text.replace("\r", ""))
+            # blank line between cells and surfaces
+            f.write("\n")
+            for surf in self._model.surfaces:
+                f.write(surf.text.replace("\r", ""))
+            # blank line between surfaces and materials
+            f.write("\n")
+            # write materials section
+            f.write(self.mat_section.to_text())
+            # write transformations and other data cards
+            for tr in self._model.transforms:
+                f.write(tr.text.replace("\r", ""))
+            for card in self._model.data_cards:
+                # TODO: missing data card text property
+                f.write(card.text.replace("\r", ""))
+
         logging.info("File was written correctly")
 
     # ------------------------------------------------------------------
     # Structural operations
     # ------------------------------------------------------------------
 
-    def merge(self, other_inp: "Input", ensure_updated_dicts: bool = False) -> None:
+    def merge(self, other_inp: "Input") -> None:
         """Merge another Input into this one.
 
         Parameters
         ----------
         other_inp : Input
             input to merge in
-        ensure_updated_dicts : bool
-            ignored (kept for API compatibility)
         """
         self._model.merge([other_inp._model])
-        # Refresh after merge (model is re-parsed internally)
-        self._refresh_other_data()
-        self._materials.extend(other_inp._materials.materials)
+        # TODO: double check here what happens if there are duplicate materials
+        self._mat_section.extend(other_inp._mat_section.materials)
 
     def renumber(
         self,
@@ -457,7 +309,6 @@ class Input:
         universes: int | None = None,
         translations: int | None = None,
         renum_all: int | None = None,
-        update_keys: bool = False,
     ) -> None:
         """Renumber IDs in the input by a constant offset.
 
@@ -473,8 +324,6 @@ class Input:
             offset for transformation IDs
         renum_all : int, optional
             applies the same offset to all of the above
-        update_keys : bool, optional
-            ignored (kept for API compatibility)
         """
         if renum_all is not None:
             cells = surfs = universes = translations = renum_all
@@ -486,8 +335,6 @@ class Input:
             self._model.renumber_universes(lambda u: u + int(universes))
         if translations is not None:
             self._model.renumber_transforms(lambda t: t + int(translations))
-        # Refresh other_data so tally cell/surface references are updated
-        self._refresh_other_data()
 
     def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
         """
@@ -525,110 +372,16 @@ class Input:
             # It is already a dict, pass
             pass
 
-        self.update_zaidinfo(libmanager)
-        self.materials.translate(newlib, libmanager)
+        self.mat_section.translate(newlib, libmanager)
 
-    def update_zaidinfo(self, lib_manager: LibManager):
-        """
-        This methods allows to update the in-line comments for every zaids
-        containing additional information
-
-        Parameters
-        ----------
-        lib_manager : libmanager.LibManager
-            Library manager for the conversion.
-
-        Returns
-        -------
-        None.
-
-        """
-
-        self.materials.update_info(lib_manager)
-
-    @staticmethod
-    def set_cell_void(cell: migjorn.Cell) -> None:
-        """Set a cell to void (material 0). Lossless via migjorn."""
-        if cell.material != 0:
-            cell.material = 0
-        else:
-            logging.warning(f"cell {cell.id} is already void")
-
-    @staticmethod
-    def _get_cards_by_id(ids: list[str], cards: dict) -> dict:
-        selected = {}
-        for id_card in ids:
-            if id_card in cards:
-                selected[id_card] = cards[id_card]
-            elif "*" + id_card in cards:
-                selected["*" + id_card] = cards["*" + id_card]
-            else:
-                raise KeyError(f"Card {id_card!r} is not available in the input")
-        return selected
-
-    def get_cells_by_id(
-        self, ids: Sequence[int | str], make_copy: bool = False
-    ) -> dict[str, migjorn.Cell]:
-        """Return a dict of migjorn Cell objects for the requested cell IDs."""
-        result = {}
-        for cid in ids:
-            key = str(cid)
-            cell = self._model.cell(int(cid))
-            if cell is None:
-                raise KeyError(f"Cell {cid} not found")
-            result[key] = cell
-        return result
-
-    def get_surfs_by_id(self, ids: list[int]) -> dict[str, migjorn.Surface]:
-        """Return a dict of migjorn Surface objects for the requested surface IDs."""
-        result = {}
-        for sid in ids:
-            key = str(sid)
-            surf = self._model.surface(int(sid))
-            if surf is None:
-                # try with reflective prefix
-                surf = self._model.surface(int(sid))
-            if surf is None:
-                raise KeyError(f"Surface {sid} not found")
-            result[key] = surf
-        return result
-
-    def get_materials_subset(self, ids: list[str] | str) -> "MatCardsList | Material":
+    def get_materials_subset(self, ids: list[str] | str) -> MatCardsList:
         """Return a subset of materials by ID."""
         if type(ids) is str:
-            return self.materials[ids.upper()]
+            mats = [self.mat_section[ids.upper()]]
         else:
-            mats = [self.materials[mid.upper()] for mid in ids]
-            return MatCardsList(mats)
+            mats = [self.mat_section[mid.upper()] for mid in ids]
 
-    def get_data_cards(self, ids: list[str] | str) -> dict[str, str]:
-        """Return other_data or transformation card text by key.
-
-        Parameters
-        ----------
-        ids : list[str] | str
-            card names to retrieve
-        """
-        ids2use = [ids] if isinstance(ids, str) else list(ids)
-        result: dict[str, str] = {}
-        for k in ids2use:
-            if k in self._other_data:
-                result[k] = self._other_data[k]
-            elif k in self.transformations:
-                result[k] = self.transformations[k].text
-            else:
-                raise KeyError(f"Card {k!r} not found in other_data or transformations")
-        return result
-
-    def _parse_data_section(self, *args, **kwargs):  # pragma: no cover
-        raise NotImplementedError(
-            "_parse_data_section is superseded by migjorn parsing"
-        )
-
-    @staticmethod
-    def _clean_card_name(key: str) -> str:
-        """Normalise a raw card mnemonic (handles *TR1, F6:N, TF, DF edge-cases)."""
-        return _clean_card_name_str(key)
+        return MatCardsList(mats)
 
     def extract_cells(
         self,
@@ -670,23 +423,6 @@ class Input:
             newinput.renumber(**renumber_offsets)
         newinput.write(outfile)
 
-    @staticmethod
-    def write_blocks(
-        file: os.PathLike,
-        wrap: bool,
-        cells_cards: dict,
-        surfs: dict,
-        materials: MatCardsList,
-        header: list[str] | None = None,
-        trans: dict | None = None,
-        other_data: dict | None = None,
-    ):
-        """Superseded by Input.write() — raises NotImplementedError."""
-        raise NotImplementedError(
-            "write_blocks is superseded by Input.write() with migjorn. "
-            "Construct an Input object and call .write()."
-        )
-
     def _extract_cells_as_input(
         self,
         cell_ids: list[int],
@@ -694,6 +430,7 @@ class Input:
         extract_fillers: bool = True,
     ) -> "Input":
         """Build a minimal Input containing only the requested cells and their references."""
+        # TODO: In migjorn there is already extract_universe, should be something similar
         cset: set[int] = set(cell_ids)
         self._collect_cell_refs(cset, extract_fillers)
 
@@ -766,30 +503,38 @@ class Input:
     def extract_universe(
         self,
         universe: int,
-        outfile: os.PathLike | str,
         renumber_offsets: dict | None = None,
         keep_universe: bool = False,
-    ):
+    ) -> "Input":
         """Dump a minimum MCNP working file for the given universe.
 
         Parameters
         ----------
         universe : int
             universe id to be extracted
-        outfile : os.PathLike | str
-            output file path
         renumber_offsets : dict, optional
             offsets passed to renumber(), by default None
         keep_universe : bool
             keep u= keyword in cell definitions, by default False
         """
-        cell_ids = [c.id for c in self._model.cells if c.universe == universe]
-        self.extract_cells(
-            cells=cell_ids,
-            outfile=outfile,
-            renumber_offsets=renumber_offsets,
-            keep_universe=keep_universe,
-        )
+        # extract the universe
+        extracted_model = self._model.extract_universe(universe)
+        extracted_inp = Input(extracted_model)
+        mat_ids = []
+        for mat in extracted_model.materials:
+            mat_ids.append(f"M{mat.id}")
+        mat_subset = self.get_materials_subset(mat_ids)
+        extracted_inp.mat_section = mat_subset
+
+        # renumber if requested
+        if renumber_offsets is not None:
+            extracted_inp.renumber(**renumber_offsets)
+        # remove u= keywords if requested
+        if not keep_universe:
+            for cell in extracted_inp._model.cells:
+                cell.remove_param("u")
+
+        return extracted_inp
 
     def get_cells_by_matID(
         self, matID: int | str, deepcopy_flag: bool = True
@@ -851,7 +596,7 @@ class Input:
             if dens < 0:
                 dens = abs(dens)
             else:
-                dens = self.materials[f"M{mat_id}"].get_density(dens, lm)
+                dens = self.mat_section[f"M{mat_id}"].get_density(dens, lm)
 
             materials.append([mat_id, dens])
 
@@ -887,27 +632,27 @@ class Input:
         df = pd.DataFrame(rows)
         return df.set_index("cell").sort_index()
 
-    def _get_tally_cards(
+    def _get_tally_cards_ids(
         self,
         idx: int,
     ) -> list[str]:
         keys = []
         pat = re.compile(r"F[a-zA-Z]*{}$".format(idx))
-        for key, _ in self.other_data.items():
-            if pat.match(key) is not None:
-                keys.append(key)
+        for card in self.other_data:
+            if pat.match(card.name) is not None:
+                keys.append(card.name)
         return keys
 
     def _retrieve_input(self, tag: str) -> str:
         # get the card text excluding the card name tag and $ comments
-        text = self._other_data.get(tag, "")
+        text = self.other_data[tag].text
         first_line = text.splitlines()[0] if text else ""
         inp = first_line.split("$")[0]  # strip inline $ comment
         inp = inp.replace(tag, "").replace(tag.lower(), "").strip()
         return inp
 
     def _retrieve_FM(self, tag: str) -> list[str]:
-        text = self._other_data.get(tag, "")
+        text = self.other_data[tag].text
         # Strip inline $ comments and blank/comment lines
         lines = []
         for ln in text.splitlines():
@@ -955,18 +700,13 @@ class Input:
             desc = np.nan
             particle = np.nan
             multiplier = None
-            card_keys = self._get_tally_cards(key)
+            card_keys = self._get_tally_cards_ids(key)
             for aux_key in card_keys:
                 if aux_key[:2] == "FC":
                     desc = self._retrieve_input(aux_key)
                 elif aux_key == tag_tally + str(key):
-                    line = (
-                        self._other_data.get(aux_key, "").splitlines()[0]
-                        if aux_key in self._other_data
-                        else ""
-                    )
-                    m = PAT_NP.search(line)
-                    particle = m.group().upper().strip(":") if m else np.nan
+                    card = self.other_data[aux_key]
+                    particle = card.particle
                 elif aux_key[:2] == "FM":
                     multiplier = self._retrieve_FM(aux_key)
 
@@ -989,7 +729,7 @@ class Input:
     def replace_material(
         self,
         new_mat_id: int,
-        new_density: str,
+        new_density: str | float,
         old_mat_id: int,
         u_list: list[int] | None = None,
     ) -> None:
@@ -999,7 +739,7 @@ class Input:
         ----------
         new_mat_id : int
             id of the new material (0 for void)
-        new_density : str
+        new_density : str | float
             new value for the density (including sign)
         old_mat_id : int
             id of the material to be replaced
@@ -1008,7 +748,7 @@ class Input:
             in the list. By default is None, all cells are affected.
         """
 
-        if new_mat_id < 0 or new_mat_id < 0:
+        if new_mat_id < 0 or old_mat_id < 0:
             raise ValueError("Wrong values for the material ids")
         for _, cell in self.cells.items():
             in_universe = False
@@ -1019,48 +759,12 @@ class Input:
                 in_universe = True
 
             if cell.material == old_mat_id and in_universe:
-                self.replace_cell_material(cell, new_mat_id, new_density)
+                cell.material = new_mat_id
+                if not cell.is_void:
+                    cell.density = float(new_density)
 
     @staticmethod
-    def replace_cell_material(cell: migjorn.Cell, new_mat_id: int, new_density: str):
-        old_mat_id = cell.material
-        if old_mat_id == 0 and new_mat_id == 0:
-            logging.warning("Replacing void with void")
-        if old_mat_id == 0:
-            Input.add_material_to_void_cell(cell, new_mat_id, new_density)
-        elif new_mat_id == 0:
-            Input.set_cell_void(cell)
-        else:
-            cell.material = new_mat_id
-            cell.density = float(new_density)
-
-    @staticmethod
-    def add_material_to_void_cell(
-        cell: migjorn.Cell,
-        new_mat_id: int,
-        new_density: str,
-    ) -> None:
-        """Assign a material (and density) to a void cell using migjorn.
-
-        Parameters
-        ----------
-        cell : migjorn.Cell
-            the void cell to modify
-        new_mat_id : int
-            id of the new material
-        new_density : str
-            new density value (including sign)
-        """
-        if int(float(new_density)) == 0 or new_mat_id <= 0:
-            raise ValueError("Wrong values for the new material and density")
-        if cell.is_void:
-            cell.material = new_mat_id
-            cell.density = float(new_density)
-        else:
-            logging.warning(f"cell {cell.id} is not a void cell")
-
-    @staticmethod
-    def add_cell_fill_u(
+    def set_param(
         cell: migjorn.Cell,
         param: str,
         param_value: int | str,
@@ -1071,25 +775,32 @@ class Input:
         Parameters
         ----------
         cell : migjorn.Cell
+            cell to modify
         param : str
-            'u' or 'fill'
+            parameter to set, these are the ones accepted by migjorn
         param_value : int | str
+            value to set for the parameter
         inplace : bool
-            ignored (kept for API compatibility)
+            if True, modifies the cell in-place; if False, returns a modified copy
 
         Returns
         -------
         migjorn.Cell
         """
+        # TODO: understand or import what are allowed parameters for mig
+        allowed_params = ["u", "fill"]
+        if param not in allowed_params:
+            raise ValueError(
+                f"Invalid parameter '{param}'. Allowed parameters are: {allowed_params}"
+            )
 
-        valid_params = ["u", "fill"]
-        if param.lower() not in [p.lower() for p in valid_params]:
-            raise ValueError(f"Invalid parameter {param}")
-        if cell.universe is not None and param.lower() == "u":
-            raise ValueError("Cell already has a universe defined")
-        if cell.fill is not None and param.lower() == "fill":
-            raise ValueError("Cell already has a filler defined")
-        cell.add_param(f"{param.lower()}={param_value}")
+        if not inplace:
+            cell = deepcopy(cell)
+
+        replaced = cell.set_param(param, str(param_value))
+        if not replaced:
+            cell.add_param(f"{param}={param_value}")
+
         return cell
 
     @staticmethod
@@ -1116,15 +827,18 @@ class Input:
         inplace: bool
             ignored (migjorn mutations are always in-place)
         """
-        if mode.lower() not in ["union", "intersect"]:
-            raise ValueError(f"Invalid mode {mode}. Use 'union' or 'intersect'.")
+        if not inplace:
+            cell = deepcopy(cell)
         if mode.lower() == "intersect":
             cell.add_surface(add_surface)
-        else:
+        elif mode.lower() == "union":
             # TODO migjorn: add Cell.add_surface_union(surface: int) method
             raise NotImplementedError(
                 "Union surface addition requires migjorn.Cell.add_surface_union (not yet available)"
             )
+        else:
+            raise ValueError(f"Invalid mode {mode}. Use 'union' or 'intersect'.")
+
         return cell
 
     @staticmethod
@@ -1147,6 +861,11 @@ class Input:
         inplace : bool, optional
             ignored (migjorn mutations are always in-place)
         """
+        if not inplace:
+            cell = deepcopy(cell)
+        if new_cell_num is not None:
+            # TODO migjorn: add Cell.id setter to allow renumbering
+            cell.id = new_cell_num
         cell.add_complement(hash_id)
         return cell
 
@@ -1174,16 +893,26 @@ class Input:
         Parameters
         ----------
         cell_num_list : list[str]
-            cell numbers to unite
+            cell numbers to unite. The first one will be used as base
+            for material, density and parameters.
         new_cell_num : int, optional
             ID for the resulting cell; defaults to the first cell's ID
         """
-        cells = [self._model.cell(int(n)) for n in cell_num_list]
+        # Ensure they are all in the model
+        cells: list[migjorn.Cell] = [self._model.cell(int(n)) for n in cell_num_list]
+        if None in cells:
+            raise ValueError("One or more cell IDs not found in the model.")
+
+        # Ensure they all have the same material
+        mat = cells[0].material
+        for c in cells:
+            if c.material != mat:
+                raise ValueError("All cells must have the same material.")
+
         if new_cell_num is None:
             new_cell_num = cells[0].id
 
         # Build union geometry text from each cell's geometry part
-        # TODO migjorn: add Model.merge_cells_as_union for cleaner support
         geom_parts = [_extract_cell_geometry(c.text) for c in cells]
         union_geom = " : ".join(f"({g})" for g in geom_parts)
 
@@ -1198,11 +927,6 @@ class Input:
         for c in cells:
             self._model.remove_cell(c.id)
         self._model.add_cell(new_text.strip())
-
-    @staticmethod
-    def remove_u(cell: migjorn.Cell) -> None:
-        """Remove the u= parameter from a cell."""
-        cell.remove_param("u")
 
     def add_F_tally(
         self,
@@ -1244,7 +968,7 @@ class Input:
 
         particles_str = particles[0]
         if len(particles) > 1:
-            for particle in particles[1]:
+            for particle in particles[1:]:
                 particles_str += "," + particle
         if description is not None:
             self.other_data[f"FC{tally_ID}"] = f"FC{tally_ID} {description}\n"
@@ -1335,39 +1059,33 @@ class Input:
             list of tally IDs to be removed. Default is None, which means
             that all tallies will be removed.
         """
-        cards_to_remove = []
 
         if tally_ids is None:
             # Remove all tally-related cards
-            for key in list(self.other_data.keys()):
-                if PAT_ALL_TALLY_KEYS.match(key):
-                    cards_to_remove.append(key)
+            for card in self.other_data:
+                if PAT_ALL_TALLY_KEYS.match(card.name):
+                    del self.other_data[card.name]
         else:
             # Remove only cards matching the provided tally IDs
-            for key in list(self.other_data.keys()):
-                m = PAT_ALL_TALLY_KEYS.match(key)
+            for card in self.other_data:
+                m = PAT_ALL_TALLY_KEYS.match(card.name)
                 if m:
                     num = int(m.group(2))
                     if num in tally_ids:
-                        cards_to_remove.append(key)
-
-        for key in cards_to_remove:
-            del self.other_data[key]
+                        del self.other_data[card.name]
 
     def remove_sdef(self) -> None:
         """Remove the SDEF card and related source definition cards from the input."""
-        keys_to_remove = []
-        for key in list(self.other_data.keys()):
-            key_lower = key.lower()
+
+        for card in self.other_data:
+            key_lower = card.name.lower()
             if key_lower.startswith(("sdef", "kcode", "ssr")) or key_lower[:2] in (
                 "si",
                 "sd",
                 "ds",
                 "sp",
             ):
-                keys_to_remove.append(key)
-        for key in keys_to_remove:
-            del self.other_data[key]
+                del self.other_data[card.name]
 
     def prepare_void_check(
         self, surf: migjorn.Surface, nps: int, particle: str = "N"
@@ -1499,11 +1217,13 @@ class D1S_Input(Input):
         self.reac_file = reac_file
 
     def __deepcopy__(self, memo: dict) -> "D1S_Input":
-        new_obj = super().__deepcopy__(memo)
-        from copy import deepcopy as _dc
-
-        new_obj.irrad_file = _dc(self.irrad_file, memo)
-        new_obj.reac_file = _dc(self.reac_file, memo)
+        new_obj = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_obj
+        new_obj.__init__(
+            migjorn.Model(self._model.to_source()), deepcopy(self._mat_section, memo)
+        )
+        new_obj.irrad_file = deepcopy(self.irrad_file, memo)
+        new_obj.reac_file = deepcopy(self.reac_file, memo)
         return new_obj
 
     @classmethod
@@ -1537,7 +1257,7 @@ class D1S_Input(Input):
         for d in model.diagnostics:
             logging.warning(f"migjorn [{d.severity}]: {d.message}")
         logging.debug("Reading has finished")
-        materials = _build_materials(model)
+        materials = MatCardsList.from_migjorn(model)
 
         newirrad_file = (
             IrradiationFile.from_text(irrad_file) if irrad_file is not None else None
@@ -1567,17 +1287,16 @@ class D1S_Input(Input):
             LibManager
         """
         reactions = []
-        for material in self.materials.materials:
-            for submat in material.submaterials:
-                for zaid in submat.zaidList:
-                    parent = zaid.element + zaid.isotope
-                    zaidreactions = libmanager.get_reactions(lib, parent)
-                    # if len(zaidreactions) > 0:
-                    #     # it is a parent only if reactions are available
-                    #     parentlist.append(parent)
-                    for MT, daughter in zaidreactions:
-                        reactions.append((parent, MT, daughter))
-                        # daughterlist.append(daughter)
+        for material in self.mat_section.materials:
+            for zaid in material.zaids:
+                parent = str(zaid.nuclide.zaid)
+                zaidreactions = libmanager.get_reactions(lib, parent)
+                # if len(zaidreactions) > 0:
+                #     # it is a parent only if reactions are available
+                #     parentlist.append(parent)
+                for MT, daughter in zaidreactions:
+                    reactions.append((parent, MT, daughter))
+                    # daughterlist.append(daughter)
 
         reactions = list(set(reactions))
         reactions.sort()
@@ -1705,12 +1424,11 @@ class D1S_Input(Input):
 
         # Now check for the remaing materials in the input to be assigned
         # to transport
-        for material in self.materials.materials:
-            for submaterial in material.submaterials:
-                for zaid in submaterial.zaidList:
-                    zaidnum = zaid.element + zaid.isotope
-                    if zaidnum not in active_zaids and zaidnum not in transp_zaids:
-                        transp_zaids.append(zaidnum)
+        for material in self.mat_section.materials:
+            for zaid in material.zaids:
+                zaidnum = str(zaid.nuclide.zaid)
+                if zaidnum not in active_zaids and zaidnum not in transp_zaids:
+                    transp_zaids.append(zaidnum)
 
         newlib = {activation_lib: active_zaids, transport_lib: transp_zaids}
 
@@ -1718,7 +1436,7 @@ class D1S_Input(Input):
         self.add_PIKMT_card()
 
         # Translate the input with the new lib
-        self.materials.translate(newlib, libmanager)
+        self.mat_section.translate(newlib, libmanager)
 
     def add_PIKMT_card(self) -> None:
         """
@@ -1762,7 +1480,7 @@ class D1S_Input(Input):
             check for admissible who parameter.
 
         """
-        existing = self._other_data.get(tallykey, "")
+        existing = self.other_data[tallykey].text
         num = str(_get_num_tally(tallykey))
 
         existing += "FU" + num + " 0\n"
@@ -1777,7 +1495,7 @@ class D1S_Input(Input):
                 self.other_data["FT" + num] = "FT" + num + " SCD\n"
         else:
             raise ValueError(who + ' is not an admissible "who" parameters')
-        self._other_data[tallykey] = existing
+        self.other_data[tallykey] = existing
 
     def add_daughter_contribution_from_irr(self, tallykey: str):
         """Add the daughter contribution to the tally. All the daughters
@@ -1834,11 +1552,11 @@ class D1S_Input(Input):
             ID of the tally onto which to operate (e.g. F4).
         """
 
-        existing = self._other_data.get(tallykey, "")
+        existing = self.other_data[tallykey].text
         num = str(_get_num_tally(tallykey))
 
         existing += "FU" + num + " 0\n"
-        self._other_data[tallykey] = existing
+        self.other_data[tallykey] = existing
 
         self.other_data[f"DE{num}"] = (
             f"DE{num} 0.01 0.015 0.02 0.03 0.04 0.05\n"
@@ -1854,27 +1572,9 @@ class D1S_Input(Input):
         )
 
 
-def _write_input(
-    outfilepath: os.PathLike | str,
-    model: migjorn.Model,
-    materials: MatCardsList,
-    other_data: dict[str, str],
-) -> None:
-    """Write a complete MCNP input file from migjorn model + MatCardsList + other_data."""
-    cells_text, surfaces_text, _ = _split_mcnp_sections(model.to_source())
-    with open(outfilepath, "w", newline="\n") as f:
-        f.write(cells_text.replace("\r", "") + "\n")
-        f.write(surfaces_text.replace("\r", "") + "\n")
-        for tr in model.transforms:
-            f.write(tr.text.replace("\r", ""))
-        if materials and len(materials.matdic) > 0:
-            f.write(materials.to_text() + "\n")
-        for card_text in other_data.values():
-            f.write(card_text.replace("\r", ""))
-
-
 def _extract_cell_geometry(cell_text: str) -> str:
     """Extract the geometry portion from a cell card text line."""
+    # TODO: migjorn side there is likely a better way to extrac the geometry part
     line = cell_text.splitlines()[0].strip().replace("\r", "")
     tokens = line.split()
     if not tokens:

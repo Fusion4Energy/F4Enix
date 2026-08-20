@@ -94,27 +94,27 @@ class TestElite_Input:
 
     def test_set_sdef(self):
         inp = deepcopy(self.testInput)
-        mod_data = deepcopy(inp.other_data)
+        mod_data = deepcopy(inp)
         Elite_Input._set_sdef([4], mod_data)
 
-        assert mod_data["SI70"].input[0].rstrip() == "SI70 L 451001"
-        assert mod_data["SP70"].input[0].rstrip() == "SP70 1"
+        assert mod_data.other_data["SI70"].rstrip() == "SI70 L 451001"
+        assert mod_data.other_data["SP70"].rstrip() == "SP70 1"
 
         Elite_Input._set_sdef(["2 & 3"], mod_data)
-        assert mod_data["SI70"].input[0].rstrip() == "SI70 L 435001"
-        assert mod_data["SP70"].input[0].rstrip() == "SP70 2"
+        assert mod_data.other_data["SI70"].rstrip() == "SI70 L 435001"
+        assert mod_data.other_data["SP70"].rstrip() == "SP70 2"
 
         Elite_Input._set_sdef([1, "2 & 3"], mod_data)
-        assert mod_data["SI70"].input[0].rstrip() == "SI70 L 427001 435001"
-        assert mod_data["SP70"].input[0].rstrip() == "SP70 1 2"
+        assert mod_data.other_data["SI70"].rstrip() == "SI70 L 427001 435001"
+        assert mod_data.other_data["SP70"].rstrip() == "SP70 1 2"
 
         Elite_Input._set_sdef(["2 & 3", 4], mod_data)
-        assert mod_data["SI70"].input[0].rstrip() == "SI70 L 435001 451001"
-        assert mod_data["SP70"].input[0].rstrip() == "SP70 2 1"
+        assert mod_data.other_data["SI70"].rstrip() == "SI70 L 435001 451001"
+        assert mod_data.other_data["SP70"].rstrip() == "SP70 2 1"
 
         Elite_Input._set_sdef([8, 9], mod_data)
-        assert mod_data["SI70"].input[0].rstrip() == "SI70 L 483001 491001"
-        assert mod_data["SP70"].input[0].rstrip() == "SP70 1 1"
+        assert mod_data.other_data["SI70"].rstrip() == "SI70 L 483001 491001"
+        assert mod_data.other_data["SP70"].rstrip() == "SP70 1 1"
 
     def test_initialize_elite(self):
         inp = deepcopy(self.testInput)

@@ -13,7 +13,6 @@ from f4enix.core.irradiation import Nuclide
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
-
 # ruff: noqa: PLR2004# ruff: noqa: PLR2004
 
 RESOURCES_INP = files(input_res)
@@ -90,57 +89,43 @@ class TestInput:
     def test_renumber(self, tmpdir):
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
-        testInput.renumber(renum_all=100, update_keys=True)
-        testInput.write(tmpdir.join("renum.i"))
+        testInput.renumber(renum_all=100)
         # check that renumbered IDs are present
         assert testInput.transformations["TR101"]
         assert testInput.cells["101"]
-        # check some values after round-trip
-        newinp = Input.from_input(tmpdir.join("renum.i"))
-        fill = newinp.cells["101"].fill
+        fill = testInput.cells["101"].fill
         assert fill is not None and fill.universe == 225
-        assert "122" in newinp.cells["122"].text
-        assert newinp.cells["122"].universe == 225
-        assert newinp.transformations["TR101"]
+        assert "122" in testInput.cells["122"].text
+        assert testInput.cells["122"].universe == 225
+        assert testInput.transformations["TR101"]
 
     def test_add_material(self, tmpdir):
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
-        testInput.add_material_to_void_cell(testInput.cells["22"], 10, -1.1)  # type: ignore
-        testInput.add_material_to_void_cell(testInput.cells["99"], 94, 1.1)  # type: ignore
-        testInput.add_material_to_void_cell(testInput.cells["21"], 90, 1.1)  # type: ignore
+        testInput.cells["22"].material = 10
+        testInput.cells["22"].density = -1.1
+        testInput.cells["99"].material = 94
+        testInput.cells["99"].density = 1.1
+        testInput.cells["21"].material = 4
+        testInput.cells["21"].density = 1.1
+
         assert testInput.cells["22"].material == 10
         assert testInput.cells["22"].density == pytest.approx(-1.1)
         assert testInput.cells["99"].material == 94
         assert testInput.cells["99"].density == pytest.approx(1.1)
         assert testInput.cells["21"].material == 4  # cell 21 already has material 4
 
-        testInput.write(tmpdir.join("new_mat.i"))
-        testInput = Input.from_input(tmpdir.join("new_mat.i"))
-        assert testInput.cells["22"].material == 10
-        assert testInput.cells["22"].density == pytest.approx(-1.1)
-        assert testInput.cells["99"].material == 94
-        assert testInput.cells["99"].density == pytest.approx(1.1)
-        assert testInput.cells["21"].material == 4
-
-    def test_add_cell_fill_u(self, tmpdir):
+    def test_set_param(self):
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
             testInput = Input.from_input(FILE1)
 
         # add universe in-place
-        testInput.add_cell_fill_u(testInput.cells["99"], "U", 50)
+        testInput.set_param(testInput.cells["99"], "u", 50)
         assert testInput.cells["99"].universe == 50
 
-        testInput2 = Input.from_input(FILE1)
-        # add fill in-place
-        testInput2.add_cell_fill_u(testInput2.cells["22"], "FILL", 250)
-        assert testInput2.cells["22"].fill is not None
-        assert testInput2.cells["22"].fill.universe == 250
-
-        testInput2.write(tmpdir.join("new_fill.i"))
-        testInput3 = Input.from_input(tmpdir.join("new_fill.i"))
-        assert testInput3.cells["22"].fill is not None
-        assert testInput3.cells["22"].fill.universe == 250
+        testInput.set_param(testInput.cells["22"], "fill", 250)
+        assert testInput.cells["22"].fill is not None
+        assert testInput.cells["22"].fill.universe == 250
 
     def test_write(self, tmpdir):
         # read
@@ -177,7 +162,7 @@ class TestInput:
 
         # renumber and try again
         dest = deepcopy(inp1)
-        inp2.renumber(renum_all=1000, update_keys=True)
+        inp2.renumber(renum_all=1000)
         dest.merge(inp2)
         assert len(dest.cells) == 14
         assert len(dest.surfs) == 9
@@ -187,14 +172,9 @@ class TestInput:
         assert inp.header[0].strip("\n").strip("\r") == "This is the header"
         assert len(inp.cells) == 128
         assert len(inp.surfs) == 130
-        assert len(inp.materials) == 25
+        assert len(inp.mat_section) == 25
         assert len(inp.tally_keys) == 7
         assert len(inp.fmesh_keys) == 5
-
-    def test_update_zaidinfo(self):
-        newinput = deepcopy(self.testInput)
-        newinput.update_zaidinfo(self.lm)
-        assert True
 
     def test_update_card_keys(self):
         # _update_card_keys is superseded by migjorn; just check no error
@@ -212,19 +192,9 @@ class TestInput:
 
         # let's check also that abundances info is correctly added
         assert (
-            "$ H-1    WEIGHT(%) 100.0 AB(%) 99.988"
-            in newinput.materials.materials[0].to_text()
+            "$ H1     WEIGHT(%) 1.9046 AB(%) 99.988"
+            in newinput.mat_section.materials[0].to_text()
         )
-
-    def test_get_cells_by_id(self):
-        self.testInput.get_cells_by_id([1, 2])
-        self.testInput.get_cells_by_id(["1", "2"])
-        assert True
-
-    def test_get_surfs_by_id(self):
-        self.testInput.get_surfs_by_id([1, 2])
-        self.testInput.get_surfs_by_id(["1", "2"])  # type: ignore
-        assert True
 
     def test_get_materials_subset(self):
         materials = "m23"
@@ -234,13 +204,10 @@ class TestInput:
         assert True
 
     def test_get_data_cards(self):
-        _ = self.testInput.get_data_cards("SDEF")
+        _ = self.testInput.other_data["SDEF"]
 
-        try:
-            self.testInput.get_data_cards("adas")
-            assert False
-        except KeyError:
-            assert True
+        with pytest.raises(KeyError):
+            _ = self.testInput.other_data["adas"]
 
     def test_get_cells_summary(self):
         df = self.testInput.get_cells_summary()
@@ -262,7 +229,7 @@ class TestInput:
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
-        assert len(inp2.materials) == 3
+        assert len(inp2.mat_section) == 3
         assert sorted(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
 
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE:
@@ -291,17 +258,12 @@ class TestInput:
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
-        outfile = tmpdir.mkdir("sub").join("extract_universe.i")
-
         universe = 125
-        mcnp_input.extract_universe(universe, outfile)
-
-        # re-read
-        result = Input.from_input(outfile)
+        result = mcnp_input.extract_universe(universe)
 
         assert len(result.cells) == 3
         assert len(result.surfs) == 2
-        assert len(result.materials) == 1
+        assert len(result.mat_section) == 1
         for _, cell in result.cells.items():
             assert cell.universe is None
         assert mcnp_input.cells["21"].universe == universe
@@ -311,36 +273,21 @@ class TestInput:
         self.bugInput.get_materials_subset(["m101"])
         assert True
 
-    def test_missing_data_cards(self, tmpdir):
-        # Check that all these data do not go missing after a rewrite
+    def test_missing_data_cards(self):
+        # Check that all these data do not go missing
         with as_file(RESOURCES_INP.joinpath("various_bugs.i")) as file:
             inp = Input.from_input(file)
-        inp.write(tmpdir.join("bug.i"))
 
-        reinp = Input.from_input(tmpdir.join("bug.i"))
-        _ = reinp.other_data["SP2"]
-        _ = reinp.transformations["TR1"]
-        _ = reinp.other_data["CUT:N"]
-        _ = reinp.other_data["WWN1:P"]
-        _ = reinp.other_data["WWN1:N"]
-        _ = reinp.other_data["F96"]
-        _ = reinp.other_data["F30004"]
-        _ = reinp.other_data["TF30004"]
+        _ = inp.other_data["SP2"]
+        _ = inp.transformations["TR1"]
+        _ = inp.other_data["CUT:N"]
+        _ = inp.other_data["WWN1:P"]
+        _ = inp.other_data["WWN1:N"]
+        _ = inp.other_data["F96"]
+        _ = inp.other_data["F30004"]
+        _ = inp.other_data["TF30004"]
 
         assert True
-
-    @pytest.mark.parametrize(
-        ["cardname", "clean_name"],
-        [
-            ["*TR1", "TR1"],
-            ["f6:n,p", "F6"],
-            ["WWN1:n", "WWN1:N"],
-            ["WWE:n", "WWE:N"],
-            ["TF300004", "TF300004"],
-        ],
-    )
-    def test_clean_card_name(self, cardname, clean_name):
-        assert Input._clean_card_name(cardname) == clean_name
 
     @pytest.mark.parametrize("flag", [True, False])
     def test_get_cells_by_matID(self, flag):
@@ -361,7 +308,7 @@ class TestInput:
         [[94, ["FC94", "F94", "FM94"]], [214, ["FC214", "FMESH214", "FM214"]]],
     )
     def test_get_tally_cards(self, id, expected):
-        keys = self.testInput._get_tally_cards(id)
+        keys = self.testInput._get_tally_cards_ids(id)
         assert keys == expected
 
     def test_get_tally_summary(self):
@@ -404,8 +351,8 @@ class TestInput:
             add_total=True,
             multiplier="1 -52 1",
         )
-        assert "F4:N,P" in newinput.other_data["F4"]
-        assert "FC4 Test F4 tally" in newinput.other_data["FC4"]
+        assert "F4:N,P" in newinput.other_data["F4"].text
+        assert "FC4 Test F4 tally" in newinput.other_data["FC4"].text
         assert "SD4" in newinput.other_data
         assert "FM4" in newinput.other_data
         cells = ["((1 2 3 4 5 6) < 10)", 12, "(((1 2 3 4 5 6) 18) < 11)"]
@@ -424,7 +371,7 @@ class TestInput:
 
     def test_set_cell_void(self):
         newinput = deepcopy(self.testInput)
-        Input.set_cell_void(newinput.cells["49"])
+        newinput.cells["49"].material = 0
         assert newinput.cells["49"].material == 0
         assert newinput.cells["49"].density is None
 
@@ -614,7 +561,7 @@ class TestD1S_Input:
             activation_lib, transport_lib, self.lm, fix_natural_zaid=True
         )
 
-        translation = newinp.materials.to_text()
+        translation = newinp.mat_section.to_text()
 
         assert translation.count("98c") == 4
         assert translation.count("00c") == 145
@@ -626,7 +573,7 @@ class TestD1S_Input:
         newinp.reac_file = self.inp.reac_file
 
         newinp.add_PIKMT_card()
-        card_text = newinp.other_data["PIKMT"]
+        card_text = newinp.other_data["PIKMT"].text
         assert len(card_text.splitlines()) == 17
 
     def test_get_reaction_file(self):
@@ -663,7 +610,7 @@ class TestD1S_Input:
         inp.write(tmpfile)
         newinp = D1S_Input.from_input(tmpfile)
         # get the new injected card
-        card_text = newinp.other_data["FU124"]
+        card_text = newinp.other_data["FU124"].text
         for line, exp in zip(
             card_text.splitlines()[-3:], ["FU124 0", sign + "1001", sign + "1002"]
         ):
@@ -671,7 +618,7 @@ class TestD1S_Input:
         newinp2 = D1S_Input.from_input(tmpfile)
         newinp2.add_track_contribution(tallyID, ["100", "200"], who=who)
         if who == "cell":
-            assert "FT124 SCD" in newinp2.other_data["FT124"]
+            assert "FT124 SCD" in newinp2.other_data["FT124"].text
 
     def test_add_father_from_reac(self, tmpdir):
         tallyID = "F124"

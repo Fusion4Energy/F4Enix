@@ -219,7 +219,7 @@ M1
     def test_get_tad(self):
         with as_file(resources.joinpath("tad_test.i")) as inp:
             mcnp_inp = Input.from_input(inp)
-            materials = mcnp_inp.materials
+            materials = mcnp_inp.mat_section
         dens_mats = {
             "316L(N)-IG": 7.93,
             "CuCrZr": 8.9,
@@ -249,7 +249,7 @@ M1
     def test_get_density(self):
         with as_file(resources.joinpath("tad_test.i")) as inp:
             mcnp_inp = Input.from_input(inp)
-            materials = mcnp_inp.materials
+            materials = mcnp_inp.mat_section
         dens_mats = {
             "316L(N)-IG": 7.93,
             "CuCrZr": 8.9,
@@ -315,19 +315,19 @@ class TestMatCardList:
     # Files
     with as_file(resources.joinpath("mat_test.i")) as inp:
         inp_matcard1 = MatCardsList.from_input(inp)
-        inp_matcard2 = Input.from_input(inp).materials
+        inp_matcard2 = Input.from_input(inp).mat_section
 
     with as_file(resources.joinpath("mat_test2.i")) as inp2:
         inp2_matcard1 = MatCardsList.from_input(inp2)
-        inp2_matcard2 = Input.from_input(inp2).materials
+        inp2_matcard2 = Input.from_input(inp2).mat_section
 
     with as_file(resources.joinpath("test.i")) as inp3:
         inp3_matcard1 = MatCardsList.from_input(inp3)
-        inp3_matcard2 = Input.from_input(inp3).materials
+        inp3_matcard2 = Input.from_input(inp3).mat_section
 
     with as_file(resources.joinpath("activation.i")) as inp:
         activation_matcard1 = MatCardsList.from_input(inp)
-        activation_matcard2 = Input.from_input(inp).materials
+        activation_matcard2 = Input.from_input(inp).mat_section
 
     def test_frominput(self):
         """

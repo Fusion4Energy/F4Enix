@@ -3,6 +3,7 @@ import logging
 import math
 import os
 
+import migjorn
 import numpy as np
 import pandas as pd
 
@@ -44,7 +45,7 @@ class Elite_Input(Input):
         super().__init__(*args)
         self.__initialized = False
         self._block_structure = None
-        self._sectors_L0_cells_names = {}
+        self._sectors_L0_cells_names: dict[str | int, list[int]] = {}
 
     def _initialize_elite(self, excel_file: os.PathLike, check_Elite: bool = True):
         # checks if the input is actually e-lite and initializes some variables
@@ -71,7 +72,7 @@ class Elite_Input(Input):
 
     def extract_sector(
         self,
-        sectors,
+        sectors: int | list[int],
         excel_file: os.PathLike,
         outfile: os.PathLike = "sector",
         tol: float = 1e-5,
@@ -138,76 +139,50 @@ class Elite_Input(Input):
 
         logging.info("Collecting the cells, surfaces, materials and transf.")
         # collect L0 cells to be extracted
-        cells = []
+        cells: list[int] = []
         for sector in sectors:
             cells += self._sectors_L0_cells_names[sector]
         # collect L0 surfaces, needed for later
         L0_cells = set(cells)
-        L0_sset = set()
+        L0_sset = []
         for _, cell in enumerate(self.cells.values()):
-            if cell.values[0][0] in L0_cells:
-                for v, t in cell.values:
-                    if t == "sur":
-                        L0_sset.add(v)
+            if cell.id in L0_cells:
+                L0_sset.extend(cell.surface_ids)
+        L0_sset = set(L0_sset)
         # backup copy graveyard and outercell, that will be modified
         # append gy and outercell manually as they don't belong to a sector
         cells.append(800)
         cells.append(801)
         # get cells, surfaces and materials to be extracted
-        cells_cards, surf_dic, materials = self._extraction_function(
-            cells, None, True, True
+        extracted_input = self._extract_cells_as_input(
+            cell_ids=cells, keep_universe=True, extract_fillers=True
         )
-        # copy the surfaces, because they will be modified
-        modified_surfaces = copy.deepcopy(surf_dic)
 
-        # Also tallies and other data
-        modified_data_cards = copy.deepcopy(self.other_data)
-        # pattern_str = '|'.join(self.tally_cards_types)
-        # pattern = re.compile(f'^({pattern_str})\d+$')
-        # # for now remove all tally cards
-        # for key in self.other_data.keys():
-
-        #     # Explanation of the pattern:
-        #     # ^           - Start of the string
-        #     # (pattern)   - A group containing possible patterns
-        #     # \d+         - One or more digits
-        #     # $           - End of the string
-        #     if pattern.match(key):
-        #         modified_data_cards.pop(key)
-        # modify sdef
         if fix_source:
-            Elite_Input._set_sdef(sectors, modified_data_cards)
+            Elite_Input._set_sdef(sectors, extracted_input.other_data)
         # set L0 as periodic and modify L1 planes
         Elite_Input._set_boundaries(
             Elite_Input._get_boundaries_angles(sectors),
             tol,
             L0_sset,
-            modified_surfaces,
+            extracted_input.surfs,
             self.transformations,
         )
         # modify graveyard and outercell
         new_outercell, new_gy = Elite_Input._modify_graveyard(
             sectors, self.cells["801"], self.cells["800"]
         )
-        cells_cards["800"] = new_outercell
-        cells_cards["801"] = new_gy
-        # extract tallies based on comments
-        # self._extract_tallies(sectors)
-        # write final MCNP input
-        Input.write_blocks(
-            outfile,
-            False,
-            cells_cards,
-            modified_surfaces,
-            materials,
-            self.header,
-            self.transformations,
-            modified_data_cards,
-        )
+        extracted_input.cells["800"] = new_outercell
+        extracted_input.cells["801"] = new_gy
+        extracted_input.header = self.header
+        # TODO: transf assignement not available at the moment
+        # extracted_input.transformations = self.transformations
+        extracted_input.write(outfile)
+
         logging.info("input written correctly")
 
     @staticmethod
-    def _set_sdef(sectors, modified_data_cards):
+    def _set_sdef(sectors: list[str | int], inp: Input) -> None:
         # write new SI and SD cards, directly in input attribute
         # the copies are modified, original input is preserved
         new_si = "SI70 L "
@@ -218,13 +193,12 @@ class Elite_Input(Input):
                 new_sp = new_sp + "1 "
             else:
                 new_sp = new_sp + "2 "
-        modified_data_cards["SI70"].input = [new_si]
-        modified_data_cards["SP70"].input = [new_sp]
-        return
+        inp.other_data["SI70"] = new_si
+        inp.other_data["SP70"] = new_sp
 
     @staticmethod
     def _set_boundaries(
-        boundaries_angles, tol, L0_sset, modified_surfaces, transformations
+        boundaries_angles: list[float], tol, L0_sset, modified_surfaces, transformations
     ):
         # define the angles at which there are the planes cutting the sectors
         boundary_angles = []
@@ -284,7 +258,7 @@ class Elite_Input(Input):
                             Elite_Input._modify_boundary(surf, bound_opt, angle, l, tol)
 
     @staticmethod
-    def _get_boundaries_angles(sectors):
+    def _get_boundaries_angles(sectors: list[int | str]) -> list[float]:
         # get the angles of the two boundary surfaces, counterclockwise
         boundaries_angles = []
 
@@ -300,7 +274,9 @@ class Elite_Input(Input):
         return boundaries_angles
 
     @staticmethod
-    def _modify_graveyard(sectors, graveyard, outercell):
+    def _modify_graveyard(
+        sectors: list[int | str], graveyard: migjorn.Cell, outercell: migjorn.Cell
+    ) -> tuple[migjorn.Cell, migjorn.Cell]:
         # cut/ union graveyard and outercell with planes
         for k, sector in enumerate(sectors):
             if k == 0:
@@ -356,7 +332,7 @@ class Elite_Input(Input):
         return dp
 
     @staticmethod
-    def _check_tol(tol, n_coeff):
+    def _check_tol(tol: float, n_coeff: list[tuple[float, float]]) -> bool:
         # for all tuples in the list, checks if the elements in the tuples
         # are within the tolerance
         in_tol = True
@@ -368,19 +344,22 @@ class Elite_Input(Input):
         return in_tol
 
     @staticmethod
-    def _modify_boundary(surf, bound_opt, angle, l, tol):
+    def _modify_boundary(
+        surf: migjorn.Surface, bound_opt: int, angle: float, l: float, tol: float
+    ):
         # if in L0, set periodic
         tol_sign = {True: 1, False: -1}
         if bound_opt == 1:
-            surf.input[0] = "*" + surf.input[0]
+            text = "*" + surf.text
+            # TODO: this could be solved with a setter of reflective in surfaces
         # if L1, translate outwards to avoid fatal errors
         elif bound_opt == 2:
             # only way is to modify 'lines' and recompute input and template
             surf_desc = []
             # skip comment lines
-            for line in surf.lines:
-                if not line.lower().startswith("c"):
-                    surf_desc.append(line)
+            # for line in surf.lines:
+            #     if not line.lower().startswith("c"):
+            #         surf_desc.append(line)
             # get plane coefficients
             words = " ".join(string.rstrip("\n") for string in surf_desc)
             words = words.split()
