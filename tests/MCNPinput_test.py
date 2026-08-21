@@ -408,6 +408,7 @@ class TestInput:
         assert "1" not in newinp2.cells
         assert "22" not in newinp2.cells
         assert "635" in newinp2.cells
+        assert newinp2.cells["635"].geometry_text.count(":") == 2
 
     def test_delete_fill_cards(self):
         with as_file(RESOURCES_INP.joinpath("test_universe2.i")) as inp_file:
@@ -420,18 +421,17 @@ class TestInput:
         newinput = deepcopy(self.testInput)
         sur = 180
         cell = newinput.cells["27"]
-        Input.add_surface(cell, -sur, None, "intersect", True)
+        Input.add_surface(cell, -sur, None, "intersect")
         assert sur in cell.surface_ids
-        assert cell.text == (
-            '27   15  9.1292E-02  ( -128 129 26  -27 ) -180     $imp:n,p=1\n'
+        assert cell.text.replace("\r", "") == (
+            "27   15  9.1292E-02  ( -128 129 26  -27 ) -180     $imp:n,p=1\n"
         )
 
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
 
-        cell = Input.add_surface(mcnp_input.cells["1"], sur, None, "union", True)
-        assert f'( -1 ) :{sur}' in cell.text
-
+        cell = Input.add_surface(mcnp_input.cells["1"], sur, None, "union")
+        assert f"( -1 ) :{sur}" in cell.text
 
     def test_get_density_range(self):
         with as_file(RESOURCES_INP.joinpath("test_rho_range.i")) as FILE1:
@@ -496,7 +496,7 @@ class TestInput:
         outfile = tmpdir.mkdir("sub").join("test_void_check.i")
         inp.write(outfile)
         newinp = Input.from_input(outfile)
-        assert f"SDEF" in newinp.other_data["SDEF"]
+        assert "SDEF" in newinp.other_data["SDEF"].text
 
     def test_get_formatted_range(self):
         result = get_formatted_range([1, 2, 3, 4, 5, 7, 12, 13, 21, 22, 23])
@@ -635,7 +635,7 @@ class TestD1S_Input:
         # get the new injected card
         parents = inp.reac_file.get_parents()
         parent_zaids = [p.write_to_int_string() for p in parents]
-        for line in newinp.other_data["FU124"].splitlines():
+        for line in newinp.other_data["FU124"].text.splitlines():
             if line.startswith("FU124"):
                 assert line.strip() == "FU124 0"
             else:
@@ -653,7 +653,7 @@ class TestD1S_Input:
         newinp = D1S_Input.from_input(tmpfile)
         # get the new injected card
         daughters = inp.irrad_file.get_daughters()
-        for line in newinp.other_data["FU124"].splitlines():
+        for line in newinp.other_data["FU124"].text.splitlines():
             if line.startswith("FU124"):
                 assert line.strip() == "FU124 0"
             else:
@@ -665,8 +665,8 @@ class TestD1S_Input:
         inp.add_SDDR_dose_function(tallyID)
         assert "DE14" in inp.other_data
         assert "DF14" in inp.other_data
-        assert "DE14 0.01" in inp.other_data["DE14"]
-        assert "DF14 0.0485" in inp.other_data["DF14"]
+        assert "DE14 0.01" in inp.other_data["DE14"].text
+        assert "DF14 0.0485" in inp.other_data["DF14"].text
 
     def test_column_format(self, tmp_path):
         with as_file(RESOURCES_INP.joinpath("column_format.i")) as FILE1:

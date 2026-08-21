@@ -663,10 +663,11 @@ class Fmesh(MeshData):
         ValueError
             If the transformation has not 3 (translation) or 12 (rototranslation) rotation values
         """
-        n_rot = len(tr.rotation)
+        rotation = tr.coeffs[3:]
+        n_rot = len(rotation)
         transf_values = list(tr.displacement)
         if n_rot == 9:
-            rot = tr.rotation
+            rot = list(rotation)
             if tr.degrees:
                 rot = [np.cos(np.radians(v)) for v in rot]
             transf_values.extend(rot)

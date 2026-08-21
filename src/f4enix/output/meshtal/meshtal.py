@@ -206,8 +206,7 @@ class Meshtal:
         """
         transf_dict = {}
         pattern = r"tr\s*=\s*\d+"
-        for card in inp.other_data:
-            key = card.name
+        for key, card in inp.other_data.items():
             card_text = card.text
             if "FMESH" in key:
                 fmesh_num = (

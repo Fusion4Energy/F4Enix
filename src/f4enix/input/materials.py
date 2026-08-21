@@ -28,6 +28,7 @@ and limitations under the Licence.
 """
 
 import copy
+import logging
 import os
 import re
 import sys
@@ -41,6 +42,7 @@ from f4enix.core.constants import (
     AVOGADRO_NUMBER,
     PAT_MAT,
     PAT_MX,
+    PAT_KEY_VALUE,
 )
 from f4enix.input.libmanager import LibManager
 from f4enix.core.irradiation import Nuclide
@@ -259,9 +261,9 @@ class Material:
         self,
         name: str,
         zaids: list[Zaid],
-        header: str = None,
-        additional_keys: list[str] = None,
-        mx_cards: list = None,
+        header: str | None = None,
+        additional_keys: list[str] | None = None,
+        mx_cards: list[str] | None = None,
     ) -> None:
         """
         Generate a Material Object starting from a list of Zaid. Usually this kind of objects are generated
@@ -346,15 +348,21 @@ class Material:
             zaid = Zaid(fraction, Nuclide.from_int_string(zaid))
             zaids.append(zaid)
 
-        # TODO: missing header property in mig material
-        header = ''
+        header = ""
         for line in material.text.splitlines(keepends=True):
             if line.startswith("C"):
                 header += line
             else:
                 break
+        # check for additional keys
+        keys = PAT_KEY_VALUE.findall(material.text)
 
-        return cls(f"M{material.id}", zaids=zaids, header=header)
+        return cls(
+            f"M{material.id}",
+            zaids=zaids,
+            header=header.strip("\n").replace("\r", ""),
+            additional_keys=keys,
+        )
 
     @classmethod
     def from_zaids(
@@ -536,9 +544,7 @@ class Material:
                 text = text + " " + key
         # Add mx cards
         for mx in self.mx_cards:
-            for line in mx.lines:
-                line = line.strip("\n")
-                text = text + "\n" + line.upper()
+            text = text + "\n" + mx.upper()
 
         return text.strip("\n")
 
@@ -1061,10 +1067,13 @@ class MatCardsList(Sequence):
         mat_card_list = cls(materials)
 
         for card in model.data_cards():
-            if PAT_MX.match(card.name):
-                mat_id = card.name.upper().replace("MX", "M")
-                mat_card_list[mat_id].mx_cards.append(card)
-                # remove it from the model to avoid double tracking
+            name = card.name
+            if name is None:
+                continue
+
+            if PAT_MX.match(name):
+                mat_id = name.upper().replace("MX", "M")
+                mat_card_list[mat_id].mx_cards.append(card.text)
                 card.remove()
 
         return mat_card_list

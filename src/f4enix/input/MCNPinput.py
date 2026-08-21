@@ -387,11 +387,9 @@ class Input:
     def extract_cells(
         self,
         cells: list[int],
-        outfile: os.PathLike | str,
         renumber_offsets: dict | None = None,
         keep_universe: bool = True,
-        extract_fillers: bool = True,
-    ):
+    ) -> Input:
         """given a list of cells, dumps a minimum MCNP working file.
 
         The file will includes all the requested cells, defined surfaces,
@@ -401,8 +399,6 @@ class Input:
         ----------
         cells : list[int]
             desired list of cells
-        outfile : os.PathLike | str
-            path to the file where the MCNP input needs to be dumped
         renumber_offsets : dict, optional
             apply the self.renumber() function to the extracted input.
             the dict will be passed as keyargs to the function.
@@ -410,96 +406,23 @@ class Input:
         keep_universe: bool
             If True keeps the 'U=' key in the cell cards, otherwise that is
             removed. Default is True.
-        extract_fillers: bool
-            if True extract also the cells belonging to a universe that is
-            used in a 'FILL=' keyword. This happens recursively. default is
-            True.
         """
         logging.info("write MCNP reduced input")
         cell_ids = [int(c) for c in cells]
-        newinput = self._extract_cells_as_input(
-            cell_ids, keep_universe, extract_fillers
-        )
+        newmodel = self._model.extract_cells(cell_ids)
+        extracted_inp = Input(newmodel, deepcopy(self.mat_section))
+
+        # renumber if requested
         if renumber_offsets is not None:
-            newinput.renumber(**renumber_offsets)
-        newinput.write(outfile)
+            extracted_inp.renumber(**renumber_offsets)
+        # remove u= keywords if requested
+        if not keep_universe:
+            for cell in extracted_inp._model.cells():
+                cell.remove_param("u")
+        if renumber_offsets is not None:
+            extracted_inp.renumber(**renumber_offsets)
 
-    def _extract_cells_as_input(
-        self,
-        cell_ids: list[int],
-        keep_universe: bool = True,
-        extract_fillers: bool = True,
-    ) -> "Input":
-        """Build a minimal Input containing only the requested cells and their references."""
-        # TODO: In migjorn there is already extract_universe, should be something similar
-        cset: set[int] = set(cell_ids)
-        self._collect_cell_refs(cset, extract_fillers)
-
-        # Collect referenced surface and material IDs
-        sset: set[int] = set()
-        mset: set[str] = set()
-        for cid in cset:
-            cell = self._model.cell(cid)
-            if cell is None:
-                continue
-            sset.update(abs(s) for s in cell.signed_surfaces)
-            if cell.material and cell.material != 0:
-                mset.add(f"M{cell.material}")
-
-        # Build clean source directly from individual card texts — this avoids
-        # the stale-handle issue that arises after bulk remove_cell/remove_surface.
-        source = self._model.to_source()
-        # Grab cell texts from a fresh model (remove/add may invalidate handles)
-        full_model = migjorn.Model(source)
-
-        def _cell_text(cid: int) -> str:
-            c = full_model.cell(cid)
-            if c is None:
-                return ""
-            text = c.text.replace("\r", "").rstrip("\n") + "\n"
-            if not keep_universe:
-                # Strip u= parameter inline rather than mutating the model
-                text = re.sub(r"\s+[uU]=\S+", "", text)
-            return text
-
-        def _surf_text(sid: int) -> str:
-            s = full_model.surface(sid)
-            return s.text.replace("\r", "").rstrip("\n") + "\n" if s else ""
-
-        cells_src = "".join(_cell_text(cid) for cid in sorted(cset))
-        surfs_src = "".join(_surf_text(sid) for sid in sorted(sset))
-        title = source.splitlines()[0].replace("\r", "")
-        clean_source = title + "\n" + cells_src + "\n" + surfs_src + "\n"
-        new_model = migjorn.Model(clean_source)
-
-        # Materials subset
-        mat_ids = [mid.upper() for mid in mset]
-        materials = self.get_materials_subset(mat_ids) if mat_ids else MatCardsList([])
-        if isinstance(materials, Material):
-            materials = MatCardsList([materials])
-
-        return Input(new_model, materials)
-
-    def _collect_cell_refs(self, cset: set[int], extract_fillers: bool) -> None:
-        """Expand cset to include all referenced (#n complement and fill) cells."""
-        cell_set = set(cset)
-        while cell_set:
-            new_set: set[int] = set()
-            uni_set: set[int] = set()
-            for cid in cell_set:
-                cell = self._model.cell(cid)
-                if cell is None:
-                    continue
-                # Add cells referenced via #n complements
-                new_set.update(cell.cell_refs)
-                if extract_fillers and cell.fill is not None:
-                    uni_set.add(cell.fill.universe)
-            if extract_fillers:
-                for c in self._model.cells():
-                    if c.universe in uni_set:
-                        new_set.add(c.id)
-            cell_set = new_set - cset
-            cset |= cell_set
+        return extracted_inp
 
     def extract_universe(
         self,
@@ -520,11 +443,7 @@ class Input:
         """
         # extract the universe
         extracted_model = self._model.extract_universe(universe)
-        mat_ids = []
-        for mat in extracted_model.materials():
-            mat_ids.append(f"M{mat.id}")
-        mat_subset = self.get_materials_subset(mat_ids)
-        extracted_inp = Input(extracted_model, mat_subset)
+        extracted_inp = Input(extracted_model, deepcopy(self.mat_section))
 
         # renumber if requested
         if renumber_offsets is not None:
@@ -639,7 +558,7 @@ class Input:
         keys = []
         pat = re.compile(r"F[a-zA-Z]*{}$".format(idx), re.IGNORECASE)
         for key in self.other_data.keys():
-            if pat.match(key.split(':')[0]) is not None:
+            if pat.match(key.split(":")[0]) is not None:
                 keys.append(key)
         return keys
 
@@ -774,7 +693,6 @@ class Input:
         cell: migjorn.Cell,
         param: str,
         param_value: int | str,
-        inplace: bool = True,
     ) -> migjorn.Cell:
         """Add a u= or fill= parameter to a cell (always in-place with migjorn).
 
@@ -786,8 +704,6 @@ class Input:
             parameter to set, these are the ones accepted by migjorn
         param_value : int | str
             value to set for the parameter
-        inplace : bool
-            if True, modifies the cell in-place; if False, returns a modified copy
 
         Returns
         -------
@@ -799,9 +715,6 @@ class Input:
             raise ValueError(
                 f"Invalid parameter '{param}'. Allowed parameters are: {allowed_params}"
             )
-
-        if not inplace:
-            cell = deepcopy(cell)
 
         replaced = cell.set_param(param, str(param_value))
         if not replaced:
@@ -815,7 +728,6 @@ class Input:
         add_surface: int,
         new_cell_num: int | None = None,
         mode: str = "intersect",
-        inplace: bool = True,
     ) -> migjorn.Cell:
         """Add a surface to a cell's geometry as union or intersection.
 
@@ -829,11 +741,7 @@ class Input:
             ignored with migjorn (cells are mutated in-place in the model)
         mode : str, optional
             'intersect' (default) or 'union'.
-        inplace: bool
-            ignored (migjorn mutations are always in-place)
         """
-        if not inplace:
-            cell = deepcopy(cell)
         if mode.lower() == "intersect":
             _insert_parenthesis_modifier(cell, str(add_surface))
         elif mode.lower() == "union":
@@ -851,7 +759,6 @@ class Input:
         cell: migjorn.Cell,
         hash_id: int,
         new_cell_num: int | None = None,
-        inplace: bool = True,
     ) -> migjorn.Cell:
         """Add a #hash_id complement to a cell's geometry.
 
@@ -863,11 +770,7 @@ class Input:
             ID of the cell to complement
         new_cell_num : int, optional
             ignored with migjorn
-        inplace : bool, optional
-            ignored (migjorn mutations are always in-place)
         """
-        if not inplace:
-            cell = deepcopy(cell)
         if new_cell_num is not None:
             # TODO migjorn: add Cell.id setter to allow renumbering
             cell.id = new_cell_num
@@ -914,24 +817,19 @@ class Input:
             if c.material != mat:
                 raise ValueError("All cells must have the same material.")
 
-        if new_cell_num is None:
-            new_cell_num = cells[0].id
-
         # Build union geometry text from each cell's geometry part
-        geom_parts = [_extract_cell_geometry(c.text) for c in cells]
+        geom_parts = [c.geometry_text for c in cells]
         union_geom = " : ".join(f"({g})" for g in geom_parts)
 
         base = cells[0]
-        mat_part = "0 " if base.is_void else f"{base.material} {base.density} "
-        params_part = " ".join(
-            f"{p.key}{':{}'.format(p.particle) if p.particle else ''}={p.value}"
-            for p in base.params
-        )
-        new_text = f"{new_cell_num} {mat_part}{union_geom} {params_part}\n"
+        base.geometry_text = union_geom
 
-        for c in cells:
+        # remove the non-base cells from the model
+        for c in cells[1:]:
             self._model.remove_cell(c.id)
-        self._model.add_cell(new_text.strip())
+
+        if new_cell_num is not None:
+            base.id = new_cell_num
 
     def add_F_tally(
         self,
@@ -1577,8 +1475,6 @@ class D1S_Input(Input):
         )
 
 
-
-
 def _get_num_tally(key: str) -> int:
     patnum = re.compile(r"\d+")
     try:
@@ -1630,6 +1526,7 @@ def _convert_range_to_string(current_range: list[int]) -> str:
         result += f"{current_range[-1]} "
     return result
 
+
 def _insert_parenthesis_modifier(cell: migjorn.Cell, modifier: str) -> None:
     """Insert a modifier (e.g., complement or union) around the geometry of a cell.
 
@@ -1640,14 +1537,7 @@ def _insert_parenthesis_modifier(cell: migjorn.Cell, modifier: str) -> None:
     modifier : str
         The modifier to insert (e.g., '#5').
     """
-    n = len(cell.geometry)          # read once, before any insert
+    n = len(cell.geometry)  # read once, before any insert
     cell.insert_geometry_term(0, "(")
     cell.insert_geometry_term(n + 1, ")")
     cell.insert_geometry_term(n + 2, modifier)
-
-def _extract_cell_geometry(cell: migjorn.Cell) -> str:
-    """Extract the geometry part of a cell definition from its text.
-    TODO: this can be improved migjorn side"""
-    text = ''
-    for geom in cell.geometry:
-        text = text + geom.text

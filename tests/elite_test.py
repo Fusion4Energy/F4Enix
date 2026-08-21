@@ -209,7 +209,7 @@ class TestElite_Input:
         inp = deepcopy(self.testInput)
         tol = 1e-6
         Elite_Input._modify_boundary(inp.surfs["427016"], 1, 50, 2, tol)
-        assert inp.surfs["427016"].input[0][0] == "*"
+        assert inp.surfs["427016"].reflective
 
         Elite_Input._modify_boundary(inp.surfs["110"], 2, 50, 2, tol)
         assert float(inp.surfs["110"].lines[0].rstrip().split()[-1]) == 2 * tol

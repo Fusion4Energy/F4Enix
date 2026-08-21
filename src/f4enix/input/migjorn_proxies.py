@@ -1,5 +1,6 @@
 import migjorn
 from collections.abc import MutableMapping
+import logging
 
 
 class _CellsProxy(MutableMapping):
@@ -113,13 +114,17 @@ class _OtherDataProxy(MutableMapping):
 
     def _match(self, key: str, card: migjorn.DataCard) -> bool:
         """Check if the key matches the card name, handles particles (e.g. F6:N,P)"""
+        name = card.name
+        if name is None:
+            return False
+
         particles = None
         key = key.lower()
 
         if ":" in key:
             key, particles = key.split(":")
 
-        if key == card.name.lower():
+        if key == name.lower():
             if particles is None:
                 return True
             else:
@@ -136,7 +141,7 @@ class _OtherDataProxy(MutableMapping):
 
     def __getitem__(self, key: str) -> migjorn.DataCard:
         # check if particles are specified in the key (e.g. F6:N,P)
-        
+
         for card in self._model.data_cards():
             if self._match(key, card):
                 return card
@@ -147,7 +152,7 @@ class _OtherDataProxy(MutableMapping):
         try:
             del self[key]  # remove existing card if it exists
         except KeyError:
-            pass # it is ok, remove it only if found
+            pass  # it is ok, remove it only if found
         self._model.add_data_card(value)
 
     def __delitem__(self, key: str) -> None:
@@ -161,8 +166,14 @@ class _OtherDataProxy(MutableMapping):
         # exclude materials and transforms
         # TODO this will need to be changed from migjorn
         keys = []
+        none_cards = 0
         for card in self._model.data_cards():
-            if not (card.name.lower().startswith("m") or card.name.lower().startswith("tr")):
+            if card.name is None:
+                name = f"NONE{none_cards}"
+                none_cards += 1
+            else:
+                name = card.name
+            if not (name.lower().startswith("m") or name.lower().startswith("tr")):
                 keys.append(self._key(card))
         return iter(keys)
 

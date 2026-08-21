@@ -306,6 +306,13 @@ M1
             in material.to_text()
         )
 
+    def test_additional_cards(self):
+        with as_file(resources.joinpath("mat_test2.i")) as inp:
+            mat = MatCardsList.from_input(inp)["M102"]
+
+        assert len(mat.additional_keys) == 1
+        assert mat.mx_cards[0].strip("\n").strip("\r") == "MX102 1002.21c 1002.31c"
+
 
 class TestMatCardList:
     """test needs to be conducted both for the creation through
@@ -342,10 +349,10 @@ class TestMatCardList:
         matcard2 = deepcopy(self.inp_matcard2)
 
         for matcard in [matcard1, matcard2]:
-            assert len(matcard.materials) == 3
-            assert len(matcard.matdic) == 3
+            assert len(matcard.materials) == 4
+            assert len(matcard.matdic) == 4
 
-    def test_headers(self):
+    def test_headers(self, tmp_path):
         """
         test correct material headers reading
 
@@ -357,10 +364,20 @@ class TestMatCardList:
         matcard1 = deepcopy(self.inp_matcard1)
         matcard2 = deepcopy(self.inp_matcard2)
 
-        headers = {"m1": "C Header M1\n", "m2": "C Header M2\n", "m102": ""}
-        for matcard in [matcard1, matcard2]:
+        # check also after a rewrite
+        with as_file(resources.joinpath("mat_test.i")) as inp:
+            Input.from_input(inp).write(tmp_path / "test.i")
+            matcard3 = MatCardsList.from_input(tmp_path / "test.i")
+
+        headers = {"m1": "C Header M1", "m2": "C Header M2", "m102": ""}
+        for matcard in [matcard1, matcard2, matcard3]:
             for key, header in headers.items():
-                assert matcard[key].header == header
+                assert matcard[key].header.replace("\r", "") == header
+
+            assert (
+                matcard1["m103"].header.replace("\r", "")
+                == "C --- A\nC --- complex\nC header"
+            )
 
     def test_translation(self):
         """
@@ -415,7 +432,7 @@ class TestMatCardList:
         matcard2 = deepcopy(self.inp_matcard2)
         for matcard in [matcard1, matcard2]:
             df = matcard.get_info()
-            assert len(df) == 8
+            assert len(df) == 11
 
     def test_generate_material(self):
         mat1 = Material.from_zaids([(1000, 1)], LIBMAN, "31c", mat_id=1)
