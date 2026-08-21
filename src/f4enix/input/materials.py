@@ -347,7 +347,12 @@ class Material:
             zaids.append(zaid)
 
         # TODO: missing header property in mig material
-        header = f"C temporary header: {material.id}"
+        header = ''
+        for line in material.text.splitlines(keepends=True):
+            if line.startswith("C"):
+                header += line
+            else:
+                break
 
         return cls(f"M{material.id}", zaids=zaids, header=header)
 
@@ -1050,19 +1055,17 @@ class MatCardsList(Sequence):
         """
         # build the materials
         materials = []
-        for mat in model.materials:
+        for mat in model.materials():
             materials.append(Material.from_migjorn(mat))
-
-        groups: dict[str, list[tuple[str, str]]] = {}
-        for mat in model.materials:
-            groups.setdefault(str(mat.id), []).append(("M", mat.text))
 
         mat_card_list = cls(materials)
 
-        for card in model.data_cards:
+        for card in model.data_cards():
             if PAT_MX.match(card.name):
                 mat_id = card.name.upper().replace("MX", "M")
                 mat_card_list[mat_id].mx_cards.append(card)
+                # remove it from the model to avoid double tracking
+                card.remove()
 
         return mat_card_list
 

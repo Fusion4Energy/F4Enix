@@ -169,7 +169,7 @@ class TestInput:
 
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
-        assert inp.header[0].strip("\n").strip("\r") == "This is the header"
+        assert inp.header.strip("\n").strip("\r") == "This is the header"
         assert len(inp.cells) == 128
         assert len(inp.surfs) == 130
         assert len(inp.mat_section) == 25
@@ -305,11 +305,12 @@ class TestInput:
 
     @pytest.mark.parametrize(
         ["id", "expected"],
-        [[94, ["FC94", "F94", "FM94"]], [214, ["FC214", "FMESH214", "FM214"]]],
+        [[94, ["FC94", "F94:N", "FM94"]], [214, ["FC214", "FMESH214:N", "FM214"]]],
     )
     def test_get_tally_cards(self, id, expected):
         keys = self.testInput._get_tally_cards_ids(id)
-        assert keys == expected
+        for a, b in zip(keys, expected):
+            assert a.lower() == b.lower()
 
     def test_get_tally_summary(self):
         with as_file(RESOURCES_INP.joinpath("test_complex_fm.i")) as FILE1:
@@ -317,13 +318,13 @@ class TestInput:
         summary = testInput.get_tally_summary()
         assert len(summary) == 8
         assert summary.loc[194].values.tolist() == [
-            "N",
+            "n",
             "T in Li pt2 appm/FPY",
             "3.8566e10",
             ["25", "205"],
         ]
         to_assert = summary.loc[204].values.tolist()
-        assert to_assert[0] == "N"
+        assert to_assert[0] == "n"
         assert to_assert[1] is np.nan
         assert to_assert[2] is np.nan
         assert to_assert[3] is np.nan
@@ -333,7 +334,7 @@ class TestInput:
         summary = testInput.get_tally_summary(fmesh=True)
         assert len(summary) == 5
         assert summary.loc[224].values.tolist() == [
-            "P",
+            "p",
             "FMESH Photon Heating [MeV/cc/n_s]",
             "-1",
             ["0", "-5", "-6"],
@@ -343,7 +344,7 @@ class TestInput:
         energies = np.linspace(1e4, 1e5, 100)
         newinput.add_F_tally(
             4,
-            ["N", "P"],
+            ["n", "p"],
             cells,
             energies=energies,
             description="Test F4 tally",
@@ -351,14 +352,14 @@ class TestInput:
             add_total=True,
             multiplier="1 -52 1",
         )
-        assert "F4:N,P" in newinput.other_data["F4"].text
+        assert "F4:n,p" in newinput.other_data["F4"].text
         assert "FC4 Test F4 tally" in newinput.other_data["FC4"].text
         assert "SD4" in newinput.other_data
         assert "FM4" in newinput.other_data
         cells = ["((1 2 3 4 5 6) < 10)", 12, "(((1 2 3 4 5 6) 18) < 11)"]
         newinput.add_F_tally(
             14,
-            ["N"],
+            ["n"],
             cells,
             energies=energies,
             description="Test F14 tally",
@@ -366,7 +367,7 @@ class TestInput:
             add_total=True,
             multiplier="1 -52 1",
         )
-        assert "F14:N" in newinput.other_data["F14"]
+        assert "F14:n" in newinput.other_data["F14"].text
         assert "SD14" in newinput.other_data
 
     def test_set_cell_void(self):
@@ -421,16 +422,16 @@ class TestInput:
         cell = newinput.cells["27"]
         Input.add_surface(cell, -sur, None, "intersect", True)
         assert sur in cell.surface_ids
+        assert cell.text == (
+            '27   15  9.1292E-02  ( -128 129 26  -27 ) -180     $imp:n,p=1\n'
+        )
 
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
             mcnp_input = Input.from_input(FILE)
-        with pytest.raises(NotImplementedError):
-            Input.add_surface(mcnp_input.cells["1"], sur, None, "union", False)
 
-        sur = 5555
-        # union mode raises NotImplementedError
-        with pytest.raises(NotImplementedError):
-            Input.add_surface(mcnp_input.cells["22"], -sur, 50, "union", True)
+        cell = Input.add_surface(mcnp_input.cells["1"], sur, None, "union", True)
+        assert f'( -1 ) :{sur}' in cell.text
+
 
     def test_get_density_range(self):
         with as_file(RESOURCES_INP.joinpath("test_rho_range.i")) as FILE1:

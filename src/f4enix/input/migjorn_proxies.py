@@ -1,10 +1,6 @@
 import migjorn
 from collections.abc import MutableMapping
 
-from f4enix.core.constants import PAT_F_TR_CARD_KEY
-
-# TODO: migjorn has no attribute text for datacards
-
 
 class _CellsProxy(MutableMapping):
     """Dict-like proxy for model cells; __setitem__ replaces a cell in the model."""
@@ -29,7 +25,7 @@ class _CellsProxy(MutableMapping):
         self._model.remove_cell(int(key))
 
     def __iter__(self):
-        return (str(c.id) for c in self._model.cells)
+        return (str(c.id) for c in self._model.cells())
 
     def __len__(self) -> int:
         return self._model.num_cells
@@ -63,7 +59,7 @@ class _SurfsProxy(MutableMapping):
         self._model.remove_surface(int(key.lstrip("*")))
 
     def __iter__(self):
-        return (self._key(s) for s in self._model.surfaces)
+        return (self._key(s) for s in self._model.surfaces())
 
     def __len__(self) -> int:
         return self._model.num_surfaces
@@ -90,9 +86,13 @@ class _TransformsProxy(MutableMapping):
         return t
 
     def __setitem__(self, key: str, value) -> None:
-        raise NotImplementedError(
-            "migjorn does not expose add_transform; modify the transform handle in-place."
-        )
+        try:
+            tid = int(key.upper().lstrip("*").removeprefix("TR"))
+        except ValueError:
+            raise KeyError(key)
+        text = value.text if isinstance(value, migjorn.Transform) else value
+        self._model.remove_transform(tid)
+        self._model.add_transform(text)
 
     def __delitem__(self, key: str) -> None:
         try:
@@ -102,7 +102,7 @@ class _TransformsProxy(MutableMapping):
         self._model.remove_transform(tid)
 
     def __iter__(self):
-        return (f"TR{t.id}" for t in self._model.transforms)
+        return (f"TR{t.id}" for t in self._model.transforms())
 
     def __len__(self) -> int:
         return self._model.num_transforms
@@ -111,35 +111,60 @@ class _TransformsProxy(MutableMapping):
 class _OtherDataProxy(MutableMapping):
     """Dict-like proxy for other_data; delegates directly to the underlying dict."""
 
+    def _match(self, key: str, card: migjorn.DataCard) -> bool:
+        """Check if the key matches the card name, handles particles (e.g. F6:N,P)"""
+        particles = None
+        key = key.lower()
+
+        if ":" in key:
+            key, particles = key.split(":")
+
+        if key == card.name.lower():
+            if particles is None:
+                return True
+            else:
+                if card.particle.lower() == particles:
+                    return True
+        return False
+
+    @staticmethod
+    def _key(card: migjorn.DataCard) -> str:
+        return str(card.name) + (f":{card.particle}" if card.particle else "")
+
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
 
     def __getitem__(self, key: str) -> migjorn.DataCard:
         # check if particles are specified in the key (e.g. F6:N,P)
-        if ":" in key:
-            key, particles = key.split(":")
-        else:
-            particles = None
-        for card in self._model.data_cards:
-            if key == card.name:
-                if particles is None:
-                    return card
-                else:
-                    if card.particle == particles.lower():
-                        return card
+        
+        for card in self._model.data_cards():
+            if self._match(key, card):
+                return card
 
         raise KeyError(f"Card {key} not found in data cards")
 
     def __setitem__(self, key: str, value: str) -> None:
-        # TODO: there is no setter
-        raise NotImplementedError()
+        try:
+            del self[key]  # remove existing card if it exists
+        except KeyError:
+            pass # it is ok, remove it only if found
+        self._model.add_data_card(value)
 
     def __delitem__(self, key: str) -> None:
-        # TODO: there is no simple way to delete a data card
-        raise NotImplementedError()
+        for card in self._model.data_cards():
+            if self._match(key, card):
+                card.remove()
+                return
+        raise KeyError(f"Card {key} not found in data cards")
 
     def __iter__(self):
-        return iter(self._model.data_cards)
+        # exclude materials and transforms
+        # TODO this will need to be changed from migjorn
+        keys = []
+        for card in self._model.data_cards():
+            if not (card.name.lower().startswith("m") or card.name.lower().startswith("tr")):
+                keys.append(self._key(card))
+        return iter(keys)
 
     def __len__(self) -> int:
-        return len(self._model.data_cards)
+        return len(self._model.data_cards())

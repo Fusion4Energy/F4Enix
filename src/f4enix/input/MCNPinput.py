@@ -90,15 +90,6 @@ class Input:
         self._model = model
         self._mat_section = mat_section
 
-        # TODO: migjorn should have a header attribute
-        lines = self._model.to_source().splitlines(keepends=True)
-        header: list[str] = []
-        for line in lines:
-            if re.match(r"^\d", line.strip()):
-                break
-            header.append(line.replace("\r", ""))
-        self._header = header
-
     def __deepcopy__(self, memo: dict) -> "Input":
         # migjorn.Model can't be pickled; rebuild from its text source
         new_obj = self.__class__.__new__(self.__class__)
@@ -125,7 +116,7 @@ class Input:
     def cells(self, value: list[migjorn.Cell]) -> None:
         # TODO: this can be improved migjorn side
         # delete all cells from model and add the new ones
-        for cell in list(self._model.cells):
+        for cell in self._model.cells():
             self._model.remove_cell(cell.id)
         for cell in value:
             self._model.add_cell(cell.text)
@@ -142,7 +133,7 @@ class Input:
     @surfs.setter
     def surfs(self, value: list[migjorn.Surface]) -> None:
         # TODO: this can be improved migjorn side
-        for surf in list(self._model.surfaces):
+        for surf in list(self._model.surfaces()):
             self._model.remove_surface(surf.id)
         for surf in value:
             self._model.add_surface(surf.text)
@@ -160,7 +151,10 @@ class Input:
     @transformations.setter
     def transformations(self, value: list[migjorn.Transform]) -> None:
         # TODO: migjorn has no add_transform; this setter is a no-op for now
-        raise NotImplementedError
+        for tr in list(self._model.transforms()):
+            self._model.remove_transform(tr.id)
+        for tr in value:
+            self._model.add_transform(tr.text)
 
     @property
     def other_data(self) -> _OtherDataProxy:
@@ -173,7 +167,10 @@ class Input:
     @other_data.setter
     def other_data(self, value: list[migjorn.DataCard]) -> None:
         # TODO: there is no setter in migjorn
-        raise NotImplementedError
+        for _, card in self.other_data.items():
+            card.remove()
+        for card in value:
+            self._model.add_data_card(card.text)
 
     @property
     def mat_section(self) -> MatCardsList:
@@ -186,8 +183,7 @@ class Input:
     @property
     def tally_keys(self) -> list[int]:
         keys = []
-        for card in self.other_data:
-            name = card.name
+        for name in self.other_data.keys():
             m = PAT_ALL_TALLY_KEYS.match(name)
             if (
                 m
@@ -204,23 +200,23 @@ class Input:
     @property
     def fmesh_keys(self) -> list[int]:
         keys = []
-        for card in self.other_data:
-            if PAT_FMESH_KEY.match(card.name):
+        for name in self.other_data.keys():
+            if PAT_FMESH_KEY.match(name):
                 try:
-                    keys.append(int(re.search(r"\d+", card.name).group()))
+                    keys.append(int(re.search(r"\d+", name).group()))
                 except (AttributeError, ValueError):
                     pass
         return keys
 
     @property
-    def header(self) -> list[str]:
+    def header(self) -> str:
         """Title and leading comment lines before the first cell."""
-        return self._header
+        return self._model.title
 
     @header.setter
-    def header(self, value: list[str]) -> None:
+    def header(self, value: str) -> None:
         """Set the title and leading comment lines before the first cell."""
-        self._header = value
+        self._model.title = value
 
     # ------------------------------------------------------------------
     # Construction
@@ -266,22 +262,21 @@ class Input:
         """
         logging.info(f"Writing to {outfilepath}")
         with open(outfilepath, "w", newline="\n") as f:
-            f.writelines(self.header)
-            for cell in self._model.cells:
+            f.write(self.header + "\n")
+            for cell in self._model.cells():
                 f.write(cell.text.replace("\r", ""))
             # blank line between cells and surfaces
             f.write("\n")
-            for surf in self._model.surfaces:
+            for surf in self._model.surfaces():
                 f.write(surf.text.replace("\r", ""))
             # blank line between surfaces and materials
             f.write("\n")
             # write materials section
-            f.write(self.mat_section.to_text())
+            f.write(self.mat_section.to_text() + "\n")
             # write transformations and other data cards
-            for tr in self._model.transforms:
+            for _, tr in self.transformations.items():
                 f.write(tr.text.replace("\r", ""))
-            for card in self._model.data_cards:
-                # TODO: missing data card text property
+            for _, card in self.other_data.items():
                 f.write(card.text.replace("\r", ""))
 
         logging.info("File was written correctly")
@@ -332,9 +327,15 @@ class Input:
         if surfs is not None:
             self._model.offset_surfaces(int(surfs))
         if universes is not None:
-            self._model.renumber_universes(lambda u: u + int(universes))
+            mapping = {}
+            for u in self._model.universe_ids():
+                mapping[u] = u + int(universes)
+            self._model.renumber_universes(mapping)
         if translations is not None:
-            self._model.renumber_transforms(lambda t: t + int(translations))
+            mapping = {}
+            for tr in self._model.transforms():
+                mapping[tr.id] = tr.id + int(translations)
+            self._model.renumber_transforms(mapping)
 
     def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
         """
@@ -494,7 +495,7 @@ class Input:
                 if extract_fillers and cell.fill is not None:
                     uni_set.add(cell.fill.universe)
             if extract_fillers:
-                for c in self._model.cells:
+                for c in self._model.cells():
                     if c.universe in uni_set:
                         new_set.add(c.id)
             cell_set = new_set - cset
@@ -519,19 +520,18 @@ class Input:
         """
         # extract the universe
         extracted_model = self._model.extract_universe(universe)
-        extracted_inp = Input(extracted_model)
         mat_ids = []
-        for mat in extracted_model.materials:
+        for mat in extracted_model.materials():
             mat_ids.append(f"M{mat.id}")
         mat_subset = self.get_materials_subset(mat_ids)
-        extracted_inp.mat_section = mat_subset
+        extracted_inp = Input(extracted_model, mat_subset)
 
         # renumber if requested
         if renumber_offsets is not None:
             extracted_inp.renumber(**renumber_offsets)
         # remove u= keywords if requested
         if not keep_universe:
-            for cell in extracted_inp._model.cells:
+            for cell in extracted_inp._model.cells():
                 cell.remove_param("u")
 
         return extracted_inp
@@ -637,16 +637,22 @@ class Input:
         idx: int,
     ) -> list[str]:
         keys = []
-        pat = re.compile(r"F[a-zA-Z]*{}$".format(idx))
-        for card in self.other_data:
-            if pat.match(card.name) is not None:
-                keys.append(card.name)
+        pat = re.compile(r"F[a-zA-Z]*{}$".format(idx), re.IGNORECASE)
+        for key in self.other_data.keys():
+            if pat.match(key.split(':')[0]) is not None:
+                keys.append(key)
         return keys
 
     def _retrieve_input(self, tag: str) -> str:
         # get the card text excluding the card name tag and $ comments
         text = self.other_data[tag].text
-        first_line = text.splitlines()[0] if text else ""
+        lines = text.splitlines()
+        # get first line that is not blank or a comment
+        first_line = ""
+        for ln in lines:
+            if not PAT_COMMENT.match(ln):
+                first_line = ln
+                break
         inp = first_line.split("$")[0]  # strip inline $ comment
         inp = inp.replace(tag, "").replace(tag.lower(), "").strip()
         return inp
@@ -702,12 +708,12 @@ class Input:
             multiplier = None
             card_keys = self._get_tally_cards_ids(key)
             for aux_key in card_keys:
-                if aux_key[:2] == "FC":
+                if aux_key[:2].upper() == "FC":
                     desc = self._retrieve_input(aux_key)
-                elif aux_key == tag_tally + str(key):
+                elif (tag_tally + str(key)).upper() in aux_key.upper():
                     card = self.other_data[aux_key]
                     particle = card.particle
-                elif aux_key[:2] == "FM":
+                elif aux_key[:2].upper() == "FM":
                     multiplier = self._retrieve_FM(aux_key)
 
             row = {"Tally": key, "Particle": particle, "Description": desc}
@@ -823,21 +829,20 @@ class Input:
             ignored with migjorn (cells are mutated in-place in the model)
         mode : str, optional
             'intersect' (default) or 'union'.
-            NOTE: union mode requires migjorn.Cell.add_surface_union (TODO migjorn)
         inplace: bool
             ignored (migjorn mutations are always in-place)
         """
         if not inplace:
             cell = deepcopy(cell)
         if mode.lower() == "intersect":
-            cell.add_surface(add_surface)
+            _insert_parenthesis_modifier(cell, str(add_surface))
         elif mode.lower() == "union":
-            # TODO migjorn: add Cell.add_surface_union(surface: int) method
-            raise NotImplementedError(
-                "Union surface addition requires migjorn.Cell.add_surface_union (not yet available)"
-            )
+            _insert_parenthesis_modifier(cell, f":{add_surface}")
         else:
             raise ValueError(f"Invalid mode {mode}. Use 'union' or 'intersect'.")
+        if new_cell_num is not None:
+            # TODO migjorn: add Cell.id setter to allow renumbering
+            cell.id = new_cell_num
 
         return cell
 
@@ -866,7 +871,7 @@ class Input:
         if new_cell_num is not None:
             # TODO migjorn: add Cell.id setter to allow renumbering
             cell.id = new_cell_num
-        cell.add_complement(hash_id)
+        _insert_parenthesis_modifier(cell, f"#{hash_id}")
         return cell
 
     def hash_multiple_cells(self, hash_dict: dict[int, list[int]]) -> None:
@@ -881,7 +886,7 @@ class Input:
             for cell_num in cell_ids:
                 cell = self._model.cell(int(cell_num))
                 if cell is not None:
-                    cell.add_complement(hash_id)
+                    _insert_parenthesis_modifier(cell, f"#{hash_id}")
 
     def cells_union(
         self,
@@ -1062,30 +1067,30 @@ class Input:
 
         if tally_ids is None:
             # Remove all tally-related cards
-            for card in self.other_data:
-                if PAT_ALL_TALLY_KEYS.match(card.name):
-                    del self.other_data[card.name]
+            for key in self.other_data.keys():
+                if PAT_ALL_TALLY_KEYS.match(key):
+                    del self.other_data[key]
         else:
             # Remove only cards matching the provided tally IDs
-            for card in self.other_data:
-                m = PAT_ALL_TALLY_KEYS.match(card.name)
+            for key in list(self.other_data.keys()):
+                m = PAT_ALL_TALLY_KEYS.match(key)
                 if m:
                     num = int(m.group(2))
                     if num in tally_ids:
-                        del self.other_data[card.name]
+                        del self.other_data[key]
 
     def remove_sdef(self) -> None:
         """Remove the SDEF card and related source definition cards from the input."""
 
-        for card in self.other_data:
-            key_lower = card.name.lower()
+        for key in list(self.other_data.keys()):
+            key_lower = key.lower()
             if key_lower.startswith(("sdef", "kcode", "ssr")) or key_lower[:2] in (
                 "si",
                 "sd",
                 "ds",
                 "sp",
             ):
-                del self.other_data[card.name]
+                del self.other_data[key]
 
     def prepare_void_check(
         self, surf: migjorn.Surface, nps: int, particle: str = "N"
@@ -1229,7 +1234,7 @@ class D1S_Input(Input):
     @classmethod
     def from_input(
         cls,
-        inputfile: os.PathLike,
+        inputfile: os.PathLike | str,
         irrad_file: os.PathLike | None = None,
         reac_file: os.PathLike | None = None,
     ) -> D1S_Input:
@@ -1239,7 +1244,7 @@ class D1S_Input(Input):
 
         Parameters
         ----------
-        inputfile : os.PathLike
+        inputfile : os.PathLike | str
             path to the MCNP input (D1S)
         irrad_file : os.PathLike, optional
             path to the irradiation file, by default None (no file associated)
@@ -1572,30 +1577,6 @@ class D1S_Input(Input):
         )
 
 
-def _extract_cell_geometry(cell_text: str) -> str:
-    """Extract the geometry portion from a cell card text line."""
-    # TODO: migjorn side there is likely a better way to extrac the geometry part
-    line = cell_text.splitlines()[0].strip().replace("\r", "")
-    tokens = line.split()
-    if not tokens:
-        return ""
-    # Token 0: cell number. Token 1: material. Token 2: density (if non-void).
-    start = 1
-    if len(tokens) > 1 and re.match(r"^-?\d+$", tokens[1]):
-        mat = int(tokens[1])
-        if mat == 0:
-            start = 2  # void: no density field
-        elif len(tokens) > 2 and re.match(r"^-?[\d.eE+]+$", tokens[2]):
-            start = 3  # non-void: density at index 2
-        else:
-            start = 2
-    # Collect geometry tokens until a keyword (letters that aren't a surface/complement ref)
-    geom_tokens = []
-    for tok in tokens[start:]:
-        if re.match(r"^[a-zA-Z]{2,}", tok) and not tok.startswith("#"):
-            break
-        geom_tokens.append(tok)
-    return " ".join(geom_tokens)
 
 
 def _get_num_tally(key: str) -> int:
@@ -1648,3 +1629,25 @@ def _convert_range_to_string(current_range: list[int]) -> str:
         result += f"{current_range[-1] - current_range[0] - 1}I "
         result += f"{current_range[-1]} "
     return result
+
+def _insert_parenthesis_modifier(cell: migjorn.Cell, modifier: str) -> None:
+    """Insert a modifier (e.g., complement or union) around the geometry of a cell.
+
+    Parameters
+    ----------
+    cell : migjorn.Cell
+        The cell whose geometry will be modified.
+    modifier : str
+        The modifier to insert (e.g., '#5').
+    """
+    n = len(cell.geometry)          # read once, before any insert
+    cell.insert_geometry_term(0, "(")
+    cell.insert_geometry_term(n + 1, ")")
+    cell.insert_geometry_term(n + 2, modifier)
+
+def _extract_cell_geometry(cell: migjorn.Cell) -> str:
+    """Extract the geometry part of a cell definition from its text.
+    TODO: this can be improved migjorn side"""
+    text = ''
+    for geom in cell.geometry:
+        text = text + geom.text
