@@ -224,12 +224,13 @@ class TestInput:
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir("sub").join("extract.i")
         renumber_offsets = {"cells": 1}
-        newinput.extract_cells(cells, outfile, renumber_offsets=renumber_offsets)
+        newinput = newinput.extract_cells(cells, renumber_offsets=renumber_offsets)
+        newinput.write(outfile)
         # re-read
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
-        assert len(inp2.mat_section) == 3
+        # assert len(inp2.mat_section) == 3  entire mat section is copied now
         assert sorted(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
 
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE:
@@ -238,9 +239,8 @@ class TestInput:
         outfile = os.path.join(os.path.dirname(outfile), "extract_fillers.i")
 
         renumber_offsets = {"cells": 500}
-        mcnp_input.extract_cells(
-            [50], outfile, extract_fillers=True, renumber_offsets=renumber_offsets
-        )
+        newinp = mcnp_input.extract_cells([50], renumber_offsets=renumber_offsets)
+        newinp.write(outfile)
 
         # re-read
         result = Input.from_input(outfile)
@@ -249,10 +249,10 @@ class TestInput:
         assert mcnp_input.cells["10"].id == 10
 
         # test extract without renumbering
-        result.extract_cells([550], outfile)
+        result.extract_cells([550])
 
         # test extract with strings instead of ints
-        result.extract_cells(["550"], outfile)  # type: ignore
+        result.extract_cells(["550"])
 
     def test_extract_universe(self, tmpdir):
         with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE:
@@ -267,6 +267,13 @@ class TestInput:
         for _, cell in result.cells.items():
             assert cell.universe is None
         assert mcnp_input.cells["21"].universe == universe
+
+        # try also the extract with filler
+        result = mcnp_input.extract_universe(
+            universe, keep_level_0=True, renumber_offsets={"cells": 1}
+        )
+        assert len(result.cells) == 3 + 1
+        assert result.cells[2].fill.universe == universe
 
     def test_duplicated_nums(self):
         # There was a bug reading material 101
@@ -292,7 +299,7 @@ class TestInput:
     @pytest.mark.parametrize("flag", [True, False])
     def test_get_cells_by_matID(self, flag):
         newinput = deepcopy(self.testInput)
-        cells = newinput.get_cells_by_matID(13, deepcopy_flag=flag)
+        cells = newinput.get_cells_by_matID(13)
         for filtered, expected in zip(cells.keys(), range(2, 22)):
             assert filtered == str(expected)
 

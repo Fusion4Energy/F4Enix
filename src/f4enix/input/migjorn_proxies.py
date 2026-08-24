@@ -3,7 +3,7 @@ from collections.abc import MutableMapping
 import logging
 
 
-class _CellsProxy(MutableMapping):
+class _CellsProxy(MutableMapping[str, migjorn.Cell]):
     """Dict-like proxy for model cells; __setitem__ replaces a cell in the model."""
 
     def __init__(self, model: migjorn.Model) -> None:
@@ -32,7 +32,7 @@ class _CellsProxy(MutableMapping):
         return self._model.num_cells
 
 
-class _SurfsProxy(MutableMapping):
+class _SurfsProxy(MutableMapping[str, migjorn.Surface]):
     """Dict-like proxy for model surfaces; __setitem__ replaces a surface in the model."""
 
     def __init__(self, model: migjorn.Model) -> None:
@@ -66,7 +66,7 @@ class _SurfsProxy(MutableMapping):
         return self._model.num_surfaces
 
 
-class _TransformsProxy(MutableMapping):
+class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
     """Dict-like proxy for model transforms keyed by 'TRn'.
 
     Deletion is supported via ``del inp.transformations['TR5']``.
@@ -109,7 +109,7 @@ class _TransformsProxy(MutableMapping):
         return self._model.num_transforms
 
 
-class _OtherDataProxy(MutableMapping):
+class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
     """Dict-like proxy for other_data; delegates directly to the underlying dict."""
 
     def _match(self, key: str, card: migjorn.DataCard) -> bool:

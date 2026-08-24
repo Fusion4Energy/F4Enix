@@ -89,6 +89,9 @@ class Input:
 
         """
         self._model = model
+        # remove all materials from migjorn model to avoid confusion
+        for mat in self._model.materials():
+            self._model.remove_material(mat.id)
         self._mat_section = mat_section
 
     def __deepcopy__(self, memo: dict) -> "Input":
@@ -294,8 +297,15 @@ class Input:
         other_inp : Input
             input to merge in
         """
+        keys1 = set([material.name for material in self.mat_section])
+        keys2 = set([material.name for material in other_inp.mat_section])
+        intersection = keys1.intersection(keys2)
+        if len(intersection) > 0:
+            raise migjorn.MergeError(
+                f"The following materials are duplicated {intersection}"
+            )
+
         self._model.merge([other_inp._model])
-        # TODO: double check here what happens if there are duplicate materials
         self._mat_section.extend(other_inp._mat_section.materials)
 
     def renumber(
@@ -303,7 +313,7 @@ class Input:
         cells: int | None = None,
         surfs: int | None = None,
         universes: int | None = None,
-        translations: int | None = None,
+        tranformations: int | None = None,
         renum_all: int | None = None,
     ) -> None:
         """Renumber IDs in the input by a constant offset.
@@ -316,13 +326,13 @@ class Input:
             offset for surface IDs
         universes : int, optional
             offset for universe IDs
-        translations : int, optional
+        transformations : int, optional
             offset for transformation IDs
         renum_all : int, optional
             applies the same offset to all of the above
         """
         if renum_all is not None:
-            cells = surfs = universes = translations = renum_all
+            cells = surfs = universes = tranformations = renum_all
         if cells is not None:
             self._model.offset_cells(int(cells))
         if surfs is not None:
@@ -332,10 +342,10 @@ class Input:
             for u in self._model.universe_ids():
                 mapping[u] = u + int(universes)
             self._model.renumber_universes(mapping)
-        if translations is not None:
+        if tranformations is not None:
             mapping = {}
             for tr in self._model.transforms():
-                mapping[tr.id] = tr.id + int(translations)
+                mapping[tr.id] = tr.id + int(tranformations)
             self._model.renumber_transforms(mapping)
 
     def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
@@ -420,8 +430,6 @@ class Input:
         if not keep_universe:
             for cell in extracted_inp._model.cells():
                 cell.remove_param("u")
-        if renumber_offsets is not None:
-            extracted_inp.renumber(**renumber_offsets)
 
         return extracted_inp
 
@@ -429,7 +437,7 @@ class Input:
         self,
         universe: int,
         renumber_offsets: dict | None = None,
-        keep_universe: bool = False,
+        keep_level_0: bool = False,
     ) -> "Input":
         """Dump a minimum MCNP working file for the given universe.
 
@@ -439,25 +447,31 @@ class Input:
             universe id to be extracted
         renumber_offsets : dict, optional
             offsets passed to renumber(), by default None
-        keep_universe : bool
-            keep u= keyword in cell definitions, by default False
+        keep_level_0 : bool
+            if True, also the cell containing the fill card is retained. If False,
+            only the filler cells are retained and the universe card is removed from
+            their definition, by default False
         """
-        # extract the universe
-        extracted_model = self._model.extract_universe(universe)
-        extracted_inp = Input(extracted_model, deepcopy(self.mat_section))
+        cells = []
+        # collect the needed cells
+        for key, cell in self.cells.items():
+            if cell.universe == universe:
+                cells.append(int(key))
+            if keep_level_0 and cell.fill:
+                if cell.fill.universe == universe:
+                    cells.append(int(key))
+
+        extracted_inp = self.extract_cells(cells, keep_universe=False)
 
         # renumber if requested
         if renumber_offsets is not None:
             extracted_inp.renumber(**renumber_offsets)
-        # remove u= keywords if requested
-        if not keep_universe:
-            for cell in extracted_inp._model.cells():
-                cell.remove_param("u")
 
         return extracted_inp
 
     def get_cells_by_matID(
-        self, matID: int | str, deepcopy_flag: bool = True
+        self,
+        matID: int | str,
     ) -> dict[str, migjorn.Cell]:
         """Return all cells assigned to matID.
 
@@ -465,8 +479,6 @@ class Input:
         ----------
         matID : int | str
             material ID to filter the cells
-        deepcopy_flag: bool
-            ignored (kept for API compatibility)
 
         Returns
         -------
@@ -563,18 +575,25 @@ class Input:
                 keys.append(key)
         return keys
 
-    def _retrieve_input(self, tag: str) -> str:
+    def _retrieve_values(self, tag: str) -> str:
         # get the card text excluding the card name tag and $ comments
         text = self.other_data[tag].text
-        lines = text.splitlines()
+        lines = text.splitlines(keepends=True)
         # get first line that is not blank or a comment
         first_line = ""
         for ln in lines:
+            ln = ln.replace("\r", "")
             if not PAT_COMMENT.match(ln):
                 first_line = ln
                 break
         inp = first_line.split("$")[0]  # strip inline $ comment
-        inp = inp.replace(tag, "").replace(tag.lower(), "").strip()
+        inp = (
+            inp.replace(tag, "")
+            .replace(tag.lower(), "")
+            .strip("\n")
+            .strip("\r")
+            .strip()
+        )
         return inp
 
     def _retrieve_FM(self, tag: str) -> list[str]:
@@ -585,7 +604,7 @@ class Input:
             ln_clean = ln.split("$")[0].strip()
             if ln_clean and not re.match(r"^[cC](\s|$)", ln_clean):
                 lines.append(ln_clean)
-        first_line = self._retrieve_input(tag).split("$")[0].split()
+        first_line = self._retrieve_values(tag).split("$")[0].split()
         if len(lines) <= 1:
             return first_line
         multi = ["N.A."]
@@ -629,7 +648,7 @@ class Input:
             card_keys = self._get_tally_cards_ids(key)
             for aux_key in card_keys:
                 if aux_key[:2].upper() == "FC":
-                    desc = self._retrieve_input(aux_key)
+                    desc = self._retrieve_values(aux_key)
                 elif (tag_tally + str(key)).upper() in aux_key.upper():
                     card = self.other_data[aux_key]
                     particle = card.particle
@@ -710,14 +729,10 @@ class Input:
         -------
         migjorn.Cell
         """
-        # TODO: understand or import what are allowed parameters for mig
-        allowed_params = ["u", "fill"]
-        if param not in allowed_params:
-            raise ValueError(
-                f"Invalid parameter '{param}'. Allowed parameters are: {allowed_params}"
-            )
-
-        replaced = cell.set_param(param, str(param_value))
+        # TODO: I do not know if migjorn handles case
+        replaced = cell.set_param(param.upper(), str(param_value))
+        if not replaced:
+            replaced = cell.set_param(param.lower(), str(param_value))
         if not replaced:
             cell.add_param(f"{param}={param_value}")
 
@@ -880,11 +895,11 @@ class Input:
         cells_list = list(cells)
         if add_total:
             cells_list.append("T")
-        cells_str = " ".join(str(c) for c in cells_list)
-        self.other_data[f"F{tally_ID}"] = f"F{tally_ID}:{particles_str} {cells_str}\n"
+        cells_str = "\n      ".join(str(c) for c in cells_list)
+        self.other_data[f"F{tally_ID}"] = f"F{tally_ID}:{particles_str} {cells_str}"
         if energies is not None:
-            energies_str = " ".join(f"{e:.4e}" for e in energies)
-            self.other_data[f"E{tally_ID}"] = f"E{tally_ID} {energies_str}\n"
+            energies_str = "\n      ".join(f"{e:.4e}" for e in energies)
+            self.other_data[f"E{tally_ID}"] = f"E{tally_ID} {energies_str}"
         if add_SD:
             repetitions = len(cells_list) - 1
             rep_str = f"1 {repetitions}R" if repetitions else "1"
@@ -992,14 +1007,14 @@ class Input:
                 del self.other_data[key]
 
     def prepare_void_check(
-        self, surf: migjorn.Surface, nps: int, particle: str = "N"
+        self, surface: int | str, nps: int, particle: str = "N"
     ) -> None:
         """Prepare the input for a void check.
 
         Parameters
         ----------
-        surf : migjorn.Surface
-            sphere surface to use as source
+        surface : int | str
+            The surface ID to be used. Must be included in the model
         nps : int
             number of particles
         particle : str, optional
@@ -1010,6 +1025,7 @@ class Input:
         ValueError
             if the provided surface is not a sphere
         """
+        surf = self.surfs[str(surface)]
         if surf.kind.lower() not in ["so", "sx", "sy", "sz", "s"]:
             raise ValueError("The provided surface is not a sphere")
         # Add if not already in the model; surface may already be present

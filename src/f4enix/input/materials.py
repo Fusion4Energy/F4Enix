@@ -503,6 +503,7 @@ class Material:
         """
         Write the material card to MCNP-formatted text.
 
+
         Returns
         -------
         str
@@ -845,11 +846,11 @@ class Material:
         float
             atom density of the material in barn^-1 cm^-1.
         """
-        self.switch_fraction("atom", lib_manager, inplace=True)
+        fake_mat = self.switch_fraction("atom", lib_manager, inplace=False)
         mass_number = 0
-        tot_fraction = self.get_tot_fraction()
+        tot_fraction = fake_mat.get_tot_fraction()
 
-        for zaid in self.zaids:
+        for zaid in fake_mat.zaids:
             mass_number = (
                 mass_number
                 + zaid.fraction
@@ -912,7 +913,8 @@ class Material:
         tad = self.get_tad(density, lib_manager)
         for zaid in self.zaids:
             zaid.fraction = zaid.fraction * tad
-        self.elements, self._zaids = self._collapse_zaids()
+        # do not normalize!
+        # self.elements, self._zaids = self._collapse_zaids()
 
 
 # Support function for Submaterial
@@ -952,7 +954,7 @@ def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:
     return zaids, additional_keys
 
 
-class MatCardsList(Sequence):
+class MatCardsList(Sequence[Material]):
     def __init__(self, materials: list[Material]) -> None:
         """
         Object representing the list of materials included in an MCNP input.
@@ -1214,7 +1216,7 @@ class MatCardsList(Sequence):
             zaids.extend(material.zaids)
 
         # Generate new material and matlist
-        newmat = Material(mat_name, zaids=zaids, header=main_header)
+        newmat = Material(mat_name, zaids=zaids, header=main_header.strip("\n"))
 
         return newmat
 
