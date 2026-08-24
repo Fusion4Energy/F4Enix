@@ -25,6 +25,7 @@ import re
 from copy import deepcopy
 from collections.abc import MutableMapping
 from typing import Mapping, Sequence
+from typing import Self
 
 import matplotlib.pyplot as plt
 import migjorn
@@ -223,7 +224,7 @@ class Input:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_input(cls, inputfile: os.PathLike | str) -> "Input":
+    def from_input(cls, inputfile: os.PathLike | str) -> Self:
         """Parse an MCNP input file using migjorn.
 
         Parameters

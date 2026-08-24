@@ -272,7 +272,7 @@ def _get_xs_zaid_list(
     xs = {}
     E = []
     for zaid in zaids:
-        nuc = zaid.element + zaid.isotope
+        nuc = str(zaid.nuclide.zaid)
         temp_E, temp_xs = _continuous_energy_xs_nuclide(
             nuc, types, library, ace_filepaths, temp
         )
@@ -301,8 +301,8 @@ def _get_xs_zaid_list(
             data[line, :] = 1.0
         else:
             for zaid in zaids:
+                nuc = str(zaid.nuclide.zaid)
                 table = xs[nuc][line]
-                nuc = zaid.element + zaid.isotope
                 if group_structure:
                     # if we are performing a collapse in groups, perform an integral
                     values = []
@@ -372,13 +372,9 @@ def get_xs(
     # Force normalization and atom fractions
     mat.switch_fraction("mass", LM, inplace=True)
     mat.switch_fraction("atom", LM, inplace=True)
-    # Collect all zaids
-    zaids = []
-    for submat in mat.submaterials:
-        zaids.extend(submat.zaidList)
 
     energy_grid, data = _get_xs_zaid_list(
-        zaids,
+        mat.zaids,
         types,
         library,
         ace_filepaths,
