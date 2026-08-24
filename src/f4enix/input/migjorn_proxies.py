@@ -4,7 +4,13 @@ import logging
 
 
 class _CellsProxy(MutableMapping[str, migjorn.Cell]):
-    """Dict-like proxy for model cells; __setitem__ replaces a cell in the model."""
+    """Dict-like proxy for model cells; __setitem__ replaces a cell in the model.
+
+    Attributes
+    ----------
+    _model : migjorn.Model
+        the underlying migjorn model whose cells are proxied.
+    """
 
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
@@ -33,7 +39,13 @@ class _CellsProxy(MutableMapping[str, migjorn.Cell]):
 
 
 class _SurfsProxy(MutableMapping[str, migjorn.Surface]):
-    """Dict-like proxy for model surfaces; __setitem__ replaces a surface in the model."""
+    """Dict-like proxy for model surfaces; __setitem__ replaces a surface in the model.
+
+    Attributes
+    ----------
+    _model : migjorn.Model
+        the underlying migjorn model whose surfaces are proxied.
+    """
 
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
@@ -71,6 +83,11 @@ class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
 
     Deletion is supported via ``del inp.transformations['TR5']``.
     Setting is not supported (migjorn has no add_transform).
+
+    Attributes
+    ----------
+    _model : migjorn.Model
+        the underlying migjorn model whose transforms are proxied.
     """
 
     def __init__(self, model: migjorn.Model) -> None:
@@ -110,7 +127,13 @@ class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
 
 
 class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
-    """Dict-like proxy for other_data; delegates directly to the underlying dict."""
+    """Dict-like proxy for other_data; delegates directly to the underlying dict.
+
+    Attributes
+    ----------
+    _model : migjorn.Model
+        the underlying migjorn model whose data cards are proxied.
+    """
 
     def _match(self, key: str, card: migjorn.DataCard) -> bool:
         """Check if the key matches the card name, handles particles (e.g. F6:N,P)"""

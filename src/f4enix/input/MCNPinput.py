@@ -85,7 +85,24 @@ class Input:
 
         Attributes
         ----------
-        # TODO: add attributes
+        cells : _CellsProxy
+            dict-like proxy of cells keyed by string cell ID.
+        surfs : _SurfsProxy
+            dict-like proxy of surfaces keyed by string surface ID
+            (prefixed with ``*`` for reflective surfaces).
+        transformations : _TransformsProxy
+            dict-like proxy of TR cards keyed by ``'TRn'``.
+        other_data : _OtherDataProxy
+            dict-like proxy of all non-material, non-transform data cards,
+            keyed by card name (e.g. ``'NPS'``, ``'F4:N'``).
+        mat_section : MatCardsList
+            material cards section of the input.
+        tally_keys : list[int]
+            IDs of all F-type tallies defined in the input (excludes FMESH).
+        fmesh_keys : list[int]
+            IDs of all FMESH tallies defined in the input.
+        header : str
+            title line and any leading comment lines before the first cell.
 
         """
         self._model = model
@@ -178,6 +195,7 @@ class Input:
 
     @property
     def mat_section(self) -> MatCardsList:
+        """Material cards section of the input."""
         return self._mat_section
 
     @mat_section.setter
@@ -186,6 +204,12 @@ class Input:
 
     @property
     def tally_keys(self) -> list[int]:
+        """IDs of all F-type tallies defined in the input (FMESH tallies excluded).
+
+        Returns
+        -------
+        list[int]
+        """
         keys = []
         for name in self.other_data.keys():
             m = PAT_ALL_TALLY_KEYS.match(name)
@@ -203,6 +227,12 @@ class Input:
 
     @property
     def fmesh_keys(self) -> list[int]:
+        """IDs of all FMESH tallies defined in the input.
+
+        Returns
+        -------
+        list[int]
+        """
         keys = []
         for name in self.other_data.keys():
             if PAT_FMESH_KEY.match(name):
@@ -417,6 +447,11 @@ class Input:
         keep_universe: bool
             If True keeps the 'U=' key in the cell cards, otherwise that is
             removed. Default is True.
+
+        Returns
+        -------
+        Input
+            new :py:class:`Input` containing only the requested cells.
         """
         logging.info("write MCNP reduced input")
         cell_ids = [int(c) for c in cells]
@@ -451,6 +486,11 @@ class Input:
             if True, also the cell containing the fill card is retained. If False,
             only the filler cells are retained and the universe card is removed from
             their definition, by default False
+
+        Returns
+        -------
+        Input
+            new :py:class:`Input` containing only the cells of the universe.
         """
         cells = []
         # collect the needed cells
@@ -1070,9 +1110,21 @@ class Input:
         return fig, ax
 
     def find_first_free_id_range(self, required_size: int) -> int:
-        """
-        Given a required size, it finds the first ID that can accommodate both cell and
-        surface ID ranges.
+        """Find the first ID that can accommodate both cell and surface ID ranges.
+
+        Scans the sorted union of all cell and surface IDs and returns the
+        lowest starting ID where a contiguous gap of at least ``required_size``
+        exists.  If no gap is large enough, returns ``max_used_id + 1``.
+
+        Parameters
+        ----------
+        required_size : int
+            minimum number of consecutive free IDs needed.
+
+        Returns
+        -------
+        int
+            first ID of the free range.
         """
         # Extract combined cell and surface IDs
         cells = {int(x) for x in self.cells}
@@ -1110,14 +1162,14 @@ class D1S_Input(Input):
         irrad_file : IrradiationFile, optional
             irradiation file object, by default None
         reac_file : ReactionFile, optional
-            readtion file object, by default None
+            reaction file object, by default None
 
         Attributes
         ----------
         irrad_file : IrradiationFile
             irradiation file object
         reac_file : ReactionFile
-            readtion file object
+            reaction file object
 
         Examples
         --------
@@ -1312,8 +1364,8 @@ class D1S_Input(Input):
         ----------
         activation_lib : str
             library to be used for activation, e.g., 99c
-        activation_lib : dict[str, str]
-            library to be used for activation, e.g., 31c
+        transport_lib : str
+            library to be used for transport, e.g., 31c
         libmanager : LibManager
             Library manager for the conversion.
         fix_natural_zaid: bool
