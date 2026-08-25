@@ -489,15 +489,13 @@ class TestInput:
             inp = Input.from_input(FILE1)
 
         # non-sphere surface raises ValueError
-        surface = inp.surfs["2"]
         with pytest.raises(ValueError):
-            inp.prepare_void_check(surface, 100)
+            inp.prepare_void_check(2, 100)
 
         # add a sphere surface and use it
         inp._model.add_surface("12345 SO 10")
-        surface = inp.surfs["12345"]
         particle = "P"
-        inp.prepare_void_check(surface, 100, particle=particle)
+        inp.prepare_void_check(12345, 100, particle=particle)
         assert "VOID" in inp.other_data
         # check that the file can be written and read again
         outfile = tmpdir.mkdir("sub").join("test_void_check.i")

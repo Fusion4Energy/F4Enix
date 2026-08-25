@@ -37,17 +37,13 @@ from matplotlib.ticker import MaxNLocator
 
 from f4enix.core.constants import (
     PAT_ALL_TALLY_KEYS,
-    PAT_CARD_KEY,
     PAT_COMMENT,
-    PAT_F_TR_CARD_KEY,
     PAT_FMESH_KEY,
-    PAT_NP,
-    UNION_INTERSECT_SYMBOLS,
 )
 from f4enix.core.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
 from f4enix.input.libmanager import LibManager
-from f4enix.input.materials import MatCardsList, Material
+from f4enix.input.materials import MatCardsList
 from f4enix.input.migjorn_proxies import (
     _CellsProxy,
     _OtherDataProxy,
@@ -58,10 +54,6 @@ from f4enix.input.migjorn_proxies import (
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
 ADD_LINE_FORMAT = "         {}\n"
-
-_PAT_MAT_CARD = re.compile(r"^M[TX]?\d", re.IGNORECASE)
-_PAT_TR_CARD = re.compile(r"^\*?TR\d", re.IGNORECASE)
-_PAT_CONTINUATION = re.compile(r"^[ \t]{5,}|^\t")
 
 
 class Input:
@@ -269,6 +261,12 @@ class Input:
         -------
         Input
         """
+
+        model, mat_section = cls._read_model(inputfile)
+        return cls(model, mat_section=mat_section)
+
+    @staticmethod
+    def _read_model(inputfile: os.PathLike | str) -> tuple[migjorn.Model, MatCardsList]:
         name = os.path.basename(str(inputfile)).split(".")[0]
         logging.info(f"Reading file: {name}")
         model = migjorn.Model.from_file(str(inputfile))
@@ -278,7 +276,7 @@ class Input:
         logging.debug("building material section")
         mat_section = MatCardsList.from_migjorn(model)
         logging.debug("Material section built")
-        return cls(model, mat_section)
+        return model, mat_section
 
     # ------------------------------------------------------------------
     # Serialisation
@@ -1223,13 +1221,7 @@ class D1S_Input(Input):
         D1S_Input
             generated D1S_Input object
         """
-        name = os.path.basename(str(inputfile)).split(".")[0]
-        logging.info(f"Reading file: {name}")
-        model = migjorn.Model.from_file(str(inputfile))
-        for d in model.diagnostics:
-            logging.warning(f"migjorn [{d.severity}]: {d.message}")
-        logging.debug("Reading has finished")
-        materials = MatCardsList.from_migjorn(model)
+        model, materials = cls._read_model(inputfile)
 
         newirrad_file = (
             IrradiationFile.from_text(irrad_file) if irrad_file is not None else None

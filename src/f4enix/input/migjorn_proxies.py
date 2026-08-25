@@ -1,6 +1,9 @@
 import migjorn
 from collections.abc import MutableMapping
-import logging
+import re
+from f4enix.core.errors import InvalidCardError
+
+PAT_NOT_OTHER = re.compile(r"(m|mx|tr)\d+", re.IGNORECASE)
 
 
 class _CellsProxy(MutableMapping[str, migjorn.Cell]):
@@ -26,7 +29,9 @@ class _CellsProxy(MutableMapping[str, migjorn.Cell]):
         cell_id = int(key)
         text = value.text if isinstance(value, migjorn.Cell) else value
         self._model.remove_cell(cell_id)
-        self._model.add_cell(text)
+        cell = self._model.add_cell(text)
+        if not cell.well_formed:
+            raise InvalidCardError(cell)
 
     def __delitem__(self, key: str) -> None:
         self._model.remove_cell(int(key))
@@ -66,7 +71,9 @@ class _SurfsProxy(MutableMapping[str, migjorn.Surface]):
         sid = int(key.lstrip("*"))
         text = value.text if isinstance(value, migjorn.Surface) else value
         self._model.remove_surface(sid)
-        self._model.add_surface(text)
+        sur = self._model.add_surface(text)
+        if not sur.well_formed:
+            raise InvalidCardError(sur)
 
     def __delitem__(self, key: str) -> None:
         self._model.remove_surface(int(key.lstrip("*")))
@@ -171,12 +178,15 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
 
         raise KeyError(f"Card {key} not found in data cards")
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: str | migjorn.DataCard) -> None:
         try:
             del self[key]  # remove existing card if it exists
         except KeyError:
             pass  # it is ok, remove it only if found
-        self._model.add_data_card(value)
+        if isinstance(value, str):
+            self._model.add_data_card(value)
+        else:
+            self._model.add_data_card(value.text)
 
     def __delitem__(self, key: str) -> None:
         for card in self._model.data_cards():
@@ -189,14 +199,9 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
         # exclude materials and transforms
         # TODO this will need to be changed from migjorn
         keys = []
-        none_cards = 0
         for card in self._model.data_cards():
-            if card.name is None:
-                name = f"NONE{none_cards}"
-                none_cards += 1
-            else:
-                name = card.name
-            if not (name.lower().startswith("m") or name.lower().startswith("tr")):
+            name = card.name
+            if not PAT_NOT_OTHER.match(name):
                 keys.append(self._key(card))
         return iter(keys)
 
