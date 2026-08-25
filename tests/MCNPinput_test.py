@@ -690,3 +690,23 @@ class TestD1S_Input:
                 found = True
                 break
         assert found
+
+    def test_column_format_other_data_unnamed_cards(self):
+        # column_format.i has two data cards migjorn cannot assign a name to
+        # (the '#'-prefixed WWN tables); other_data must still expose both of
+        # them, each under its own resolvable key, instead of colliding or
+        # raising.
+        with as_file(RESOURCES_INP.joinpath("column_format.i")) as FILE1:
+            inp = Input.from_input(FILE1)
+
+        other_data = dict(inp.other_data)
+        assert len(other_data) == len(inp.other_data)
+
+        unnamed_keys = [key for key in inp.other_data if key.startswith("NONE")]
+        assert len(unnamed_keys) == 2
+        assert len(set(unnamed_keys)) == 2  # keys must be distinct, not both "None"
+
+        cards = {key: inp.other_data[key] for key in unnamed_keys}
+        texts = {key: card.text for key, card in cards.items()}
+        assert any("wwn1:n" in text for text in texts.values())
+        assert any("wwn1:p" in text for text in texts.values())

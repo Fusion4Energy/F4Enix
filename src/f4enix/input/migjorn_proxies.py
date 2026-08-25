@@ -142,11 +142,18 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
         the underlying migjorn model whose data cards are proxied.
     """
 
-    def _match(self, key: str, card: migjorn.DataCard) -> bool:
-        """Check if the key matches the card name, handles particles (e.g. F6:N,P)"""
+    def _match(
+        self, key: str, card: migjorn.DataCard, none_index: int | None
+    ) -> bool:
+        """Check if the key matches the card, handles particles (e.g. F6:N,P)
+
+        Cards with no parseable name (e.g. bare $-comment lines or informal
+        tables living in the data block) are matched against their ordinal
+        placeholder key instead (e.g. 'NONE0').
+        """
         name = card.name
         if name is None:
-            return False
+            return none_index is not None and key == f"NONE{none_index}"
 
         particles = None
         key = key.lower()
@@ -163,17 +170,30 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
         return False
 
     @staticmethod
-    def _key(card: migjorn.DataCard) -> str:
-        return str(card.name) + (f":{card.particle}" if card.particle else "")
+    def _key(card: migjorn.DataCard, none_index: int | None = None) -> str:
+        if card.name is None:
+            return f"NONE{none_index}"
+        return card.name + (f":{card.particle}" if card.particle else "")
 
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
 
+    def _iter_cards(self):
+        """Yield (card, none_index) for every data card, numbering the nameless
+        ones in iteration order so they get a stable, distinct placeholder key."""
+        none_idx = 0
+        for card in self._model.data_cards():
+            if card.name is None:
+                yield card, none_idx
+                none_idx += 1
+            else:
+                yield card, None
+
     def __getitem__(self, key: str) -> migjorn.DataCard:
         # check if particles are specified in the key (e.g. F6:N,P)
 
-        for card in self._model.data_cards():
-            if self._match(key, card):
+        for card, none_idx in self._iter_cards():
+            if self._match(key, card, none_idx):
                 return card
 
         raise KeyError(f"Card {key} not found in data cards")
@@ -189,21 +209,23 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
             self._model.add_data_card(value.text)
 
     def __delitem__(self, key: str) -> None:
-        for card in self._model.data_cards():
-            if self._match(key, card):
+        for card, none_idx in self._iter_cards():
+            if self._match(key, card, none_idx):
                 card.remove()
                 return
         raise KeyError(f"Card {key} not found in data cards")
 
     def __iter__(self):
-        # exclude materials and transforms
+        # exclude materials and transforms, keep cards with no parseable name
+        # (e.g. bare $-comment lines or informal tables in the data block)
         # TODO this will need to be changed from migjorn
         keys = []
-        for card in self._model.data_cards():
-            name = card.name
-            if not PAT_NOT_OTHER.match(name):
+        for card, none_idx in self._iter_cards():
+            if card.name is None:
+                keys.append(self._key(card, none_idx))
+            elif not PAT_NOT_OTHER.match(card.name):
                 keys.append(self._key(card))
         return iter(keys)
 
     def __len__(self) -> int:
-        return len(self._model.data_cards())
+        return sum(1 for _ in self)
