@@ -40,6 +40,7 @@ import pandas as pd
 
 from f4enix.core.constants import (
     AVOGADRO_NUMBER,
+    PAT_COMMENT,
     PAT_MAT,
     PAT_MX,
     PAT_KEY_VALUE,
@@ -359,8 +360,14 @@ class Material:
                 header += line
             else:
                 break
+
+        body_lines = []
+        for line in material.text.splitlines():
+            if PAT_COMMENT.match(line):
+                continue
+            body_lines.append(line.split("$")[0])
         # check for additional keys
-        keys = PAT_KEY_VALUE.findall(material.text)
+        keys = PAT_KEY_VALUE.findall("\n".join(body_lines))
 
         return cls(
             f"M{material.id}",
@@ -644,7 +651,9 @@ class Material:
                     newzaids.append(
                         Zaid(
                             fraction,
-                            Nuclide.from_int_string(f"{key}.{library}"),
+                            Nuclide.from_int_string(
+                                f"{key}.{library}" if library is not None else f"{key}"
+                            ),
                         )
                     )
 
@@ -656,7 +665,9 @@ class Material:
                     newzaids.append(
                         Zaid(
                             fraction,
-                            Nuclide.from_int_string(f"{key}.{library}"),
+                            Nuclide.from_int_string(
+                                f"{key}.{library}" if library is not None else f"{key}"
+                            ),
                         )
                     )
 

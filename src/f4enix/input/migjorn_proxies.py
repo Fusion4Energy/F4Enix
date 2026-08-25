@@ -90,7 +90,6 @@ class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
     """Dict-like proxy for model transforms keyed by 'TRn'.
 
     Deletion is supported via ``del inp.transformations['TR5']``.
-    Setting is not supported (migjorn has no add_transform).
 
     Attributes
     ----------
