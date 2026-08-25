@@ -515,11 +515,8 @@ class Material:
             MCNP-formatted material card text.
 
         """
-        # get additional data for the comments
-        fake_mat = copy.deepcopy(self)
-        fake_mat.switch_fraction("atom", LM)
-        fake_mat.switch_fraction("mass", LM)
-        df = fake_mat.get_info()
+        # get_info() uses inplace=False internally, so no copy needed here
+        df = self.get_info()
 
         if self.header is not None:
             text = self.header + "\n"
@@ -1095,11 +1092,7 @@ class MatCardsList(Sequence[Material]):
             material card list MCNP formatted text.
 
         """
-        text = ""
-        for material in self.materials:
-            text = text + "\n" + material.to_text()
-
-        return text.strip("\n")
+        return "\n".join(material.to_text() for material in self.materials)
 
     def translate(self, newlib: str | dict, lib_manager: LibManager) -> None:
         """

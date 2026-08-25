@@ -9,7 +9,6 @@ numjuggler >= 2.42.37
 pyvista >= 0.39.1
 pandas
 numba
-scipy
 tqdm
 python-docx
 openpyxl

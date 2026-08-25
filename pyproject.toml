@@ -23,7 +23,6 @@ dependencies = [
     "pandas",
     "polars",
     "numba",
-    "scipy",
     "tqdm",
     "python-docx",
     "openpyxl",

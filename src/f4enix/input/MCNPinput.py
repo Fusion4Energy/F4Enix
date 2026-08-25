@@ -272,8 +272,7 @@ class Input:
         model = migjorn.Model.from_file(str(inputfile))
         if len(model.diagnostics) > 0:
             logging.warning(
-                f"Diagnostics found while parsing {name}:",
-                "They can be checked at self._model.diagnostics",
+                f"Diagnostics found while parsing {name}. They can be checked at self._model.diagnostics",
             )
         logging.debug("Reading has finished")
         logging.debug("building material section")
@@ -295,25 +294,11 @@ class Input:
         wrap : bool
             ignored (kept for API compatibility); migjorn output is lossless
         """
+        # recreate the migjorn materials
+        for mat in self.mat_section.materials:
+            self._model.add_material(mat.to_text())
         logging.info(f"Writing to {outfilepath}")
-        with open(outfilepath, "w", newline="\n") as f:
-            f.write(self.header + "\n")
-            for cell in self._model.cells():
-                f.write(cell.text.replace("\r", ""))
-            # blank line between cells and surfaces
-            f.write("\n")
-            for surf in self._model.surfaces():
-                f.write(surf.text.replace("\r", ""))
-            # blank line between surfaces and materials
-            f.write("\n")
-            # write materials section
-            f.write(self.mat_section.to_text() + "\n")
-            # write transformations and other data cards
-            for _, tr in self.transformations.items():
-                f.write(tr.text.replace("\r", ""))
-            for _, card in self.other_data.items():
-                f.write(card.text.replace("\r", ""))
-
+        self._model.save(str(outfilepath))
         logging.info("File was written correctly")
 
     # ------------------------------------------------------------------
