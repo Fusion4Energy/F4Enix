@@ -532,7 +532,7 @@ class TestInput:
         inp = deepcopy(self.testInput)
         # cells
         ncells = len(inp.cells)
-        cell_text = "1    0               -128 129 -1          $imp:n,p=1\r\n"
+        cell_text = inp.cells["1"].text
         inp.cells["1"] = cell_text  # this should remove and replace the cell exactly
         assert len(inp.cells) == ncells
         assert inp.cells["1"].text == cell_text
@@ -548,7 +548,7 @@ class TestInput:
     def test_add_rmv_surfs(self):
         inp = deepcopy(self.testInput)
         nsurfs = len(inp.surfs)
-        surf_text = "1    cz 287.5\r\n"
+        surf_text = inp.surfs["1"].text
         inp.surfs["1"] = surf_text
         assert len(inp.surfs) == nsurfs
         assert inp.surfs["1"].text == surf_text
