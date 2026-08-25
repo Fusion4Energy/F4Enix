@@ -302,7 +302,7 @@ class Input:
         logging.info("File was written correctly")
 
         # remove the migjorn materials again to allow further modifications
-        for mat in self.mat_section.materials:
+        for mat in self._model.materials():
             self._model.remove_material(mat.id)
 
     # ------------------------------------------------------------------
