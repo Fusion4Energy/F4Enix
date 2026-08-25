@@ -1,3 +1,4 @@
+import hashlib
 import migjorn
 from collections.abc import MutableMapping
 import re
@@ -146,7 +147,7 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
         """Check if the key matches the card name, handles particles (e.g. F6:N,P)"""
         name = card.name
         if name is None:
-            return False
+            return key == hashlib.sha256(card.text.encode()).hexdigest()[:8]
 
         particles = None
         key = key.lower()
@@ -164,7 +165,10 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
 
     @staticmethod
     def _key(card: migjorn.DataCard) -> str:
-        return str(card.name) + (f":{card.particle}" if card.particle else "")
+        if card.name is None:
+            return hashlib.sha256(card.text.encode()).hexdigest()[:8]
+        else:
+            return card.name + (f":{card.particle}" if card.particle else "")
 
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
@@ -201,9 +205,10 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
         keys = []
         for card in self._model.data_cards():
             name = card.name
-            if not PAT_NOT_OTHER.match(name):
-                keys.append(self._key(card))
+            if name is not None and PAT_NOT_OTHER.match(name):
+                continue
+            keys.append(self._key(card))
         return iter(keys)
 
     def __len__(self) -> int:
-        return len(self._model.data_cards())
+        return len(list(self.__iter__()))

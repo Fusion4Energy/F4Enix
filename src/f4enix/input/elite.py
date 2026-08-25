@@ -186,8 +186,8 @@ def _set_sdef(sectors: list[str | int], inp: Input) -> None:
             new_sp = new_sp + "1 "
         else:
             new_sp = new_sp + "2 "
-    inp.other_data["SI70"] = new_si
-    inp.other_data["SP70"] = new_sp
+    inp.other_data["SI70"] = new_si + "\n"
+    inp.other_data["SP70"] = new_sp + "\n"
 
 
 def _set_boundaries(
@@ -336,18 +336,7 @@ def _modify_boundary(
     tol_sign = {True: 1, False: -1}
 
     if bound_opt == 1:
-        # TODO: this could be solved with a setter of reflective in surfaces
-        # surf.reflective = True
-        lines = surf.text.splitlines()
-        # skip all comment header comments
-        newlines = []
-        for i, line in enumerate(lines):
-            if line.lower().startswith(str(surf.id)):
-                newlines.append("*" + line)
-            else:
-                newlines.append(line)
-        new_text = "\n".join(newlines)
-        surf.text = new_text
+        surf.reflective = True
 
     # if L1, translate outwards to avoid fatal errors
     elif bound_opt == 2:
@@ -361,4 +350,4 @@ def _modify_boundary(
         # translate the plane and recompute template and input
         sign = tol_sign[y_plus] * tol_sign[angle_quadr] * tol_sign[y_coeff]
         new_offset = surf.coeffs[-1] + sign * 2 * tol
-        surf.set_coeff(-1, new_offset)
+        surf.set_coeff(len(surf.coeffs) - 1, new_offset)

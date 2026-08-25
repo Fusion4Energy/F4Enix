@@ -263,15 +263,18 @@ class Input:
         """
 
         model, mat_section = cls._read_model(inputfile)
-        return cls(model, mat_section=mat_section)
+        return cls(model, mat_section)
 
     @staticmethod
     def _read_model(inputfile: os.PathLike | str) -> tuple[migjorn.Model, MatCardsList]:
         name = os.path.basename(str(inputfile)).split(".")[0]
         logging.info(f"Reading file: {name}")
         model = migjorn.Model.from_file(str(inputfile))
-        for d in model.diagnostics:
-            logging.warning(f"migjorn [{d.severity}]: {d.message}")
+        if len(model.diagnostics) > 0:
+            logging.warning(
+                f"Diagnostics found while parsing {name}:",
+                "They can be checked at self._model.diagnostics",
+            )
         logging.debug("Reading has finished")
         logging.debug("building material section")
         mat_section = MatCardsList.from_migjorn(model)
@@ -453,6 +456,7 @@ class Input:
         """
         logging.info("write MCNP reduced input")
         cell_ids = [int(c) for c in cells]
+        # not sure if extract_cells does some modification inplace
         newmodel = self._model.extract_cells(cell_ids)
         extracted_inp = Input(newmodel, deepcopy(self.mat_section))
 

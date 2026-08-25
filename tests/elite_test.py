@@ -13,7 +13,6 @@ from f4enix.input.elite import (
     _modify_boundary,
     _rotate_plane,
     _set_sdef,
-    _set_boundaries,
     _get_boundaries_angles,
     _modify_graveyard,
 )
@@ -47,8 +46,8 @@ class TestElite_Input:
         assert set(pbc_surfs).issubset(set(inp_sec1.surfs.keys()))
         assert inp_sec1.surfs["*7"].coeffs[3] == inp.surfs["7"].coeffs[3]
         assert inp_sec1.surfs["*8"].coeffs[3] == inp.surfs["8"].coeffs[3]
-        assert inp_sec1.surfs["110"].coeffs[3] == 2 * tol
-        assert inp_sec1.surfs["105"].coeffs[3] == -2 * tol
+        assert inp_sec1.surfs["110"].coeffs[3] == pytest.approx(2 * tol, rel=1e-8)
+        assert inp_sec1.surfs["105"].coeffs[3] == pytest.approx(-2 * tol, rel=1e-8)
         assert inp_sec1.other_data["SI70"].text.rstrip() == "SI70 L 427001"
         assert inp_sec1.other_data["SP70"].text.rstrip() == "SP70 1"
 
@@ -69,8 +68,8 @@ class TestElite_Input:
         assert set(pbc_surfs).issubset(set(inp_NBI.surfs.keys()))
         assert inp_NBI.surfs["*7"].coeffs[3] == inp.surfs["7"].coeffs[3]
         assert inp_NBI.surfs["*18"].coeffs[3] == inp.surfs["18"].coeffs[3]
-        assert inp_NBI.surfs["210"].coeffs[3] == -2 * tol
-        assert inp_NBI.surfs["205"].coeffs[3] == 2 * tol
+        assert inp_NBI.surfs["210"].coeffs[3] == pytest.approx(-2 * tol, rel=1e-8)
+        assert inp_NBI.surfs["205"].coeffs[3] == pytest.approx(2 * tol, rel=1e-8)
         assert inp_NBI.other_data["SI70"].text.rstrip() == "SI70 L 435001"
         assert inp_NBI.other_data["SP70"].text.rstrip() == "SP70 2"
 
@@ -199,10 +198,10 @@ class TestEliteHelpers:
         assert inp.surfs["427016"].reflective
 
         _modify_boundary(inp.surfs["110"], 2, 50, 2, tol)
-        assert float(inp.surfs["110"].coeffs[-1]) == 2 * tol
+        assert float(inp.surfs["110"].coeffs[-1]) == pytest.approx(2 * tol, rel=1e-8)
 
         _modify_boundary(inp.surfs["205"], 2, 130, 2, tol)
-        assert float(inp.surfs["205"].coeffs[-1]) == 2 * tol
+        assert float(inp.surfs["205"].coeffs[-1]) == pytest.approx(2 * tol, rel=1e-8)
 
     def test_set_sdef(self):
         inp = deepcopy(self.testInput)

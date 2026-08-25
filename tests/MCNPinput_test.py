@@ -528,6 +528,63 @@ class TestInput:
         first_id_that_fits_1000 = 300
         assert test_input.find_first_free_id_range(1000) == first_id_that_fits_1000
 
+    def test_add_rmv_cells(self):
+        inp = deepcopy(self.testInput)
+        # cells
+        ncells = len(inp.cells)
+        cell_text = "1    0               -128 129 -1          $imp:n,p=1\r\n"
+        inp.cells["1"] = cell_text  # this should remove and replace the cell exactly
+        assert len(inp.cells) == ncells
+        assert inp.cells["1"].text == cell_text
+
+        del inp.cells["1"]
+        assert len(inp.cells) == ncells - 1
+
+        # add a new cell
+        new_cell_text = "999  0               -128 129 -1          $"
+        inp.cells["999"] = new_cell_text
+        assert len(inp.cells) == ncells
+
+    def test_add_rmv_surfs(self):
+        inp = deepcopy(self.testInput)
+        nsurfs = len(inp.surfs)
+        surf_text = "1    cz 287.5\r\n"
+        inp.surfs["1"] = surf_text
+        assert len(inp.surfs) == nsurfs
+        assert inp.surfs["1"].text == surf_text
+
+        del inp.surfs["1"]
+        assert len(inp.surfs) == nsurfs - 1
+
+        new_surf_text = "999  cz 999.0\r\n"
+        inp.surfs["999"] = new_surf_text
+        assert len(inp.surfs) == nsurfs
+
+    def test_add_rmv_transforms(self):
+        inp = deepcopy(self.bugInput)
+        ntr = len(inp.transformations)
+        tr_text = inp.transformations["TR1"].text
+        inp.transformations["TR1"] = tr_text
+        assert len(inp.transformations) == ntr
+        assert inp.transformations["TR1"].text == tr_text
+
+        del inp.transformations["TR1"]
+        assert len(inp.transformations) == ntr - 1
+
+    def test_add_rmv_other_data(self):
+        inp = deepcopy(self.testInput)
+        ndata = len(inp.other_data)
+        mode_text = inp.other_data["mode"].text
+        inp.other_data["mode"] = mode_text
+        assert len(inp.other_data) == ndata
+        assert inp.other_data["mode"].text == mode_text
+
+        del inp.other_data["mode"]
+        assert len(inp.other_data) == ndata - 1
+
+        inp.other_data["mode"] = mode_text
+        assert len(inp.other_data) == ndata
+
 
 class TestD1S_Input:
     with (
