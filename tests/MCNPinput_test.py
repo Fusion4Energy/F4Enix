@@ -6,6 +6,7 @@ import migjorn
 import numpy as np
 import pytest
 
+from f4enix.core.errors import InvalidCardError
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
@@ -61,6 +62,27 @@ class TestInput:
         assert isinstance(cell_1, migjorn.Cell)
         assert cell_1.id == 1
 
+    def test_set_invalid_cards(self):
+        inp = deepcopy(self.testInput)
+        # The invalid card checks are quite bland... still better than nothing
+        with pytest.raises(InvalidCardError):
+            inp.cells["1"] = "1 0  $"
+        with pytest.raises(InvalidCardError):
+            inp.surfs["1"] = "1 gibberish $"
+
+    def test_operate_with_tranform(self):
+        with as_file(RESOURCES_INP.joinpath("test_universe.i")) as FILE1:
+            inp = Input.from_input(FILE1)
+
+        with pytest.raises(KeyError):
+            _ = inp.transformations["TR"]
+
+        with pytest.raises(KeyError):
+            _ = inp.transformations["TR2"]
+
+        for key, tran in inp.transformations.items():
+            assert tran.id == int(1)  # only 1
+
     def test_surf_property(self):
         inp = deepcopy(self.testInput)
         surf_1 = inp.surfs["1"]
@@ -74,6 +96,7 @@ class TestInput:
         inp = deepcopy(self.bugInput)
         assert inp.other_data["WWE:N"]
         assert inp.other_data["WWN1:N"]
+        assert inp.header is not None
 
     def test_hash_cell(self):
         inp = deepcopy(self.testInput)
@@ -154,11 +177,8 @@ class TestInput:
 
         # this should not be allowed due to duplicate surf
         dest = deepcopy(inp1)
-        try:
+        with pytest.raises(migjorn.MergeError):
             dest.merge(inp2)
-            assert False
-        except Exception:
-            assert True
 
         # renumber and try again
         dest = deepcopy(inp1)
@@ -166,6 +186,11 @@ class TestInput:
         dest.merge(inp2)
         assert len(dest.cells) == 14
         assert len(dest.surfs) == 9
+
+        # trigger the error for duplicated material
+        dest.mat_section.append(inp2.mat_section["M4"])
+        with pytest.raises(migjorn.MergeError):
+            dest.merge(inp2)
 
     def _check_macro_properties(self, inp: Input):
         # check some macro properties
@@ -585,6 +610,11 @@ class TestInput:
         inp.other_data["mode"] = mode_text
         assert len(inp.other_data) == ndata
 
+    def test_add_stopCard(self):
+        inp = deepcopy(self.testInput)
+        inp.add_stopCard(1)
+        assert inp.other_data["NPS"].text == "NPS 1\r\n"
+
 
 class TestD1S_Input:
     with (
@@ -747,3 +777,8 @@ class TestD1S_Input:
                 found = True
                 break
         assert found
+
+        # check that there are no problems in iterating over the cards with sha names
+        for key, card in inp2.other_data.items():
+            assert card.text is not None
+            assert key is not None

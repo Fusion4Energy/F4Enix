@@ -100,30 +100,29 @@ class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
 
-    def __getitem__(self, key: str) -> migjorn.Transform:
+    @staticmethod
+    def _get_id_from_key(key: str) -> int:
         try:
             tid = int(key.upper().lstrip("*").removeprefix("TR"))
         except ValueError:
             raise KeyError(key)
+        return tid
+
+    def __getitem__(self, key: str) -> migjorn.Transform:
+        tid = self._get_id_from_key(key)
         t = self._model.transform(tid)
         if t is None:
             raise KeyError(key)
         return t
 
     def __setitem__(self, key: str, value) -> None:
-        try:
-            tid = int(key.upper().lstrip("*").removeprefix("TR"))
-        except ValueError:
-            raise KeyError(key)
+        tid = self._get_id_from_key(key)
         text = value.text if isinstance(value, migjorn.Transform) else value
         self._model.remove_transform(tid)
         self._model.add_transform(text)
 
     def __delitem__(self, key: str) -> None:
-        try:
-            tid = int(key.upper().lstrip("*").removeprefix("TR"))
-        except ValueError:
-            raise KeyError(key)
+        tid = self._get_id_from_key(key)
         self._model.remove_transform(tid)
 
     def __iter__(self):

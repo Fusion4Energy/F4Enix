@@ -23,8 +23,7 @@ import logging
 import os
 import re
 from copy import deepcopy
-from collections.abc import MutableMapping
-from typing import Mapping, Sequence
+from typing import Sequence
 from typing import Self
 
 import matplotlib.pyplot as plt
@@ -125,15 +124,6 @@ class Input:
         """
         return _CellsProxy(self._model)
 
-    @cells.setter
-    def cells(self, value: list[migjorn.Cell]) -> None:
-        # TODO: this can be improved migjorn side
-        # delete all cells from model and add the new ones
-        for cell in self._model.cells():
-            self._model.remove_cell(cell.id)
-        for cell in value:
-            self._model.add_cell(cell.text)
-
     @property
     def surfs(self) -> _SurfsProxy:
         """Proxy mapping of surfaces keyed by string surface ID (with * prefix if reflective).
@@ -142,14 +132,6 @@ class Input:
         Assigning a mapping replaces all surfaces: ``inp.surfs = other_inp.surfs``.
         """
         return _SurfsProxy(self._model)
-
-    @surfs.setter
-    def surfs(self, value: list[migjorn.Surface]) -> None:
-        # TODO: this can be improved migjorn side
-        for surf in list(self._model.surfaces()):
-            self._model.remove_surface(surf.id)
-        for surf in value:
-            self._model.add_surface(surf.text)
 
     @property
     def transformations(self) -> _TransformsProxy:
@@ -161,14 +143,6 @@ class Input:
         """
         return _TransformsProxy(self._model)
 
-    @transformations.setter
-    def transformations(self, value: list[migjorn.Transform]) -> None:
-        # TODO: migjorn has no add_transform; this setter is a no-op for now
-        for tr in list(self._model.transforms()):
-            self._model.remove_transform(tr.id)
-        for tr in value:
-            self._model.add_transform(tr.text)
-
     @property
     def other_data(self) -> _OtherDataProxy:
         """Proxy mapping of non-material, non-transform data card texts.
@@ -176,14 +150,6 @@ class Input:
         Supports ``inp.other_data['SI70'] = 'SI70 L 1\\n'`` to add or replace a card.
         """
         return _OtherDataProxy(self._model)
-
-    @other_data.setter
-    def other_data(self, value: list[migjorn.DataCard]) -> None:
-        # TODO: there is no setter in migjorn
-        for _, card in self.other_data.items():
-            card.remove()
-        for card in value:
-            self._model.add_data_card(card.text)
 
     @property
     def mat_section(self) -> MatCardsList:
@@ -211,10 +177,8 @@ class Input:
                 and name[:2].upper()
                 not in ("FM", "FC", "FN", "FU", "FT", "FQ", "FS", "FP")
             ):
-                try:
-                    keys.append(int(m.group(2)))
-                except (IndexError, ValueError, TypeError):
-                    pass
+                keys.append(int(m.group(2)))
+
         return keys
 
     @property
@@ -228,10 +192,7 @@ class Input:
         keys = []
         for name in self.other_data.keys():
             if PAT_FMESH_KEY.match(name):
-                try:
-                    keys.append(int(re.search(r"\d+", name).group()))
-                except (AttributeError, ValueError):
-                    pass
+                keys.append(int(re.search(r"\d+", name).group()))
         return keys
 
     @property
@@ -954,7 +915,7 @@ class Input:
 
         """
 
-        line = "NPS " + str(int(nps)) + " \n"
+        line = "NPS " + str(int(nps))
         self.other_data["NPS"] = line
 
     def check_range(self, range: list[int], who: str = "cell") -> bool:
@@ -1059,9 +1020,6 @@ class Input:
         surf = self.surfs[str(surface)]
         if surf.kind.lower() not in ["so", "sx", "sy", "sz", "s"]:
             raise ValueError("The provided surface is not a sphere")
-        # Add if not already in the model; surface may already be present
-        if self._model.surface(surf.id) is None:
-            self._model.add_surface(surf.text.strip())
         radius = surf.coeffs[-1]
         weight = np.pi * radius**2
         self.remove_sdef()
