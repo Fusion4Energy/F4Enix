@@ -9,7 +9,6 @@ pyvista >= 0.39.1
 pandas
 polars
 numba
-scipy
 tqdm
 python-docx
 openpyxl

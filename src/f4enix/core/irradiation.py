@@ -462,7 +462,10 @@ class Nuclide:
             self._zaid = int(zaid)
             _, formula = LM.get_zaidname(str(self._zaid))
             self._element = formula.split("-")[0].strip()
-            self._isotope = int(formula.split("-")[1].strip())
+            try:
+                self._isotope = int(formula.split("-")[1].strip())
+            except IndexError:  # natural zaid
+                self._isotope = 0
         elif element and isotope:
             self._element = element
             self._isotope = int(isotope)
