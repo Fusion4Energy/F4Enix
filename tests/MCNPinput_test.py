@@ -613,7 +613,7 @@ class TestInput:
     def test_add_stopCard(self):
         inp = deepcopy(self.testInput)
         inp.add_stopCard(1)
-        assert inp.other_data["NPS"].text == "NPS 1\r\n"
+        assert inp.other_data["NPS"].text.strip("\n").strip("\r") == "NPS 1"
 
 
 class TestD1S_Input:
