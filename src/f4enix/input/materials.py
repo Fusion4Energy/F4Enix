@@ -32,7 +32,6 @@ import logging
 import os
 import re
 import sys
-import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from contextlib import contextmanager
 from decimal import Decimal
@@ -206,21 +205,17 @@ class Element:
             collapsed list of zaids composing the element.
 
         """
-        zaids = {}
+        new_zaids: dict[str, Zaid] = {}
         for zaid in zaidList:
             # If already in dic sum the fractions
-            if zaid.name in zaids.keys():
-                zaids[zaid.name] = zaids[zaid.name] + zaid.fraction
+            if zaid.name in new_zaids:
+                new_zaids[zaid.name].fraction += zaid.fraction
             else:
-                zaids[zaid.name] = zaid.fraction
+                new_zaids[zaid.name] = zaid
 
-        zaidList = []
-        for name, fraction in zaids.items():
-            zaidList.append(Zaid.from_string(name + " " + str(fraction)))
-
-        self.Z = zaid.element
-        self.name = zaid.nuclide.element
-        self.zaids = zaidList
+        self.Z = zaidList[0].element
+        self.name = zaidList[0].nuclide.element
+        self.zaids = list(new_zaids.values())
 
     def _get_abundances(self) -> dict[str, float]:
         """
@@ -523,7 +518,7 @@ class Material:
 
         """
         # get_info() uses inplace=False internally, so no copy needed here
-        df = self.get_info()
+        elem_mass_fractions = self._compute_elem_mass_fractions()
 
         if self.header is not None:
             text = self.header + "\n"
@@ -534,9 +529,7 @@ class Material:
 
         for elem in self.elements:
             abundances = elem._get_abundances()
-            elem_mass_fraction = (
-                df.groupby("Element")["Element Mass Fraction"].mean().loc[elem.name]
-            )
+            elem_mass_fraction = elem_mass_fractions[elem.name]
             for zaid in elem.zaids:
                 text = (
                     text
@@ -749,15 +742,37 @@ class Material:
             new_zaids = []
             for zaid in self.zaids:
                 atom_mass = lib_manager.get_zaid_mass(zaid)
-                newz = copy.deepcopy(zaid)
                 if ftype == "atom":
-                    newz.fraction = (-1 * zaid.fraction / atom_mass) / norm
+                    new_frac = (-1 * zaid.fraction / atom_mass) / norm
                 else:
-                    newz.fraction = (-1 * zaid.fraction * atom_mass) / norm
-                new_zaids.append(newz)
-            mat = copy.deepcopy(self)
-            mat.zaids = new_zaids
-            return mat
+                    new_frac = (-1 * zaid.fraction * atom_mass) / norm
+                new_zaids.append(Zaid(new_frac, zaid.nuclide))
+            return Material(
+                self.name,
+                new_zaids,
+                header=self.header,
+                additional_keys=list(self.additional_keys),
+                mx_cards=list(self.mx_cards),
+            )
+
+    def _compute_elem_mass_fractions(self) -> dict[str, float]:
+        """Compute element mass fractions directly, without DataFrames or deepcopy."""
+        totf = self.get_tot_fraction()
+        elem_weights: dict[str, float] = {}
+        if totf < 0:
+            # already mass fractions (negative) — normalize by total
+            for elem in self.elements:
+                elem_weights[elem.name] = elem.get_fraction() / totf
+        else:
+            # atom fractions — weight each zaid by atomic mass
+            total = 0.0
+            for elem in self.elements:
+                w = sum(z.fraction * LM.get_zaid_mass(z) for z in elem.zaids)
+                elem_weights[elem.name] = w
+                total += w
+            for name in elem_weights:
+                elem_weights[name] /= total
+        return elem_weights
 
     def _get_info_df(self) -> pd.DataFrame:
         """

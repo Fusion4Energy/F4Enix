@@ -245,11 +245,11 @@ class TestInput:
     #     assert False
 
     def test_extract_cells(self, tmpdir):
-        newinput = deepcopy(self.testInput)
+        full = deepcopy(self.testInput)
         cells = [23, 24, 25, 31]
         outfile = tmpdir.mkdir("sub").join("extract.i")
         renumber_offsets = {"cells": 1}
-        newinput = newinput.extract_cells(cells, renumber_offsets=renumber_offsets)
+        newinput = full.extract_cells(cells, renumber_offsets=renumber_offsets)
         newinput.write(outfile)
         # re-read
         inp2 = Input.from_input(outfile)
@@ -257,6 +257,11 @@ class TestInput:
         assert len(inp2.surfs) == 10
         # assert len(inp2.mat_section) == 3  entire mat section is copied now
         assert sorted(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
+        # verify that the number of transformations materials and datacards is the
+        # same as in the original input
+        assert len(inp2.transformations) == len(full.transformations)
+        assert len(inp2.mat_section) == len(full.mat_section)
+        assert len(inp2.other_data) == len(full.other_data)
 
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE:
             mcnp_input = Input.from_input(FILE)

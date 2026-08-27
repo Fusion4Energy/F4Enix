@@ -418,6 +418,14 @@ class Input:
             for cell in extracted_inp._model.cells():
                 cell.remove_param("u")
 
+        # Re-assign old datacards and transformations
+        for tr_card in extracted_inp._model.transforms():
+            extracted_inp._model.remove_transform(tr_card.id)
+        for tr_card in self._model.transforms():
+            extracted_inp._model.add_transform(tr_card.text)
+        for _, card in self.other_data.items():
+            extracted_inp._model.add_data_card(card.text)
+
         return extracted_inp
 
     def extract_universe(
