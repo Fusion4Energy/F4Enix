@@ -2046,3 +2046,4 @@ rand gen=1 seed=19073486328213 $ change random number seed (default ends in 5)
 c 
 c nps 50e3             $ number of particles
 prdmp j 5e3 1 1 $ write mctal,save only the last dump 
+TR100  1 1 1
