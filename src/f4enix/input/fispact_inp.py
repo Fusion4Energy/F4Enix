@@ -7,6 +7,18 @@ from f4enix.input.libmanager import LibManager
 
 class FispactInp:
     def __init__(self, pypact_inp: InputData | None = None):
+        """A light-weight wrapper around pypact.InputData
+
+        Parameters
+        ----------
+        pypact_inp : InputData | None, optional
+            pass an existing pypact InputData or create a new one if None.
+
+        Attributes
+        ----------
+        inp : InputData
+            The underlying pypact InputData instance.
+        """
         if pypact_inp is None:
             self.inp = InputData()
         else:
