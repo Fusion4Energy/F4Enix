@@ -252,6 +252,7 @@ class MeshPlotter:
         center = np.array(center)
         increment = radians(theta_increment)
         mesh_slices = []
+        slice_normals = []
 
         if min_max_theta is None:
             angles = np.arange(0, np.pi, increment)
@@ -277,9 +278,10 @@ class MeshPlotter:
                 continue
 
             mesh_slices.append(mesh_slice)
+            slice_normals.append(normal)
 
         if self._has_stl:
-            stl_slices = self._get_stl_slices(mesh_slices)
+            stl_slices = self._get_stl_slices(mesh_slices, slice_normals)
 
         outp = []
         # build the output
@@ -456,17 +458,27 @@ class MeshPlotter:
             pl.reset_camera(bounds=bounds)
 
     def _get_stl_slices(
-        self, mesh_slices: list[pv.PolyData]
+        self, mesh_slices: list[pv.PolyData], normals: list[np.ndarray] | None = None
     ) -> Union[list[pv.PolyData], None]:
         stl_slices = []
+        if normals is None:
+            normals = [None] * len(mesh_slices)
         # get the correspondent stl_slices
-        for mesh_slice in mesh_slices:
+        for mesh_slice, normal in zip(mesh_slices, normals):
             # check it is not empty
             if len(mesh_slice[mesh_slice.array_names[0]]) == 0:
                 stl_slices.append(None)
                 continue
 
-            norm = mesh_slice.cell_normals[0]
+            if normal is None:
+                norm = mesh_slice.cell_normals[0]
+            else:
+                norm = np.array(normal)
+                norm_length = np.linalg.norm(norm)
+                if norm_length == 0:
+                    stl_slices.append(None)
+                    continue
+                norm = norm / norm_length
             stl_slice = self.stl.slice(normal=norm, origin=mesh_slice.center)
             if stl_slice.bounds is None:
                 # This may happen if the stl is smaller than the mesh
