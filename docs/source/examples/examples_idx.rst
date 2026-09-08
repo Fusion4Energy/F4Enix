@@ -20,6 +20,7 @@ Pre-Processing
     input/jupyters/e_lite
     input/jupyters/ww
     input/jupyters/ace
+    input/jupyters/fispact_inp
 
 
 .. _post_jupyters:
