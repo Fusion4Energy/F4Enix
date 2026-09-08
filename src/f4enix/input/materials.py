@@ -683,7 +683,7 @@ class Material:
 
     def switch_fraction(
         self, ftype: str, lib_manager: LibManager, inplace: bool = True
-    ) -> Material | None:
+    ) -> Material:
         """
         Switch between atom or mass fraction for the material card.
         If the material is already switched the command is ignored.
@@ -705,8 +705,8 @@ class Material:
 
         Returns
         -------
-        material : Material | None
-            The material with switched fractions if inplace is False, otherwise None.
+        material : Material
+            The material with switched fractions. Self if inplace is true.
 
         """
         # Get total fraction
@@ -716,8 +716,8 @@ class Material:
             if not inplace:
                 return copy.deepcopy(self)
             else:
-                # The switch is not needed, return None
-                return None
+                # The switch is not needed, return self
+                return self
 
         norm = 0
         for zaid in self.zaids:
@@ -737,7 +737,7 @@ class Material:
                 else:
                     zaid.fraction = (-1 * zaid.fraction * atom_mass) / norm
             self.elements, self._zaids = self._collapse_zaids()
-            return None
+            return self
         else:
             new_zaids = []
             for zaid in self.zaids:
