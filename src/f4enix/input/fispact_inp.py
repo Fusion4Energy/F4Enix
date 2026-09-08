@@ -70,7 +70,7 @@ class FispactInp:
             if mass:
                 m = mass
             elif volume and density:
-                m = volume * density / 1000  # convert g/cm^3 to kg/m^3
+                m = volume * density * 1000  # convert g/cm^3 to kg/m^3
             else:
                 raise ValueError(
                     "Either mass or both volume and density must be specified for mass style materials."
@@ -82,7 +82,7 @@ class FispactInp:
             if density:
                 rho = density
             elif volume and mass:
-                rho = mass / volume * 1000  #  g/cm^3
+                rho = mass / volume / 1000  #  g/cm^3
             else:
                 raise ValueError(
                     "Either density or both mass and volume must be specified for fuel style materials."
