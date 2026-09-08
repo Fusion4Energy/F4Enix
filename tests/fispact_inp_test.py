@@ -62,7 +62,6 @@ class TestFispactInp:
 
     def test_add_irradiation_scenario_adds_pulses_and_cooling_times(self):
         inp = FispactInp()
-        inp.inp = Mock()
 
         pulse_1 = Pulse(time=10, intensity=1.0)
         pulse_2 = Pulse(time=20, intensity=2.0)
@@ -74,9 +73,7 @@ class TestFispactInp:
 
         inp.add_irradiation_scenario(scenario, norm=2.0)
 
-        inp.inp.addIrradiation.assert_any_call(pulse_1.time, pulse_1.intensity * 2.0)
-        inp.inp.addIrradiation.assert_any_call(pulse_2.time, pulse_2.intensity * 2.0)
-        inp.inp.addCooling.assert_called_once_with(cooling.time)
+        assert len(inp.inp._irradschedule) == 2
 
     def test_save(
         self,

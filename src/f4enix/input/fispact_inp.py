@@ -54,7 +54,7 @@ class FispactInp:
             # fispact natural abundances are used! be sure these are consistent
             # with the material definition
             for element in new_mat.elements:
-                self.inp.addElement(element.name, percentage=element.get_fraction())
+                self.inp.addElement(element.name, percentage=-element.get_fraction())
             if mass:
                 m = mass
             elif volume and density:
