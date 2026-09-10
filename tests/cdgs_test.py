@@ -9,6 +9,7 @@ from f4enix.output.cdgs import (
     CDGS,
     SphereKernel,
     DistanceKernel,
+    KNearestKernel,
     MeshByAverageDistance,
     MeshByNumberOfVoxels,
     MeshByBinSize,
@@ -53,6 +54,82 @@ class TestKernel:
         assert np.not_equal(
             interp1, interp2
         ).any()  # The two interpolations should differ
+
+    def test_get_neighbours_k_nearest_kernel(self):
+        kernel = KNearestKernel(k=2)
+        source_coords = np.array([[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]])
+        dest_coords = np.array([[0, 0, 0], [0.4, 0.4, 0.4], [0.9, 0.9, 0.9]])
+        neighbours_idx = kernel.get_neighbours(source_coords, dest_coords)
+
+        # always a dense (n_points, k) array, unlike the ragged SphereKernel result
+        assert neighbours_idx.shape == (3, 2)
+        assert list(neighbours_idx[0]) == [0, 1]
+        assert list(neighbours_idx[1]) == [0, 1]
+        assert list(neighbours_idx[2]) == [2, 1]
+
+    def test_k_nearest_kernel_invalid_k(self):
+        with pytest.raises(ValueError):
+            KNearestKernel(k=0)
+
+        dest_coords = np.array([[0, 0, 0], [0.4, 0.4, 0.4]])
+        with pytest.raises(ValueError):
+            KNearestKernel(k=3).get_neighbours(dest_coords, dest_coords)
+
+    def test_k_nearest_kernel_weights(self):
+        kernel = KNearestKernel(k=2)
+        dest_coords = np.array([[0.0, 0, 0], [1.0, 0, 0], [3.0, 0, 0]])
+
+        # coincident point: full weight goes to the collocated destination
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.0, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=2.0,
+        )
+        assert np.allclose(interp, [2.0, 0.0, 0.0])
+
+        # non-coincident: inverse-distance weights, summing to the full activity
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.5, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=2.0,
+        )
+        assert np.isclose(interp.sum(), 2.0)
+        assert np.isclose(interp[0], interp[1])  # equidistant -> equal weights
+
+    def test_k_nearest_kernel_batch_matches_loop(self):
+        kernel = KNearestKernel(k=2)
+        dest_coords = np.array([[0.0, 0, 0], [1.0, 0, 0], [3.0, 0, 0], [0.5, 1.0, 0]])
+        # includes a source point coincident with a destination point (index 0)
+        source_coords = np.array([[0.0, 0, 0], [0.5, 0, 0], [2.0, 0, 0]])
+        activities = np.array([2.0, 3.0, 1.5])
+        neighbours_idx = kernel.get_neighbours(source_coords, dest_coords)
+
+        interp_loop = np.zeros(dest_coords.shape[0])
+        for i in range(len(source_coords)):
+            kernel._kernel(
+                source_coord=source_coords[i],
+                dest_idx=neighbours_idx[i],
+                dest_coords=dest_coords,
+                interpolation=interp_loop,
+                activity=activities[i],
+            )
+
+        interp_batch = np.zeros(dest_coords.shape[0])
+        kernel._kernel_batch(
+            source_coords=source_coords,
+            neighbours_idx=neighbours_idx,
+            dest_coords=dest_coords,
+            interpolation=interp_batch,
+            activities=activities,
+        )
+
+        assert np.allclose(interp_loop, interp_batch)
 
 
 class TestMeshDefinition:
@@ -244,6 +321,17 @@ class TestCDGS:
         cdgs.to_cdgs(tmp_path.joinpath("all.cdgs"), "all")
         cdgs.to_cdgs(tmp_path.joinpath("isotope.cdgs"), list(cdgs.isotopes.keys())[0])
         cdgs.to_vtk(tmp_path.joinpath("cdgs.vtk"))
+
+    def test_from_cloud_point_k_nearest_kernel(self):
+        with as_file(files(res).joinpath("test_activity.csv")) as file:
+            cdgs = CDGS.from_cloud_point(
+                file,
+                {"N16": "n16"},
+                interpolation_kernel=KNearestKernel(k=4),
+                mesh_definition=MeshByAverageDistance(factor=10),
+                col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
+            )
+        assert np.sum(cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"]) > 0
 
 
 def test_floats_to_multiline_string():

@@ -1,4 +1,9 @@
-from f4enix.output.cdgs.kernels import InterpolationKernel, SphereKernel, DistanceKernel
+from f4enix.output.cdgs.kernels import (
+    InterpolationKernel,
+    SphereKernel,
+    DistanceKernel,
+    KNearestKernel,
+)
 from f4enix.output.cdgs.mesh_definitions import (
     MeshByAverageDistance,
     MeshByNumberOfVoxels,
@@ -15,6 +20,7 @@ __all__ = [
     "InterpolationKernel",
     "SphereKernel",
     "DistanceKernel",
+    "KNearestKernel",
     "CDGS",
     "CDGS_ENERGY_TYPE",
 ]

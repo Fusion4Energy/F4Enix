@@ -262,7 +262,7 @@ class CDGS:
     @classmethod
     def from_cloud_point(
         cls,
-        csv_file: str | Path,
+        cloud_point: str | Path | pd.DataFrame,
         isotopes: dict[str, str],
         interpolation_kernel: InterpolationKernel,
         mesh_definition: RegularMeshDefinition,
@@ -275,8 +275,8 @@ class CDGS:
 
         Parameters
         ----------
-        csv_file : str | Path
-            Path to the CSV file containing the cloud point data.
+        cloud_point : str | Path | pd.DataFrame
+            Path to the CSV file containing the cloud point data or a DataFrame directly.
         isotopes : dict[str, str]
             Dictionary mapping isotope names to their column in the CSV file. Isotopes
             names should be like "Co60".
@@ -308,7 +308,10 @@ class CDGS:
         CDGS
             A CDGS object populated with data from the CSV file.
         """
-        df = pd.read_csv(csv_file)
+        if isinstance(cloud_point, pd.DataFrame):
+            df = cloud_point.copy()
+        else:
+            df = pd.read_csv(cloud_point)
         df.columns = (
             df.columns.str.strip()
         )  # remove any leading/trailing whitespace from column names
@@ -321,15 +324,16 @@ class CDGS:
             }
         coords = df[[col_names["x"], col_names["y"], col_names["z"]]].to_numpy()
 
-        # Check if there are duplicated points, if so, drop them and warn the user
-        if len(coords) != len(np.unique(coords, axis=0)):
+        # Check if there are duplicated points, if so, drop them and warn the user.
+        # pandas.duplicated() hashes rows instead of sorting them like
+        # np.unique(axis=0) would, which is much cheaper for millions of points
+        dup_cols = [col_names["x"], col_names["y"], col_names["z"]]
+        if df.duplicated(subset=dup_cols).any():
             print(
                 "Warning: Duplicated points found in the cloud point data. "
                 "These will be dropped."
             )
-            df = df.drop_duplicates(
-                subset=[col_names["x"], col_names["y"], col_names["z"]]
-            )
+            df = df.drop_duplicates(subset=dup_cols)
             coords = df[[col_names["x"], col_names["y"], col_names["z"]]].to_numpy()
 
         UM_vols = df[col_names["vol"]].to_numpy()
@@ -337,7 +341,9 @@ class CDGS:
         # build the regular mesh
         mesh = mesh_definition._build_grid(coords)
         vol = np.min(np.abs(mesh.compute_cell_sizes()["Volume"]))
-        centroids_voxels = mesh.cell_centers().points
+        # strip the pyvista_ndarray subclass: its __array_finalize__/__array_wrap__
+        # hooks fire on every slice and add up over millions of kernel calls
+        centroids_voxels = np.asarray(mesh.cell_centers().points)
 
         # Query the KDTree to find neighboring points
         neighbours_idx = interpolation_kernel.get_neighbours(
@@ -353,26 +359,51 @@ class CDGS:
             # initialize the activity array for each isotope and isotope counter
             activity_array = np.zeros(len(centroids_voxels))
             atoms_array = np.zeros(len(centroids_voxels))
+            # extract once as a numpy array: df[col].iloc[i] rebuilds a Series
+            # on every call and dominates runtime over millions of rows
+            col_values = df[col].to_numpy()
+            atoms_per_point = col_values * UM_vols  # atoms
 
-            # Cycle on all UM centroids and distribute the activity
-            for i in range(len(coords)):
-                source_coord = coords[i]
-                atoms = df[col].iloc[i] * UM_vols[i]  # atoms
-                activity = ag.activity_from_atoms(db, isotope, atoms)  # Bq
-                interpolation_kernel._kernel(
-                    source_coord,
-                    neighbours_idx[i],
+            if getattr(interpolation_kernel, "supports_batch", False):
+                # activity_from_atoms is a linear scaling of atoms, so it
+                # broadcasts fine over the whole array in a single call
+                activities_per_point = ag.activity_from_atoms(
+                    db, isotope, atoms_per_point
+                )  # Bq
+                interpolation_kernel._kernel_batch(
+                    coords,
+                    neighbours_idx,
                     centroids_voxels,
                     activity_array,
-                    activity,
+                    activities_per_point,
                 )
-                interpolation_kernel._kernel(
-                    source_coord,
-                    neighbours_idx[i],
+                interpolation_kernel._kernel_batch(
+                    coords,
+                    neighbours_idx,
                     centroids_voxels,
                     atoms_array,
-                    atoms,
+                    atoms_per_point,
                 )
+            else:
+                # Cycle on all UM centroids and distribute the activity
+                for i in range(len(coords)):
+                    source_coord = coords[i]
+                    atoms = atoms_per_point[i]
+                    activity = ag.activity_from_atoms(db, isotope, atoms)  # Bq
+                    interpolation_kernel._kernel(
+                        source_coord,
+                        neighbours_idx[i],
+                        centroids_voxels,
+                        activity_array,
+                        activity,
+                    )
+                    interpolation_kernel._kernel(
+                        source_coord,
+                        neighbours_idx[i],
+                        centroids_voxels,
+                        atoms_array,
+                        atoms,
+                    )
             mesh.cell_data[f"{isotope}{ACTIVITY_TAG}"] = activity_array / vol  # Bq/m3
             mesh.cell_data[f"{isotope}{ATOM_DENSITY_TAG}"] = (
                 atoms_array / vol
