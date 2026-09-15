@@ -60,6 +60,18 @@ class TestFispactInp:
         inp.add_material(simple_material, style="fuel", mass=12.5, volume=1.0)
         inp.add_material(simple_material, style="fuel", mass=12.5, density=2.0)
 
+    def test_add_material_produce_correct_input(
+        self, simple_material: Material, tmpdir
+    ):
+        inp = FispactInp()
+        inp.add_material(simple_material, style="fuel", mass=12.5, density=2.0)
+        file = tmpdir.join("test.inp")
+        inp.save(file)
+        with open(file, "r") as f:
+            content = f.read()
+        assert "FUEL" in content
+        assert "H1" in content
+
     def test_add_irradiation_scenario_adds_pulses_and_cooling_times(self):
         inp = FispactInp()
 
