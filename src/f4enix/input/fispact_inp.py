@@ -101,6 +101,8 @@ class FispactInp:
             for zaid in new_mat.zaids:
                 n_atoms = zaid.fraction * tad * vol * 1e6 * 1e24
                 self.inp.addIsotope(zaid.name, n_atoms)
+
+            self.inp.setDensity(rho)
         else:
             raise ValueError(
                 f"Unknown style: {style}, only 'mass' and 'fuel' are supported."
