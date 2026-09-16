@@ -200,3 +200,17 @@ class TestFispactOutput:
 
         df = outp.filter_by_cum_heating(95, "1e2", add_pathways=True)
         assert len(df) == 10
+
+    def test_uncertainty(self, outp: FispactOutput):
+        df = outp.uncertainty
+        quantities = [
+            "Activity",
+            "Heat Production",
+            "Gamma Dose Rate",
+            "Ingestion Dose",
+            "Inhalation Dose",
+            "Gamma Heat Prod",
+            "Beta Heat Prod",
+        ]
+        assert df.index.isin(quantities).all()
+        assert len(df) == 7

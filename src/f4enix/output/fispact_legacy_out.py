@@ -10,12 +10,15 @@ from pathlib import Path
 
 import pandas as pd
 import pypact as pp
+import numpy as np
 
 from f4enix.core.constants import REVERSED_MT_DICT, PathLike
 from f4enix.core.irradiation import Nuclide, TCF_Computer
 from f4enix.input.libmanager import LibManager
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
+scientific_number_pattern = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+total_to_is_pattern = re.compile(r"\bTotal\b(.*?)\bis\b", re.DOTALL)
 target_pathway_zaids = re.compile(r"[A-Z][a-z]*\s*\d+m*")
 metastable_pat = re.compile(r"\d+m")
 isotope_pat = re.compile(r"\d+")
@@ -433,7 +436,11 @@ class FispactOutput:
         pathways_collection : PathwayCollection
             PathwayCollection object containing the pathways extracted from the fispact
             output file.
+        uncertainty : pd.DataFrame
+            Uncertainty data extracted from the inventory data.
         """
+        self._content = None
+        self._uncertainty = None
         self.filepath = Path(filepath)
         self.name = self.filepath.stem
 
@@ -610,3 +617,52 @@ class FispactOutput:
                 f"No pathways found for any of the isotopes in the {who} dataframe."
             )
         return newdf.sort_values(by=f"pathway % {who}", ascending=False)
+
+    @property
+    def uncertainty(self) -> pd.DataFrame:
+        """Return the uncertainty dataframe."""
+        if self._uncertainty is None:
+            rows = []
+
+            flag = False
+            for line in self.content:
+                if "Total Activity" in line:
+                    flag = True
+
+                if flag:
+                    if len(line) < 3:
+                        # blank line
+                        continue
+                    numbers = scientific_number_pattern.findall(line)
+                    tally = (
+                        total_to_is_pattern.search(line)
+                        .group()
+                        .replace("Total", "")
+                        .replace("is", "")
+                        .strip()
+                    )
+                    if len(numbers) < 3:
+                        val = np.nan
+                    else:
+                        val = float(numbers[-1])
+                    rows.append({"quantity": tally, "uncertainty": val})
+
+                if "Total Beta" in line:
+                    flag = False
+            df = pd.DataFrame(rows)
+            df_summary = df.groupby("quantity").min()
+            df_summary["max uncertainty [%]"] = df.groupby("quantity").max()[
+                "uncertainty"
+            ]
+            df_summary["min uncertainty [%]"] = df_summary["uncertainty"]
+            df_summary = df_summary.drop(columns=["uncertainty"])
+            self._uncertainty = df_summary
+        return self._uncertainty
+
+    @property
+    def content(self) -> list[str]:
+        """Return the content of the file as a list of lines."""
+        if self._content is None:
+            with open(self.filepath, "r") as f:
+                self._content = f.readlines()
+        return self._content
