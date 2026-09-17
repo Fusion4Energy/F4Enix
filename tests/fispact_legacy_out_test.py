@@ -214,3 +214,10 @@ class TestFispactOutput:
         ]
         assert df.index.isin(quantities).all()
         assert len(df) == 7
+
+    def test_check_convergence(self, outp: FispactOutput):
+        problematic_isotopes = outp._check_convergence(1e-10)
+        assert len(problematic_isotopes) > 0
+
+        problematic_isotopes = outp._check_convergence(0.1)
+        assert len(problematic_isotopes) == 0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from copy import deepcopy
@@ -403,6 +404,7 @@ class FispactOutput:
         parse_sddr: bool = True,
         parse_decay_heat: bool = True,
         parse_pathways: bool = True,
+        rtol_convergence: float = 0.01,
     ) -> None:
         """Store data parsed from FISPACT legacy output files
 
@@ -420,6 +422,12 @@ class FispactOutput:
             whether to parse the decay heat data, by default True
         parse_pathways : bool, optional
             whether to parse the pathways data, by default True
+        rtol_convergence : float, optional
+            relative tolerance threshold for checking the convergence of the inventory
+            data, by default 0.01.
+            If nuclides are marked with "?" and they are responsible for more than
+            this threshold of activity, a warning will be raised.
+
 
         Attributes
         ----------
@@ -447,6 +455,8 @@ class FispactOutput:
         with pp.Reader(filepath) as output:
             # store inventory data
             self.inventory_data = output.inventory_data
+
+        self.problematic_isotopes = self._check_convergence(rtol_convergence)
 
         self.sddr = self._get_sddr(cooling_times) if parse_sddr else None
         self.decay_heat = (
@@ -666,3 +676,57 @@ class FispactOutput:
             with open(self.filepath, "r") as f:
                 self._content = f.readlines()
         return self._content
+
+    def _check_convergence(self, threshold: float) -> set[str]:
+        """
+        Check the convergence of the inventory data.
+
+        Parameters
+        ----------
+        threshold : float
+            Threshold for checking the convergence of the inventory data.
+
+        Returns
+        -------
+        set[str]
+            Set of problematic isotopes that exceed the activity threshold and have
+            poor statistics.
+
+        Raises
+        ------
+        Warning
+            If nuclides are marked with "?" and they are responsible for more than
+            the specified threshold of activity.
+        """
+        isotopes_per_step = []
+        isotopes = []
+        header = True
+        for line in self.content:
+            if "COMPOSITION  OF  MATERIAL  BY  ELEMENT" in line:
+                isotopes_per_step.append(isotopes)
+                isotopes = []
+            if "?" in line:
+                if header:
+                    header = False
+                    continue  # skipt the legend``
+                isotope = line[:7].replace(" ", "")
+                isotopes.append(isotope)
+
+        assert len(isotopes_per_step) == len(self.inventory_data)
+
+        problematic_isotopes = []
+        for i, isotopes in enumerate(isotopes_per_step):
+            if not isotopes:
+                continue
+            step = self.inventory_data[i]
+            for isotope in isotopes:
+                for isotope_inv in step.nuclides:
+                    if isotope_inv.name == isotope:
+                        rel_activity = isotope_inv.activity / step.total_activity
+                        if rel_activity > threshold:
+                            logging.warning(
+                                f"Nuclide {isotope} is above activity threshold and with poor statistics at step {i + 1}"
+                            )
+                            problematic_isotopes.append(isotope)
+
+        return set(problematic_isotopes)
