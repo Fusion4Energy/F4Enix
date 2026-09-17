@@ -404,6 +404,7 @@ class FispactOutput:
         parse_sddr: bool = True,
         parse_decay_heat: bool = True,
         parse_pathways: bool = True,
+        parse_activity: bool = True,
         rtol_convergence: float = 0.01,
     ) -> None:
         """Store data parsed from FISPACT legacy output files
@@ -418,6 +419,8 @@ class FispactOutput:
             timesteps in the inventory data will be associated to these labels.
         parse_sddr : bool, optional
             whether to parse the SDDR data, by default True
+        parse_activity : bool, optional
+            whether to parse the activity data, by default True
         parse_decay_heat : bool, optional
             whether to parse the decay heat data, by default True
         parse_pathways : bool, optional
@@ -441,6 +444,8 @@ class FispactOutput:
             SDDR data extracted from the inventory data.
         decay_heat : pd.DataFrame
             Decay heat data extracted from the inventory data.
+        activity : pd.DataFrame
+            Activity data extracted from the inventory data.
         pathways_collection : PathwayCollection
             PathwayCollection object containing the pathways extracted from the fispact
             output file.
@@ -465,6 +470,33 @@ class FispactOutput:
         self.pathways_collection = (
             PathwayCollection.from_file(self.filepath) if parse_pathways else None
         )
+        self.activity = self._get_activity(cooling_times) if parse_activity else None
+
+    def _get_activity(self, cooling_times: list[str]) -> pd.DataFrame:
+        dfs = []
+        for i, timestep in enumerate(self.inventory_data[-len(cooling_times) :]):
+            cooling_time_label = cooling_times[i]
+
+            doses = []
+            for nuclide in timestep.nuclides:
+                doses.append(
+                    {
+                        "element": nuclide.element,
+                        "isotope": nuclide.isotope,
+                        "state": nuclide.state,
+                        "activity": nuclide.activity,
+                        "cooling time": cooling_time_label,
+                    }
+                )
+
+            df = pd.DataFrame(doses)
+            df = df[df["activity"] > 0]  # filter zero activities
+            df["isotope % activity"] = df["activity"] / df["activity"].sum() * 100
+            df.sort_values(by="isotope % activity", ascending=False, inplace=True)
+            df["Cumulative activity sum"] = df["isotope % activity"].values.cumsum()
+            dfs.append(df)
+
+        return pd.concat(dfs)
 
     def _get_sddr(self, cooling_times: list[str]) -> pd.DataFrame:
         dfs = []
@@ -542,16 +574,30 @@ class FispactOutput:
         """
         # select only requested label
         df = self.sddr[self.sddr["cooling time"] == label].copy()
-        last_index = None
-        for i, (_, row) in enumerate(df.iterrows()):
-            if row["Cumulative dose sum"] > perc:
-                last_index = i + 1
-                break
-        df = df.iloc[:last_index]
+        return self._filter_cum(df, "dose", perc, add_pathways=add_pathways)
 
-        if add_pathways:
-            df = self.add_pathways_rows(df)
-        return df
+    def filter_by_cum_activity(
+        self, perc: float, label: str, add_pathways: bool = False
+    ) -> pd.DataFrame:
+        """Filter the SDDR output (at a certain cooling time) to get at least a certain
+        percent of the cumulative activity.
+
+        Parameters
+        ----------
+        perc : float
+            percent of cumulative activity to filter at
+        label : str
+            cooling time label to filter at
+        add_pathways : bool, optional
+            whether to add pathways rows, by default False
+        Returns
+        -------
+        pd.DataFrame
+            filtered dataframe
+        """
+        # select only requested label
+        df = self.activity[self.activity["cooling time"] == label].copy()
+        return self._filter_cum(df, "activity", perc, add_pathways=add_pathways)
 
     def filter_by_cum_heating(
         self, perc: float, label: str, add_pathways: bool = False
@@ -574,16 +620,20 @@ class FispactOutput:
         """
         # select only requested label
         df = self.decay_heat[self.decay_heat["cooling time"] == label].copy()
+        return self._filter_cum(df, "heat", perc, add_pathways=add_pathways)
+
+    def _filter_cum(
+        self, df: pd.DataFrame, tag: str, perc: float, add_pathways: bool = False
+    ) -> pd.DataFrame:
         last_index = None
         for i, (_, row) in enumerate(df.iterrows()):
-            if row["Cumulative heat sum"] > perc:
+            if row[f"Cumulative {tag} sum"] > perc:
                 last_index = i + 1
                 break
-        df = df.iloc[:last_index]
-
+        new_df = df.iloc[:last_index]
         if add_pathways:
-            df = self.add_pathways_rows(df, who="heat")
-        return df
+            new_df = self.add_pathways_rows(new_df, who="heat")
+        return new_df
 
     def add_pathways_rows(self, df: pd.DataFrame, who="dose") -> pd.DataFrame:
         """Add pathways rows to a SDDR dataframe.

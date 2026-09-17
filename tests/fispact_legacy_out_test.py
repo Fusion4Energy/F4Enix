@@ -190,6 +190,9 @@ class TestFispactOutput:
         df = outp.filter_by_cum_dose(95, "1e2", add_pathways=True)
         assert len(df) == 8
 
+    def test_activity(self, outp: FispactOutput):
+        assert pytest.approx(outp.activity["Cumulative activity sum"].max()) == 100  # type: ignore
+
     def test_decay_heat(self, outp: FispactOutput):
         assert pytest.approx(outp.decay_heat["Cumulative heat sum"].max()) == 100  # type: ignore
 
@@ -200,6 +203,11 @@ class TestFispactOutput:
 
         df = outp.filter_by_cum_heating(95, "1e2", add_pathways=True)
         assert len(df) == 10
+
+    def test_filter_by_cum_activity(self, outp: FispactOutput):
+        df = outp.filter_by_cum_activity(95, "1e2")
+        assert len(df) == 4
+        assert df.iloc[-1]["Cumulative activity sum"] > 95
 
     def test_uncertainty(self, outp: FispactOutput):
         df = outp.uncertainty
