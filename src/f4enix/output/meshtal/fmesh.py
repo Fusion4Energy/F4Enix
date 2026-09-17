@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pyvista as pv
 from tqdm import tqdm
+from copy import deepcopy
 
 from f4enix.core.constants import PathLike
 from f4enix.output.meshtal.aux_meshtal_functions import (
@@ -724,6 +725,99 @@ class Fmesh(MeshData):
             # a bug regarding rotation
             self.grid = self.grid.cast_to_structured_grid()
         self.grid = self.grid.transform(transform_matrix, inplace=False)
+
+    def _get_mesh_bin_daughters(self, bin_type: str) -> tuple[dict, str]:
+        # Select bin type and array prefix based on user input
+        if bin_type == "ebin":
+            bins = self.ebin
+            arr_prefix = "Value - Total_e"
+        elif bin_type == "tbin":
+            bins = self.tbin
+            arr_prefix = "Value - Total_t"
+        else:
+            raise ValueError("bin_type must be 'ebin' or 'tbin'")
+
+        daughter_to_array = {}
+        for b in bins[1:]:  # skip the first bin (all other nuclides)
+            b_str = str(b)
+            d_str, arr_str = b_str.split(".")
+            daughter = int(d_str)
+
+            arr_token = arr_str.ljust(3, "0")[:3]
+            arr_num = int(arr_token)
+
+            daughter_to_array[daughter] = arr_num
+
+        return daughter_to_array, arr_prefix
+
+    def rescale_dose_map(
+        self,
+        scaling_factors_df: pd.DataFrame,
+        cooling_time_col: str,
+    ) -> pv.DataSet:
+        """Rescale the dose map in the mesh using scaling factors for a chosen cooling time.
+
+        Parameters
+        ----------
+        scaling_factors_df : pd.DataFrame
+            DataFrame, index=daughter, columns=cooling times (as string), contains
+            the corresponding scaling factors for each daughter and cooling time
+        cooling_time_col : str
+            str, column name in scaling_factors_df to use for scaling
+
+        Returns
+        -------
+        pv.DataSet
+            new PyVista grid with rescaled arrays and a new total array
+        """
+        daughter_to_array, arr_prefix = self._get_mesh_bin_daughters("ebin")
+        return rescale_dose_map_vtk(
+            grid=self.grid,
+            scaling_factors_df=scaling_factors_df,
+            cooling_time_col=cooling_time_col,
+            daughter_to_array=daughter_to_array,
+            arr_prefix=arr_prefix,
+        )
+
+
+def rescale_dose_map_vtk(
+    grid: pv.DataSet,
+    scaling_factors_df: pd.DataFrame,
+    cooling_time_col: str,
+    daughter_to_array: dict[int, int],  # mapping from daughter to array number
+    arr_prefix: str,  # prefix for array names
+) -> pv.DataSet:
+    """Rescale the dose map in the mesh using scaling factors for a chosen cooling time.
+
+    Parameters
+    ----------
+    scaling_factors_df : pd.DataFrame
+        DataFrame, index=daughter, columns=cooling times (as string), contains
+        the corresponding scaling factors for each daughter and cooling time
+    cooling_time_col : str
+        str, column name in scaling_factors_df to use for scaling
+    daughter_to_array : dict[int, int]
+        mapping from daughter to array number
+    arr_prefix : str
+        prefix for array names
+
+    Returns
+    -------
+    pv.DataSet
+        new PyVista grid with rescaled arrays and a new total array
+    """
+    new_grid = deepcopy(grid)
+    rescaled_arrays = []
+    for daughter, arr_num in daughter_to_array.items():
+        arr_name = f"{arr_prefix}{str(arr_num).zfill(3)}"
+        if arr_name not in new_grid.cell_data:
+            raise KeyError(f"Array {arr_name} not found in grid.cell_data")
+        scale = scaling_factors_df.loc[daughter, cooling_time_col]
+        new_grid.cell_data[arr_name] = grid.cell_data.get(arr_name) * scale
+        rescaled_arrays.append(new_grid.cell_data.get(arr_name))
+    total_array = np.sum(np.stack(rescaled_arrays, axis=0), axis=0)
+    new_grid.cell_data[f"{arr_prefix}Tot"] = total_array
+    return new_grid
 
 
 def _clean_path(name: str) -> str:
