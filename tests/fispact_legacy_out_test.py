@@ -1,6 +1,7 @@
 from importlib.resources import as_file, files
 
 import pytest
+import numpy as np
 
 import tests.resources.fispact_legacy_out as lib_res
 from f4enix.core.irradiation import Nuclide, TCF_Computer
@@ -229,3 +230,16 @@ class TestFispactOutput:
 
         problematic_isotopes = outp._check_convergence(0.1)
         assert len(problematic_isotopes) == 0
+
+    @pytest.mark.parametrize(
+        "quantity",
+        [
+            "activity",
+            "dose",
+            "heat",
+        ],
+    )
+    def test_plot_trend(self, outp: FispactOutput, quantity: str):
+        fig, ax = outp.plot_trend(quantity, 90)
+        assert fig is not None
+        assert ax is not None
