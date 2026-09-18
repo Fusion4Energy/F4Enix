@@ -1,17 +1,22 @@
 import os
 from importlib.resources import as_file, files
 
+from f4enix.core.constants import TIME_UNITS
 import pytest
 
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.expected as res_exp
 import tests.resources.meshtal.tests as res
+import tests.resources.irradiation as res_irr
+
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.meshtal import Meshtal
+from f4enix.input.d1suned import IrradiationFile
 
 resources_write = files(res)
 expected = files(res_exp)
 RESOURCES = files(resources)
+resources_irr = files(res_irr)
 
 
 class TestMeshtal:
@@ -332,3 +337,22 @@ class TestMeshtal:
 
         meshtal.readMesh()
         meshtal.mesh[1].write(tmpdir)
+
+    def test_rescale_dose_mesh(self):
+        with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
+            meshtal = Meshtal(inp)
+
+        meshtal.readMesh()
+
+        irr_file = IrradiationFile.from_text(resources_irr.joinpath("d1stime_o_30d"))
+        scaling_factors = irr_file.get_scaling_factors_cooling_time(
+            1, (200, TIME_UNITS.DAY)
+        )
+        rescaled_mesh = meshtal.mesh[44].rescale_dose_map(
+            scaling_factors_df=scaling_factors,
+            cooling_time_col="200d",
+        )
+        assert (
+            pytest.approx(rescaled_mesh.cell_data["Value - Total_e002"][0])
+            == 0.04435259766561963
+        )
