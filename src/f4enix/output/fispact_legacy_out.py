@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from copy import deepcopy
@@ -10,12 +11,18 @@ from pathlib import Path
 
 import pandas as pd
 import pypact as pp
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
 from f4enix.core.constants import REVERSED_MT_DICT, PathLike
 from f4enix.core.irradiation import Nuclide, TCF_Computer
 from f4enix.input.libmanager import LibManager
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
+scientific_number_pattern = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+total_to_is_pattern = re.compile(r"\bTotal\b(.*?)\bis\b", re.DOTALL)
 target_pathway_zaids = re.compile(r"[A-Z][a-z]*\s*\d+m*")
 metastable_pat = re.compile(r"\d+m")
 isotope_pat = re.compile(r"\d+")
@@ -397,11 +404,12 @@ class FispactOutput:
         self,
         filepath: PathLike,
         cooling_times: list[str],
-        parse_sddr: bool = True,
-        parse_decay_heat: bool = True,
-        parse_pathways: bool = True,
+        rtol_convergence: float = 0.01,
     ) -> None:
-        """Store data parsed from FISPACT legacy output files
+        """Store data parsed from FISPACT legacy output files. Many of the attributes
+        are lazy loaded, that is, they are only parsed and loaded into memory when
+        accessed for the first time. This avoid unnecessary parsing for quantities
+        that are not requested.
 
         Parameters
         ----------
@@ -411,12 +419,12 @@ class FispactOutput:
             list of labels associated to the different cooling times. No check is
             performed on the correct length of the label list, the last len(cooling_times)
             timesteps in the inventory data will be associated to these labels.
-        parse_sddr : bool, optional
-            whether to parse the SDDR data, by default True
-        parse_decay_heat : bool, optional
-            whether to parse the decay heat data, by default True
-        parse_pathways : bool, optional
-            whether to parse the pathways data, by default True
+        rtol_convergence : float, optional
+            relative tolerance threshold for checking the convergence of the inventory
+            data, by default 0.01.
+            If nuclides are marked with "?" and they are responsible for more than
+            this threshold of activity, a warning will be raised.
+
 
         Attributes
         ----------
@@ -430,24 +438,90 @@ class FispactOutput:
             SDDR data extracted from the inventory data.
         decay_heat : pd.DataFrame
             Decay heat data extracted from the inventory data.
+        activity : pd.DataFrame
+            Activity data extracted from the inventory data.
         pathways_collection : PathwayCollection
             PathwayCollection object containing the pathways extracted from the fispact
             output file.
+        uncertainty : pd.DataFrame
+            Uncertainty data extracted from the inventory data.
+        cooling_times : list[float]
+            list of cooling times in seconds corresponding to the cooling labels.
+        cooling_labels : list[str]
+            list of cooling labels corresponding to the cooling times.
         """
+        self._content = None
+        self._activity = None
+        self._sddr = None
+        self._decay_heat = None
+        self._pathways_collection = None
+        self._uncertainty = None
         self.filepath = Path(filepath)
         self.name = self.filepath.stem
+        self.cooling_labels = cooling_times
 
         with pp.Reader(filepath) as output:
             # store inventory data
             self.inventory_data = output.inventory_data
 
-        self.sddr = self._get_sddr(cooling_times) if parse_sddr else None
-        self.decay_heat = (
-            self._get_decay_heat(cooling_times) if parse_decay_heat else None
-        )
-        self.pathways_collection = (
-            PathwayCollection.from_file(self.filepath) if parse_pathways else None
-        )
+        # retrieve the cooling times in seconds
+        zero = self.inventory_data[-len(cooling_times) - 1]
+        times = []
+        for inv in self.inventory_data[-len(cooling_times) :]:
+            times.append(inv.cooling_time - zero.cooling_time)
+        self.cooling_times = times
+
+        self.problematic_isotopes = self._check_convergence(rtol_convergence)
+
+    @property
+    def sddr(self):
+        if self._sddr is None:
+            self._sddr = self._get_sddr(self.cooling_labels)
+        return self._sddr
+
+    @property
+    def decay_heat(self):
+        if self._decay_heat is None:
+            self._decay_heat = self._get_decay_heat(self.cooling_labels)
+        return self._decay_heat
+
+    @property
+    def pathways_collection(self):
+        if self._pathways_collection is None:
+            self._pathways_collection = PathwayCollection.from_file(self.filepath)
+        return self._pathways_collection
+
+    @property
+    def activity(self):
+        if self._activity is None:
+            self._activity = self._get_activity(self.cooling_labels)
+        return self._activity
+
+    def _get_activity(self, cooling_times: list[str]) -> pd.DataFrame:
+        dfs = []
+        for i, timestep in enumerate(self.inventory_data[-len(cooling_times) :]):
+            cooling_time_label = cooling_times[i]
+
+            doses = []
+            for nuclide in timestep.nuclides:
+                doses.append(
+                    {
+                        "element": nuclide.element,
+                        "isotope": nuclide.isotope,
+                        "state": nuclide.state,
+                        "activity": nuclide.activity,
+                        "cooling time": cooling_time_label,
+                    }
+                )
+
+            df = pd.DataFrame(doses)
+            df = df[df["activity"] > 0]  # filter zero activities
+            df["isotope % activity"] = df["activity"] / df["activity"].sum() * 100
+            df.sort_values(by="isotope % activity", ascending=False, inplace=True)
+            df["Cumulative activity sum"] = df["isotope % activity"].values.cumsum()
+            dfs.append(df)
+
+        return pd.concat(dfs)
 
     def _get_sddr(self, cooling_times: list[str]) -> pd.DataFrame:
         dfs = []
@@ -525,16 +599,30 @@ class FispactOutput:
         """
         # select only requested label
         df = self.sddr[self.sddr["cooling time"] == label].copy()
-        last_index = None
-        for i, (_, row) in enumerate(df.iterrows()):
-            if row["Cumulative dose sum"] > perc:
-                last_index = i + 1
-                break
-        df = df.iloc[:last_index]
+        return self._filter_cum(df, "dose", perc, add_pathways=add_pathways)
 
-        if add_pathways:
-            df = self.add_pathways_rows(df)
-        return df
+    def filter_by_cum_activity(
+        self, perc: float, label: str, add_pathways: bool = False
+    ) -> pd.DataFrame:
+        """Filter the SDDR output (at a certain cooling time) to get at least a certain
+        percent of the cumulative activity.
+
+        Parameters
+        ----------
+        perc : float
+            percent of cumulative activity to filter at
+        label : str
+            cooling time label to filter at
+        add_pathways : bool, optional
+            whether to add pathways rows, by default False
+        Returns
+        -------
+        pd.DataFrame
+            filtered dataframe
+        """
+        # select only requested label
+        df = self.activity[self.activity["cooling time"] == label].copy()
+        return self._filter_cum(df, "activity", perc, add_pathways=add_pathways)
 
     def filter_by_cum_heating(
         self, perc: float, label: str, add_pathways: bool = False
@@ -557,16 +645,20 @@ class FispactOutput:
         """
         # select only requested label
         df = self.decay_heat[self.decay_heat["cooling time"] == label].copy()
+        return self._filter_cum(df, "heat", perc, add_pathways=add_pathways)
+
+    def _filter_cum(
+        self, df: pd.DataFrame, tag: str, perc: float, add_pathways: bool = False
+    ) -> pd.DataFrame:
         last_index = None
         for i, (_, row) in enumerate(df.iterrows()):
-            if row["Cumulative heat sum"] > perc:
+            if row[f"Cumulative {tag} sum"] > perc:
                 last_index = i + 1
                 break
-        df = df.iloc[:last_index]
-
+        new_df = df.iloc[:last_index]
         if add_pathways:
-            df = self.add_pathways_rows(df, who="heat")
-        return df
+            new_df = self.add_pathways_rows(new_df, who=tag)
+        return new_df
 
     def add_pathways_rows(self, df: pd.DataFrame, who="dose") -> pd.DataFrame:
         """Add pathways rows to a SDDR dataframe.
@@ -610,3 +702,171 @@ class FispactOutput:
                 f"No pathways found for any of the isotopes in the {who} dataframe."
             )
         return newdf.sort_values(by=f"pathway % {who}", ascending=False)
+
+    @property
+    def uncertainty(self) -> pd.DataFrame:
+        """Return the uncertainty dataframe."""
+        if self._uncertainty is None:
+            rows = []
+
+            flag = False
+            for line in self.content:
+                if "Total Activity" in line:
+                    flag = True
+
+                if flag:
+                    if len(line) < 3:
+                        # blank line
+                        continue
+                    numbers = scientific_number_pattern.findall(line)
+                    tally = (
+                        total_to_is_pattern.search(line)
+                        .group()
+                        .replace("Total", "")
+                        .replace("is", "")
+                        .strip()
+                    )
+                    if len(numbers) < 3:
+                        val = np.nan
+                    else:
+                        val = float(numbers[-1])
+                    rows.append({"quantity": tally, "uncertainty": val})
+
+                if "Total Beta" in line:
+                    flag = False
+            df = pd.DataFrame(rows)
+            df_summary = df.groupby("quantity").min()
+            df_summary["max uncertainty [%]"] = df.groupby("quantity").max()[
+                "uncertainty"
+            ]
+            df_summary["min uncertainty [%]"] = df_summary["uncertainty"]
+            df_summary = df_summary.drop(columns=["uncertainty"])
+            self._uncertainty = df_summary
+        return self._uncertainty
+
+    @property
+    def content(self) -> list[str]:
+        """Return the content of the file as a list of lines."""
+        if self._content is None:
+            with open(self.filepath, "r") as f:
+                self._content = f.readlines()
+        return self._content
+
+    def _check_convergence(self, threshold: float) -> set[str]:
+        """
+        Check the convergence of the inventory data.
+
+        Parameters
+        ----------
+        threshold : float
+            Threshold for checking the convergence of the inventory data.
+
+        Returns
+        -------
+        set[str]
+            Set of problematic isotopes that exceed the activity threshold and have
+            poor statistics.
+
+        Raises
+        ------
+        Warning
+            If nuclides are marked with "?" and they are responsible for more than
+            the specified threshold of activity.
+        """
+        isotopes_per_step = []
+        isotopes = []
+        header = True
+        for line in self.content:
+            if "COMPOSITION  OF  MATERIAL  BY  ELEMENT" in line:
+                isotopes_per_step.append(isotopes)
+                isotopes = []
+            if "?" in line:
+                if header:
+                    header = False
+                    continue  # skipt the legend``
+                isotope = line[:7].replace(" ", "")
+                isotopes.append(isotope)
+
+        assert len(isotopes_per_step) == len(self.inventory_data)
+
+        problematic_isotopes = []
+        for i, isotopes in enumerate(isotopes_per_step):
+            if not isotopes:
+                continue
+            step = self.inventory_data[i]
+            for isotope in isotopes:
+                for isotope_inv in step.nuclides:
+                    if isotope_inv.name == isotope:
+                        rel_activity = isotope_inv.activity / step.total_activity
+                        if rel_activity > threshold:
+                            logging.warning(
+                                f"Nuclide {isotope} is above activity threshold and with poor statistics at step {i + 1}"
+                            )
+                            problematic_isotopes.append(isotope)
+
+        return set(problematic_isotopes)
+
+    def plot_trend(self, quantity: str, percentage: float) -> tuple[Figure, Axes]:
+        """Plot a trend in time of a specific output quantity for all isotopes in the
+        inventory which are needed to reach at least a certain percentage of that
+        quantity at each cooling time.
+
+        Parameters
+        ----------
+        quantity : str
+            either dose, heat or activity
+        percentage : float
+            percentage threshold to filter the inventory. This is the minimum percentage
+            guaranteed, the actual one can be higher. Imagine an inventory with two
+            isotopes contributing to 50% and 48% respectively at a given cooling time.
+            If the threshold is set at 95%, both isotopes will be included even if their
+            sum is 98% of the contribution. (same behaviour of filter_cum_sum methods)
+
+        Raises
+        ------
+        NotImplementedError
+            Raised if the specified quantity is not implemented for plotting.
+        """
+        markers = ["o", "s", "^", "D", "v", "x"] * 50
+        if quantity == "activity":
+            filter_func = self.filter_by_cum_activity
+        elif quantity == "dose":
+            filter_func = self.filter_by_cum_dose
+        elif quantity == "heat":
+            filter_func = self.filter_by_cum_heating
+        else:
+            raise NotImplementedError(
+                f"Plotting for quantity '{quantity}' is not implemented."
+            )
+
+        fig, ax = plt.subplots()
+
+        dfs = []
+        for cooling_time, seconds in zip(self.cooling_labels, self.cooling_times):
+            filtered = filter_func(perc=percentage, label=cooling_time)
+            filtered["seconds"] = seconds
+            filtered["isotope_name"] = (
+                filtered["element"]
+                + filtered["isotope"].astype(str)
+                + filtered["state"]
+            )
+            dfs.append(filtered)
+        mat_filtered = pd.concat(dfs).set_index("isotope_name")
+        for i, isotope in enumerate(mat_filtered.index.unique()):
+            isotope_data = mat_filtered.loc[isotope]
+            ax.plot(
+                isotope_data["seconds"],
+                isotope_data[quantity],
+                label=isotope,
+                marker=markers[i],
+            )
+
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_xlabel("Cooling Time (s)")
+        ax.set_ylabel(quantity)
+        ax.grid()
+        ax.set_title(f"{quantity.capitalize()} at (> {percentage}%)")
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=5)
+
+        return fig, ax
