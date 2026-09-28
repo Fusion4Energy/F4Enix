@@ -59,8 +59,8 @@ class TestMctal:
             mctal = Mctal(inp)
         assert "Dir" in mctal.tallydata[15].columns
         assert "Dir" in mctal.tallydata[5].columns
-        assert len(mctal.tallydata[5]) == 462 * 2 - 1
-        assert len(mctal.tallydata[15]) == 703 * 2 - 1
+        assert len(mctal.tallydata[5]) == 462 * 2
+        assert len(mctal.tallydata[15]) == 703 * 2
 
     def test_fm(self):
         """This tally makes sure that the Mctal class can handle tallies with a complex
