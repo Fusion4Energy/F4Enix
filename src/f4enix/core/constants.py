@@ -52,6 +52,8 @@ PAT_NP = re.compile(r"(?<=:)[nN,pP]+")
 PAT_ALL_TALLY_KEYS = re.compile(
     r"^(F|FMESH|FC|FM|SD|DE|DF|E|T|C|FQ|EM|CM|TM|FS|FU|FT)(\d+)", re.IGNORECASE
 )
+# Fortran drops the 'E' for 3-digit exponents (e.g. '1.60682-113')
+PAT_MISSING_EXP = re.compile(r"(?<=[\d.])([+-])(?=\d)")
 # --- Plotter ---
 # coordinates are in meters
 # ITER_Z_LEVELS = [

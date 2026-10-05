@@ -59,8 +59,10 @@ class TestMctal:
             mctal = Mctal(inp)
         assert "Dir" in mctal.tallydata[15].columns
         assert "Dir" in mctal.tallydata[5].columns
-        assert len(mctal.tallydata[5]) == 462 * 2 - 1
-        assert len(mctal.tallydata[15]) == 703 * 2 - 1
+        # one energy total per Dir bin
+        assert len(mctal.tallydata[5]) == 462 * 2
+        assert len(mctal.tallydata[15]) == 703 * 2
+        assert len(mctal.totalbin[5]) == 2
 
     def test_fm(self):
         """This tally makes sure that the Mctal class can handle tallies with a complex
@@ -71,6 +73,32 @@ class TestMctal:
         with as_file(MCTAL_RESOURCES.joinpath("mctal_fm")) as inp:
             mctal = Mctal(inp)
         assert mctal.tallydata[704].shape == (1484, 4)
+
+    def test_multi_total(self):
+        with as_file(MCTAL_RESOURCES.joinpath("mctal_multi_total")) as inp:
+            mctal = Mctal(inp)
+        df = mctal.tallydata[4]
+        assert list(df.columns) == ["Cells", "Segments", "Energy", "Value", "Error"]
+        assert len(df) == 2 * 3 * 3
+        # values in the fixture encode the 1-based (cell, segment, energy) bin
+        expected = [
+            100 * f + 10 * s + e
+            for f in range(1, 3)
+            for s in range(1, 4)
+            for e in range(1, 4)
+        ]
+        assert np.allclose(df["Value"], expected)
+
+        row = df[(df["Cells"] == 20) & (df["Segments"] == "total")]
+        assert list(row["Energy"]) == [1.0, 20.0, "total"]
+        assert np.allclose(row["Value"], [231, 232, 233])
+
+        totals = mctal.totalbin[4]
+        assert len(totals) == 2 * 5
+        assert ((totals["Segments"] == "total") | (totals["Energy"] == "total")).all()
+
+        mctal.remove_totals(4)
+        assert len(mctal.tallydata[4]) == 2 * 2 * 2
 
     def test_d1s_relative_contribution(self):
         with as_file(MCTAL_RESOURCES.joinpath("mctal_daughter")) as inp:
