@@ -320,6 +320,14 @@ M1
         assert len(mat.additional_keys) == 1
         assert mat.mx_cards[0].strip("\n").strip("\r") == "MX102 1002.21c 1002.31c"
 
+    def test_normalize_fractions(self):
+        libman = LibManager()
+        material = Material.from_zaids([(1000, -1), (56000, -1)], libman, "31c")
+
+        material.normalize_fractions()
+        tot_fraction = material.get_tot_fraction()
+        assert tot_fraction == pytest.approx(-1.0, rel=1e-5)
+
 
 class TestMatCardList:
     """test needs to be conducted both for the creation through

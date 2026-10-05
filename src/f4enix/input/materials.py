@@ -944,6 +944,12 @@ class Material:
         # do not normalize!
         # self.elements, self._zaids = self._collapse_zaids()
 
+    def normalize_fractions(self) -> None:
+        """Normalize the atom or mass fractions of the material."""
+        tot_fraction = self.get_tot_fraction()
+        for zaid in self.zaids:
+            zaid.fraction = zaid.fraction / abs(tot_fraction)
+
 
 # Support function for Submaterial
 def _readLine(string: str) -> tuple[list[Zaid], list[str] | None]:

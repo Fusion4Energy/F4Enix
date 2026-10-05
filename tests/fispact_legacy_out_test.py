@@ -1,6 +1,7 @@
 from importlib.resources import as_file, files
 
 import pytest
+import numpy as np
 
 import tests.resources.fispact_legacy_out as lib_res
 from f4enix.core.irradiation import Nuclide, TCF_Computer
@@ -190,6 +191,9 @@ class TestFispactOutput:
         df = outp.filter_by_cum_dose(95, "1e2", add_pathways=True)
         assert len(df) == 8
 
+    def test_activity(self, outp: FispactOutput):
+        assert pytest.approx(outp.activity["Cumulative activity sum"].max()) == 100  # type: ignore
+
     def test_decay_heat(self, outp: FispactOutput):
         assert pytest.approx(outp.decay_heat["Cumulative heat sum"].max()) == 100  # type: ignore
 
@@ -200,3 +204,42 @@ class TestFispactOutput:
 
         df = outp.filter_by_cum_heating(95, "1e2", add_pathways=True)
         assert len(df) == 10
+
+    def test_filter_by_cum_activity(self, outp: FispactOutput):
+        df = outp.filter_by_cum_activity(95, "1e2")
+        assert len(df) == 4
+        assert df.iloc[-1]["Cumulative activity sum"] > 95
+
+    def test_uncertainty(self, outp: FispactOutput):
+        df = outp.uncertainty
+        quantities = [
+            "Activity",
+            "Heat Production",
+            "Gamma Dose Rate",
+            "Ingestion Dose",
+            "Inhalation Dose",
+            "Gamma Heat Prod",
+            "Beta Heat Prod",
+        ]
+        assert df.index.isin(quantities).all()
+        assert len(df) == 7
+
+    def test_check_convergence(self, outp: FispactOutput):
+        problematic_isotopes = outp._check_convergence(1e-10)
+        assert len(problematic_isotopes) > 0
+
+        problematic_isotopes = outp._check_convergence(0.1)
+        assert len(problematic_isotopes) == 0
+
+    @pytest.mark.parametrize(
+        "quantity",
+        [
+            "activity",
+            "dose",
+            "heat",
+        ],
+    )
+    def test_plot_trend(self, outp: FispactOutput, quantity: str):
+        fig, ax = outp.plot_trend(quantity, 90)
+        assert fig is not None
+        assert ax is not None
