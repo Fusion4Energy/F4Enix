@@ -14,6 +14,7 @@ from f4enix.core.irradiation import Nuclide
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
+from f4enix.output.fispact_legacy_out import Pathway
 # ruff: noqa: PLR2004# ruff: noqa: PLR2004
 
 RESOURCES_INP = files(input_res)
@@ -755,6 +756,56 @@ class TestD1S_Input:
                 assert line.strip() == "FU124 0"
             else:
                 assert Nuclide.from_int_string(line.strip()) in daughters
+
+    def test_filter_by_paths(self, tmp_path):
+        inp = deepcopy(self.inp)
+        paths = [
+            "Fe58 -(n,g)-> Fe59",
+            "Co59 -(n,p)-> Fe59",
+            "Co59 -(n,2n)-> Co58",
+            # Cu62 can only be reached via a multistep pathway, Cu63(n,2n)Cu62
+            # should be removed from the reac file and Cu62 from the irrad file
+            "Cu63 -(n,g)-> Cu64 -(n,2n)-> Cu63 -(n,2n)-> Cu62",
+        ]
+        paths = [Pathway.from_string(path) for path in paths]
+        inp.filter_by_paths(paths)
+
+        assert len(inp.reac_file.reactions) == 3
+        daughters = [d.write_to_int_string() for d in inp.irrad_file.get_daughters()]
+        assert daughters == ["26059", "27058"]
+        # files are now consistent and the input can be written
+        inp.check_aux_files_consistency()
+        inp.write(tmp_path / "tmp.i")
+
+    def test_filter_by_paths_missing_files(self):
+        inp = deepcopy(self.inp)
+        inp.irrad_file = None
+        with pytest.raises(ValueError):
+            inp.filter_by_paths([Pathway.from_string("Fe58 -(n,g)-> Fe59")])
+
+    def test_check_aux_files_consistency(self, tmp_path):
+        # daughter in irrad file not produced by any reaction
+        inp = deepcopy(self.inp)
+        inp.reac_file.reactions = [
+            r for r in inp.reac_file.reactions if r.daughter.zaid != 29062
+        ]
+        with pytest.raises(ValueError, match="29062"):
+            inp.check_aux_files_consistency()
+        with pytest.raises(ValueError):
+            inp.write(tmp_path / "tmp.i")
+
+        # daughter of a reaction not in the irrad file
+        inp = deepcopy(self.inp)
+        inp.irrad_file.select_daughters_irradiation_file(["24051", "25054"])
+        with pytest.raises(ValueError, match="26059"):
+            inp.check_aux_files_consistency()
+
+        # missing files
+        inp.reac_file = None
+        with pytest.raises(ValueError):
+            inp.check_aux_files_consistency()
+        # but writing is still allowed
+        inp.write(tmp_path / "tmp.i")
 
     def test_add_SDDR_dose_function(self):
         tallyID = "F14"
