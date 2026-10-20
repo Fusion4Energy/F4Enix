@@ -11,6 +11,7 @@ import tests.resources.cdgs as res
 from f4enix.output.cdgs import (
     CDGS,
     CDGS_ENERGY_TYPE,
+    MultiCDGS,
     SphereKernel,
     DistanceKernel,
     KNearestKernel,
@@ -580,6 +581,149 @@ class TestCDGS:
                 col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
             )
         assert np.sum(cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"]) > 0
+
+
+class TestMultiCDGS:
+    @staticmethod
+    def _cdgs(
+        offset: float = 0.0, isotopes: tuple[str, ...] = ("N16", "Co60"), **kwargs
+    ) -> CDGS:
+        # 3x3x1 cells of 1 m3, shifted along x by offset
+        x = np.arange(4, dtype=float) + offset
+        y = np.arange(4, dtype=float)
+        z = np.array([0.0, 1.0])
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        for i, iso in enumerate(isotopes):
+            mesh.cell_data[f"{iso}{ACTIVITY_TAG}"] = np.full(mesh.n_cells, i + 1.0)
+            mesh.cell_data[f"{iso}{ATOM_DENSITY_TAG}"] = np.full(mesh.n_cells, 1e-6)
+        return CDGS(mesh, **kwargs)
+
+    @staticmethod
+    def _read_header(text: str) -> dict[str, list[str]]:
+        values = {}
+        for line in text.splitlines():
+            tokens = line.split()
+            if len(tokens) == 2 and tokens[0] in [
+                "num_meshes",
+                "global_source",
+                "mesh_id",
+                "total_source",
+            ]:
+                values.setdefault(tokens[0], []).append(tokens[1])
+        return values
+
+    def test_empty(self):
+        with pytest.raises(ValueError):
+            MultiCDGS([])
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"particle": "neutron", "isotopes": ("N17",)},
+            {"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]},
+        ],
+    )
+    def test_mixed_meshes(self, tmp_path, kwargs):
+        a = self._cdgs()
+        b = self._cdgs(offset=3, **kwargs)
+        multi = MultiCDGS([a, b])
+        outfile = tmp_path / "multi.cdgs"
+        multi.to_cdgs(outfile, "all")
+        text = outfile.read_text()
+        header = self._read_header(text)
+        assert header["num_meshes"] == ["2"]
+        assert float(header["global_source"][0]) == pytest.approx(
+            a.get_total_intensity("all") + b.get_total_intensity("all"), rel=1e-5
+        )
+        energy_types = [
+            line.split()[1] for line in text.splitlines() if "energy_type" in line
+        ]
+        assert energy_types == [a.energy_type.value, b.energy_type.value]
+
+    def test_inconsistent_cooling_time(self):
+        b = self._cdgs(offset=3)
+        b.cooling_time = 10
+        with pytest.raises(ValueError):
+            MultiCDGS([self._cdgs(), b])
+
+    def test_overlap_warning(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        assert "overlap" not in caplog.text
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([self._cdgs(), self._cdgs(offset=1)])
+        assert "overlap" in caplog.text
+
+    def test_cooling_time(self):
+        multi = MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        tot = multi.get_total_intensity("all")
+        multi.cooling_time = 10
+        assert all(cdgs.cooling_time == 10 for cdgs in multi.cdgs_list)
+        assert multi.get_total_intensity("all") < tot
+
+    def test_total_intensity(self):
+        a = self._cdgs()
+        b = self._cdgs(offset=3, isotopes=("Co60",))
+        multi = MultiCDGS([a, b])
+        assert multi.isotopes == ["N16", "Co60"]
+        assert multi.get_total_intensity("N16") == pytest.approx(
+            a.get_total_intensity("N16")
+        )
+        assert multi.get_total_intensity("all") == pytest.approx(
+            a.get_total_intensity("all") + b.get_total_intensity("all")
+        )
+        with pytest.raises(ValueError):
+            multi.get_total_intensity("O19")
+
+    def test_to_cdgs(self, tmp_path):
+        a = self._cdgs()
+        b = self._cdgs(offset=3)
+        outfile = tmp_path / "multi.cdgs"
+        MultiCDGS([a, b]).to_cdgs(outfile, "all")
+        text = outfile.read_text()
+        header = self._read_header(text)
+        assert header["num_meshes"] == ["2"]
+        assert header["mesh_id"] == ["1", "2"]
+        tot_a = a.get_total_intensity("all")
+        tot_b = b.get_total_intensity("all")
+        assert float(header["global_source"][0]) == pytest.approx(
+            tot_a + tot_b, rel=1e-5
+        )
+        assert float(header["total_source"][0]) == pytest.approx(tot_a, rel=1e-5)
+        assert float(header["total_source"][1]) == pytest.approx(tot_b, rel=1e-5)
+        assert text.count("source_data\n") - text.count("end_source_data\n") == 2
+
+        # each mesh block is the same as the one of the single-mesh file
+        single = tmp_path / "single.cdgs"
+        b.to_cdgs(single, "all")
+        block = text[text.index("mesh_id 2") :]
+        single_block = single.read_text()
+        single_block = single_block[single_block.index("mesh_id 1") :]
+        # skip the mesh_id and timestamp lines
+        assert block.splitlines()[2:] == single_block.splitlines()[2:]
+
+    def test_to_cdgs_skips_missing_isotope(self, tmp_path, caplog):
+        a = self._cdgs(isotopes=("Co60",))
+        b = self._cdgs(offset=3)
+        outfile = tmp_path / "multi.cdgs"
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([a, b]).to_cdgs(outfile, "N16")
+        assert "Mesh 0 has no N16 source" in caplog.text
+        header = self._read_header(outfile.read_text())
+        assert header["num_meshes"] == ["1"]
+        assert header["mesh_id"] == ["1"]
+        assert header["global_source"] == header["total_source"]
+        with pytest.raises(ValueError):
+            MultiCDGS([a, b]).to_cdgs(outfile, "O19")
+
+    def test_to_vtk(self, tmp_path):
+        multi = MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        outfile = tmp_path / "multi.vtm"
+        multi.to_vtk(outfile)
+        read = pv.read(outfile)
+        assert isinstance(read, pv.MultiBlock)
+        assert read.n_blocks == 2
 
 
 def test_floats_to_multiline_string():

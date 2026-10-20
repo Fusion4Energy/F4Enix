@@ -162,6 +162,7 @@ class CDGS:
         # Store original mesh at shutdown
         self._mesh_zero_cooling = self.mesh.copy()
 
+    @property
     def particle(self) -> str:
         return self._particle
 
@@ -384,34 +385,39 @@ class CDGS:
         return cls(mesh, energy_type=e_type, particle=particle, e_bins=e_bins)
 
     def to_cdgs(self, outfile: str | Path, isotope: str) -> None:
-        # Assume only one mesh for now
-        num_mesh = 1
-        tot_intensity = self.get_total_intensity(isotope)
-        mesh_intensity = tot_intensity
-        header = f"""
-num_meshes {num_mesh}
-global_source {tot_intensity:.5e}
-mesh_id {1}
+        """Write the CDGS object to a .cdgs file readable by MCNP.
+
+        Parameters
+        ----------
+        outfile : str | Path
+            Path to the output .cdgs file.
+        isotope : str
+            The isotope to write. If "all" is specified, combine all isotopes.
+        """
+        MultiCDGS([self]).to_cdgs(outfile, isotope)
+
+    def _write_mesh_block(
+        self, f: TextIOWrapper, isotope: str, mesh_id: int, mesh_intensity: float
+    ) -> None:
+        """Write the self-contained block describing this mesh to the file."""
+        header = f"""mesh_id {mesh_id}
 CDGS produced by F4Enix {f4enix.__version__} {datetime.now()}
 cooling_time {self.cooling_time:.5e}
 total_source {mesh_intensity:.5e}
 energy_type {self.energy_type.value}
 """
-        with open(outfile, "w") as f:
-            f.write(header)
+        f.write(header)
 
-            # Energy boundaries
-            self._write_energy_boundaries(f, isotope)
+        # Energy boundaries
+        self._write_energy_boundaries(f, isotope)
 
-            # Mesh boundaries
-            self._write_mesh_boundaries(f)
+        # Mesh boundaries
+        self._write_mesh_boundaries(f)
 
-            # Values
-            f.write("source_data\n")
-            self._write_values(f, isotope)
-            f.write("end_source_data\n")
-
-        logging.info(f"CDGS file written to {outfile}")
+        # Values
+        f.write("source_data\n")
+        self._write_values(f, isotope)
+        f.write("end_source_data\n")
 
     def _write_energy_boundaries(self, f: TextIOWrapper, isotope: str) -> None:
         """Write the energy boundaries section for the specified isotope to the file."""
@@ -549,6 +555,157 @@ energy_type {self.energy_type.value}
     #     f.write(_floats_to_multiline_string(self.translation[0, :]))
     #     f.write(_floats_to_multiline_string(self.translation[1, :]))
     #     f.write(_floats_to_multiline_string(self.translation[2, :]))
+
+
+class MultiCDGS:
+    def __init__(self, cdgs_list: Iterable[CDGS]):
+        """Collection of CDGS objects to be written as a single multi-mesh .cdgs
+        file. Each CDGS object is written as an independent mesh block and the
+        global source is the sum of the total intensities of all meshes.
+
+        Each mesh block carries its own energy boundaries, so particle,
+        energy type and energy bins can differ across meshes. All CDGS objects
+        must share the same cooling time.
+
+        Parameters
+        ----------
+        cdgs_list : Iterable[CDGS]
+            The CDGS objects to combine, one per mesh.
+        """
+        self.cdgs_list: list[CDGS] = list(cdgs_list)
+        if len(self.cdgs_list) == 0:
+            raise ValueError("At least one CDGS object must be provided.")
+        self._check_consistency()
+
+    def __len__(self) -> int:
+        return len(self.cdgs_list)
+
+    def __getitem__(self, idx: int) -> CDGS:
+        return self.cdgs_list[idx]
+
+    def __repr__(self) -> str:
+        return f"MultiCDGS(n_meshes={len(self)}, isotopes={self.isotopes}, cooling_time={self.cooling_time})"
+
+    def __str__(self) -> str:
+        return f"MultiCDGS object with {len(self)} meshes"
+
+    def _check_consistency(self) -> None:
+        """Check that all the CDGS objects can be written in the same file."""
+        ref = self.cdgs_list[0]
+        for i, cdgs in enumerate(self.cdgs_list[1:], start=1):
+            if cdgs.cooling_time != ref.cooling_time:
+                raise ValueError(
+                    f"Mesh {i} has cooling time {cdgs.cooling_time} s while "
+                    f"mesh 0 has {ref.cooling_time} s."
+                )
+
+        # overlapping meshes would count the source in the overlap twice
+        bounds = [np.array(cdgs.mesh.bounds).reshape(3, 2) for cdgs in self.cdgs_list]
+        for i in range(len(bounds)):
+            for j in range(i + 1, len(bounds)):
+                low = np.maximum(bounds[i][:, 0], bounds[j][:, 0])
+                high = np.minimum(bounds[i][:, 1], bounds[j][:, 1])
+                if np.all(high > low):
+                    logging.warning(
+                        f"Meshes {i} and {j} overlap: the source in the "
+                        "overlapping region will be counted twice."
+                    )
+
+    @property
+    def isotopes(self) -> list[str]:
+        """All the isotopes found in at least one of the meshes."""
+        return list(dict.fromkeys(iso for c in self.cdgs_list for iso in c.isotopes))
+
+    @property
+    def cooling_time(self) -> float:
+        """Get the cooling time (s), shared by all the meshes."""
+        return self.cdgs_list[0].cooling_time
+
+    @cooling_time.setter
+    def cooling_time(self, value: float) -> None:
+        """Set the cooling time (s) of all the meshes."""
+        for cdgs in self.cdgs_list:
+            cdgs.cooling_time = value
+
+    def get_total_intensity(self, isotope: str) -> float:
+        """Get the total intensity (photons/s) of the specified isotope summed
+        over all the meshes, or of all isotopes together if "all" is specified.
+
+        Parameters
+        ----------
+        isotope : str
+            The name of the isotope. If "all" is specified, combine all isotopes.
+
+        Returns
+        -------
+        float
+            The total intensity (photons/s) over all the meshes.
+        """
+        if isotope != "all" and isotope not in self.isotopes:
+            raise ValueError(f"Isotope {isotope} not found in any of the meshes.")
+        return float(np.sum(self._get_mesh_intensities(isotope)))
+
+    def _get_mesh_intensities(self, isotope: str) -> list[float]:
+        """Total intensity (photons/s) of each mesh, 0 if the isotope is not
+        present in the mesh."""
+        return [
+            cdgs.get_total_intensity(isotope)
+            if isotope == "all" or isotope in cdgs.isotopes
+            else 0.0
+            for cdgs in self.cdgs_list
+        ]
+
+    def to_cdgs(self, outfile: str | Path, isotope: str) -> None:
+        """Write all the meshes to a single .cdgs file readable by MCNP.
+        Meshes with no source for the requested isotope are not written.
+
+        Parameters
+        ----------
+        outfile : str | Path
+            Path to the output .cdgs file.
+        isotope : str
+            The isotope to write. If "all" is specified, combine all isotopes.
+        """
+        if isotope != "all" and isotope not in self.isotopes:
+            raise ValueError(f"Isotope {isotope} not found in any of the meshes.")
+
+        to_write = []
+        for i, (cdgs, intensity) in enumerate(
+            zip(self.cdgs_list, self._get_mesh_intensities(isotope))
+        ):
+            if intensity > 0:
+                to_write.append((cdgs, intensity))
+            else:
+                logging.warning(
+                    f"Mesh {i} has no {isotope} source and will not be written."
+                )
+        if len(to_write) == 0:
+            raise ValueError(f"No source found for {isotope} in any of the meshes.")
+
+        global_source = sum(intensity for _, intensity in to_write)
+        header = f"""
+num_meshes {len(to_write)}
+global_source {global_source:.5e}
+"""
+        with open(outfile, "w") as f:
+            f.write(header)
+            for mesh_id, (cdgs, intensity) in enumerate(to_write, start=1):
+                cdgs._write_mesh_block(f, isotope, mesh_id, intensity)
+
+        logging.info(f"CDGS file written to {outfile}")
+
+    def to_vtk(self, outfile: str | Path) -> None:
+        """Write all the meshes to a VTK multiblock file (.vtm).
+
+        Parameters
+        ----------
+        outfile : str | Path
+            Path to the output .vtm file.
+        """
+        multiblock = pv.MultiBlock(
+            {f"mesh_{i + 1}": cdgs.mesh.copy() for i, cdgs in enumerate(self.cdgs_list)}
+        )
+        multiblock.save(outfile)
 
 
 def _read_cloud_point(

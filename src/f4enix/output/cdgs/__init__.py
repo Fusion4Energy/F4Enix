@@ -10,7 +10,7 @@ from f4enix.output.cdgs.mesh_definitions import (
     MeshByBinSize,
     RegularMeshDefinition,
 )
-from f4enix.output.cdgs.cdgs import CDGS, CDGS_ENERGY_TYPE
+from f4enix.output.cdgs.cdgs import CDGS, CDGS_ENERGY_TYPE, MultiCDGS
 from f4enix.output.cdgs.sensitivity import get_recommended_parameters
 
 __all__ = [
@@ -24,5 +24,6 @@ __all__ = [
     "KNearestKernel",
     "CDGS",
     "CDGS_ENERGY_TYPE",
+    "MultiCDGS",
     "get_recommended_parameters",
 ]
