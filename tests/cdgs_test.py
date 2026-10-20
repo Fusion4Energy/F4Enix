@@ -24,6 +24,7 @@ from f4enix.output.cdgs.cdgs import (
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
     _floats_to_multiline_string,
+    _split_cloud_point,
 )
 
 
@@ -716,6 +717,60 @@ class TestMultiCDGS:
         assert header["global_source"] == header["total_source"]
         with pytest.raises(ValueError):
             MultiCDGS([a, b]).to_cdgs(outfile, "O19")
+
+    @staticmethod
+    def _l_pipe() -> pd.DataFrame:
+        # two 5 cm thick bars of 1 m forming an L, sampled every cm
+        step = 0.01
+        long = np.arange(0, 1, step) + step / 2
+        short = np.arange(0, 0.05, step) + step / 2
+        bar_x = np.stack(np.meshgrid(long, short, short, indexing="ij"), -1)
+        bar_y = np.stack(np.meshgrid(short + 0.95, long + 0.05, short, indexing="ij"), -1)
+        coords = np.concatenate([bar_x.reshape(-1, 3), bar_y.reshape(-1, 3)])
+        df = pd.DataFrame(coords, columns=["x", "y", "z"])
+        df["vol"] = step**3
+        df["n16"] = 1e10
+        return df
+
+    def test_split_cloud_point(self):
+        coords = self._l_pipe()[["x", "y", "z"]].to_numpy()
+        chunks = _split_cloud_point(
+            coords, split_size=0.05, min_fill=0.5, min_gain=0.1, min_points=10
+        )
+        assert len(chunks) == 2
+        # every point is in exactly one chunk
+        assert np.array_equal(np.sort(np.concatenate(chunks)), np.arange(len(coords)))
+        boxes = sum(np.prod(np.ptp(coords[c], axis=0)) for c in chunks)
+        assert boxes < 0.2 * np.prod(np.ptp(coords, axis=0))
+
+    def test_split_cloud_point_min_points(self):
+        coords = self._l_pipe()[["x", "y", "z"]].to_numpy()
+        chunks = _split_cloud_point(
+            coords, split_size=0.05, min_fill=0.5, min_gain=0.1, min_points=len(coords)
+        )
+        assert len(chunks) == 1
+
+    @pytest.mark.parametrize("parameters", [{"bin_size": 0.02, "k": 8}, None])
+    def test_from_cloud_point(self, parameters):
+        df = self._l_pipe()
+        col_names = {"x": "x", "y": "y", "z": "z", "vol": "vol"}
+        multi = MultiCDGS.from_cloud_point(
+            df,
+            {"N16": "n16"},
+            col_names=col_names,
+            split_size=0.05,
+            min_points=10,
+            parameters=parameters,
+        )
+        assert len(multi) == 2
+        # the activity is conserved over the chunks
+        db = ag.Decay2012Database()
+        expected = ag.activity_from_atoms(db, "N16", np.sum(df["n16"] * df["vol"]))
+        activity = sum(
+            np.sum(cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"]) * cdgs.voxel_vol
+            for cdgs in multi
+        )
+        assert activity == pytest.approx(expected)
 
     def test_to_vtk(self, tmp_path):
         multi = MultiCDGS([self._cdgs(), self._cdgs(offset=3)])

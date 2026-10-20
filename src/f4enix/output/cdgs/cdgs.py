@@ -7,7 +7,13 @@ import pandas as pd
 from pathlib import Path
 import pyvista as pv
 import actigamma as ag
-from f4enix.output.cdgs import InterpolationKernel, RegularMeshDefinition
+from matplotlib import pyplot as plt
+from f4enix.output.cdgs import (
+    InterpolationKernel,
+    KNearestKernel,
+    MeshByBinSize,
+    RegularMeshDefinition,
+)
 import f4enix
 from datetime import datetime
 from typing import Iterable
@@ -558,7 +564,7 @@ energy_type {self.energy_type.value}
 
 
 class MultiCDGS:
-    def __init__(self, cdgs_list: Iterable[CDGS]):
+    def __init__(self, cdgs_list: Iterable[CDGS], check_overlap: bool = True):
         """Collection of CDGS objects to be written as a single multi-mesh .cdgs
         file. Each CDGS object is written as an independent mesh block and the
         global source is the sum of the total intensities of all meshes.
@@ -571,11 +577,18 @@ class MultiCDGS:
         ----------
         cdgs_list : Iterable[CDGS]
             The CDGS objects to combine, one per mesh.
+        check_overlap : bool, optional
+            Warn if the bounding boxes of the meshes overlap, by default True.
+            Overlapping meshes are fine only if they were built from disjoint
+            parts of the cloud point, otherwise the source in the overlap is
+            counted twice.
         """
         self.cdgs_list: list[CDGS] = list(cdgs_list)
         if len(self.cdgs_list) == 0:
             raise ValueError("At least one CDGS object must be provided.")
         self._check_consistency()
+        if check_overlap:
+            self._check_overlap()
 
     def __len__(self) -> int:
         return len(self.cdgs_list)
@@ -599,7 +612,8 @@ class MultiCDGS:
                     f"mesh 0 has {ref.cooling_time} s."
                 )
 
-        # overlapping meshes would count the source in the overlap twice
+    def _check_overlap(self) -> None:
+        """Warn if the bounding boxes of the meshes overlap."""
         bounds = [np.array(cdgs.mesh.bounds).reshape(3, 2) for cdgs in self.cdgs_list]
         for i in range(len(bounds)):
             for j in range(i + 1, len(bounds)):
@@ -607,8 +621,9 @@ class MultiCDGS:
                 high = np.minimum(bounds[i][:, 1], bounds[j][:, 1])
                 if np.all(high > low):
                     logging.warning(
-                        f"Meshes {i} and {j} overlap: the source in the "
-                        "overlapping region will be counted twice."
+                        f"Meshes {i} and {j} overlap: unless they were built "
+                        "from disjoint parts of the cloud point, the source in "
+                        "the overlapping region will be counted twice."
                     )
 
     @property
@@ -694,6 +709,150 @@ global_source {global_source:.5e}
 
         logging.info(f"CDGS file written to {outfile}")
 
+    @classmethod
+    def from_cloud_point(
+        cls,
+        cloud_point: str | Path | pd.DataFrame,
+        isotopes: dict[str, str],
+        col_names: dict[str, str] | None = None,
+        e_bins: np.ndarray | None = None,
+        particle: str = "gamma",
+        length_unit: str = "m",
+        split_size: float | None = None,
+        min_fill: float = 0.5,
+        min_gain: float = 0.1,
+        min_points: int = 1000,
+        reference_column: str | None = None,
+        parameters: dict | None = None,
+        recommend_kwargs: dict | None = None,
+    ) -> "MultiCDGS":
+        """Split a cloud point into spatially compact chunks and build a CDGS
+        object for each of them, with the interpolation parameters recommended
+        by get_recommended_parameters for that chunk.
+
+        Sparse cloud points (e.g. the fluid in a piping system) fill a tiny
+        fraction of their bounding box, so a single mesh would be mostly empty.
+        The space is divided in coarse cubes of side split_size and the box
+        enclosing the occupied cubes is recursively bisected with an axis
+        aligned plane, choosing the plane that minimises the total volume of the
+        two resulting boxes. A box is not split further if at least min_fill of
+        its coarse cubes are occupied, if the best split reduces its volume by
+        less than min_gain, or if a split would leave fewer than min_points
+        cloud points on one side.
+
+        Each cloud point belongs to exactly one chunk, so the meshes can overlap
+        (e.g. in the padding added around each chunk) without counting any
+        source twice.
+
+        Parameters
+        ----------
+        cloud_point : str | Path | pd.DataFrame
+            Path to the CSV file containing the cloud point data or a DataFrame
+            directly. See CDGS.from_cloud_point.
+        isotopes : dict[str, str]
+            Dictionary mapping isotope names to their column in the cloud
+            point. See CDGS.from_cloud_point.
+        col_names : dict[str, str] | None, optional
+            Coordinates and volume column names, see CDGS.from_cloud_point.
+        e_bins : np.ndarray, optional
+            The energy bin edges in eV, see CDGS.from_cloud_point.
+        particle : str, optional
+            The type of particle, by default "gamma".
+        length_unit : str, optional
+            Length unit of the cloud point data, one of "m", "cm" or "mm", by
+            default "m".
+        split_size : float | None, optional
+            Side in m of the coarse cubes used to detect the empty space. By
+            default, 10 times the characteristic cell size of the cloud point
+            (see get_recommended_parameters). Smaller values follow the
+            geometry more closely, producing more and tighter boxes.
+        min_fill : float, optional
+            Fraction of occupied coarse cubes above which a box is not split
+            further, by default 0.5.
+        min_gain : float, optional
+            Minimum fractional reduction of the box volume for a split to be
+            accepted, by default 0.1.
+        min_points : int, optional
+            Minimum number of cloud points in each chunk, by default 1000.
+        reference_column : str | None, optional
+            Column used to recommend the interpolation parameters of each chunk.
+            By default, the column of the first isotope.
+        parameters : dict | None, optional
+            {"bin_size": bin size in m, "k": number of neighbours} to be used for
+            all the chunks instead of the recommended ones.
+        recommend_kwargs : dict | None, optional
+            Additional keyword arguments for get_recommended_parameters. If
+            slice_axis is not given, the section of each chunk is taken normal
+            to its shortest side, where it contains the most points.
+
+        Returns
+        -------
+        MultiCDGS
+            One CDGS object per chunk.
+        """
+        # avoid a circular import, sensitivity depends on this module
+        from f4enix.output.cdgs.sensitivity import (
+            AXES,
+            _characteristic_cell_size,
+            get_recommended_parameters,
+        )
+
+        df, coords, vols, _ = _read_cloud_point(cloud_point, col_names, length_unit)
+        if split_size is None:
+            split_size = 10 * _characteristic_cell_size(vols)
+        if reference_column is None:
+            reference_column = next(iter(isotopes.values()))
+        if recommend_kwargs is None:
+            recommend_kwargs = {}
+
+        chunks = _split_cloud_point(coords, split_size, min_fill, min_gain, min_points)
+        logging.info(f"Cloud point split in {len(chunks)} chunks.")
+
+        cdgs_list = []
+        for i, idx in enumerate(chunks):
+            df_chunk = df.iloc[idx]
+            if parameters is not None:
+                bin_size, k = parameters["bin_size"], parameters["k"]
+            else:
+                kwargs = dict(recommend_kwargs)
+                if "slice_axis" not in kwargs:
+                    extent = np.ptp(coords[idx], axis=0)
+                    kwargs["slice_axis"] = list(AXES)[int(np.argmin(extent))]
+                rec, metrics, fig = get_recommended_parameters(
+                    df_chunk,
+                    reference_column,
+                    col_names=col_names,
+                    length_unit=length_unit,
+                    **kwargs,
+                )
+                plt.close(fig)
+                if rec is None:
+                    # fall back on the candidate that misplaces the least source
+                    best = metrics.loc[metrics["misplaced_fraction"].idxmin()]
+                    rec = {"bin_size": best["bin_size [m]"], "k": best["k"]}
+                    logging.warning(
+                        f"Chunk {i}: no candidate below the misplaced fraction "
+                        "threshold, using the one with the lowest "
+                        f"({best['misplaced_fraction']:.2%})."
+                    )
+                bin_size, k = float(rec["bin_size"]), int(rec["k"])
+
+            logging.info(f"Chunk {i}: {len(idx)} points, bin size {bin_size} m, k={k}.")
+            cdgs_list.append(
+                CDGS.from_cloud_point(
+                    df_chunk,
+                    isotopes,
+                    interpolation_kernel=KNearestKernel(k=k),
+                    mesh_definition=MeshByBinSize((bin_size,) * 3),
+                    col_names=col_names,
+                    e_bins=e_bins,
+                    particle=particle,
+                    length_unit=length_unit,
+                )
+            )
+
+        return cls(cdgs_list, check_overlap=False)
+
     def to_vtk(self, outfile: str | Path) -> None:
         """Write all the meshes to a VTK multiblock file (.vtm).
 
@@ -707,6 +866,73 @@ global_source {global_source:.5e}
         )
         multiblock.save(outfile)
 
+
+def _split_cloud_point(
+    coords: np.ndarray,
+    split_size: float,
+    min_fill: float,
+    min_gain: float,
+    min_points: int,
+) -> list[np.ndarray]:
+    """Split a cloud point into spatially compact chunks, see
+    MultiCDGS.from_cloud_point.
+
+    The recursive bisection works on the occupied coarse cubes rather than on
+    the points, which keeps it fast for millions of points.
+
+    Returns
+    -------
+    list[np.ndarray]
+        The indices of the points of each chunk.
+    """
+    cube_idx = np.floor((coords - coords.min(axis=0)) / split_size).astype(np.int64)
+    cubes, point_cube = np.unique(cube_idx, axis=0, return_inverse=True)
+    point_cube = point_cube.ravel()
+    counts = np.bincount(point_cube, minlength=len(cubes))
+
+    leaves = []
+    stack = [np.arange(len(cubes))]
+    while stack:
+        node = stack.pop()
+        sub = cubes[node]
+        volume = np.prod(sub.max(axis=0) - sub.min(axis=0) + 1)
+        best = None
+        if len(node) / volume < min_fill:
+            for axis in range(3):
+                order = np.argsort(sub[:, axis], kind="stable")
+                s = sub[order]
+                # split only between cubes with different coordinates, leaving
+                # at least min_points on each side
+                cut = np.flatnonzero(np.diff(s[:, axis]) > 0) + 1
+                left_points = np.cumsum(counts[node[order]])[cut - 1]
+                right_points = counts[node].sum() - left_points
+                cut = cut[(left_points >= min_points) & (right_points >= min_points)]
+                if len(cut) == 0:
+                    continue
+                # volumes of the boxes enclosing the cubes on each side
+                left_lo = np.minimum.accumulate(s, axis=0)[cut - 1]
+                left_hi = np.maximum.accumulate(s, axis=0)[cut - 1]
+                right_lo = np.minimum.accumulate(s[::-1], axis=0)[::-1][cut]
+                right_hi = np.maximum.accumulate(s[::-1], axis=0)[::-1][cut]
+                total = np.prod(left_hi - left_lo + 1, axis=1) + np.prod(
+                    right_hi - right_lo + 1, axis=1
+                )
+                j = np.argmin(total)
+                if best is None or total[j] < best[0]:
+                    best = (total[j], node[order[: cut[j]]], node[order[cut[j] :]])
+        if best is not None and best[0] <= (1 - min_gain) * volume:
+            stack.extend(best[1:])
+        else:
+            leaves.append(node)
+
+    # map the cubes of each leaf back to the points
+    leaf_of_cube = np.empty(len(cubes), dtype=np.int64)
+    for i, leaf in enumerate(leaves):
+        leaf_of_cube[leaf] = i
+    point_leaf = leaf_of_cube[point_cube]
+    order = np.argsort(point_leaf, kind="stable")
+    bounds = np.cumsum(np.bincount(point_leaf, minlength=len(leaves)))[:-1]
+    return np.split(order, bounds)
 
 def _read_cloud_point(
     cloud_point: str | Path | pd.DataFrame,
