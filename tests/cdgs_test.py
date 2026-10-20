@@ -1,12 +1,15 @@
 from importlib.resources import as_file, files
+import logging
 import numpy as np
 import pyvista as pv
+import actigamma as ag
 import io
 import pytest
 
 import tests.resources.cdgs as res
 from f4enix.output.cdgs import (
     CDGS,
+    CDGS_ENERGY_TYPE,
     SphereKernel,
     DistanceKernel,
     KNearestKernel,
@@ -101,6 +104,20 @@ class TestKernel:
         )
         assert np.isclose(interp.sum(), 2.0)
         assert np.isclose(interp[0], interp[1])  # equidistant -> equal weights
+
+    def test_distance_kernel_coincident_point(self):
+        kernel = DistanceKernel(radius=1.0)
+        dest_coords = np.array([[0.0, 0, 0], [0.5, 0, 0]])
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.0, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=10.0,
+        )
+        # full weight to the collocated destination, activity is conserved
+        assert np.allclose(interp, [10.0, 0.0])
 
     def test_k_nearest_kernel_batch_matches_loop(self):
         kernel = KNearestKernel(k=2)
@@ -214,6 +231,68 @@ class TestCDGS:
         mesh.cell_data[f"Co60{ATOM_DENSITY_TAG}"] = np.full(mesh.n_cells, 1e-6)
 
         return CDGS(mesh)
+
+    @staticmethod
+    def _simple_mesh() -> pv.StructuredGrid:
+        x = np.arange(3, dtype=float)
+        xx, yy, zz = np.meshgrid(x, x, x, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        mesh.cell_data[f"Co60{ACTIVITY_TAG}"] = np.ones(mesh.n_cells)
+        mesh.cell_data[f"Co60{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        return mesh
+
+    def test_init_does_not_modify_input_mesh(self):
+        mesh = self._simple_mesh()
+        names = list(mesh.array_names)
+        CDGS(mesh)
+        assert list(mesh.array_names) == names
+
+    def test_init_no_isotopes(self):
+        x = np.arange(3, dtype=float)
+        mesh = pv.StructuredGrid(*np.meshgrid(x, x, x, indexing="ij"))
+        with pytest.raises(ValueError):
+            CDGS(mesh)
+
+    def test_init_bins_without_e_bins(self):
+        with pytest.raises(ValueError):
+            CDGS(self._simple_mesh(), energy_type=CDGS_ENERGY_TYPE.BINS)
+
+    def test_bins_warn_lost_emission(self, caplog):
+        # Co60 main lines are at 1.17 and 1.33 MeV, outside a 0-1 MeV grid
+        with caplog.at_level(logging.WARNING):
+            CDGS(
+                self._simple_mesh(),
+                energy_type=CDGS_ENERGY_TYPE.BINS,
+                e_bins=np.array([0, 1e6]),
+            )
+        assert "Co60" in caplog.text
+        assert "outside the provided energy bins" in caplog.text
+
+        # no warning when all the lines are inside the bins
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            CDGS(
+                self._simple_mesh(),
+                energy_type=CDGS_ENERGY_TYPE.BINS,
+                e_bins=np.array([0, 1e7]),
+            )
+        assert "outside the provided energy bins" not in caplog.text
+
+    def test_cooling_time_numpy_scalar(self):
+        cdgs = CDGS(self._simple_mesh())
+        cdgs.cooling_time = np.int64(10)
+        assert cdgs.cooling_time == 10.0
+        with pytest.raises(TypeError):
+            cdgs.cooling_time = True
+
+    def test_activity_consistent_with_atoms(self, cdgs: CDGS):
+        db = ag.Decay2012Database()
+        for isotope in ["N16", "O19"]:
+            lam = np.log(2) / db.gethalflife(isotope)
+            assert np.allclose(
+                cdgs.mesh.cell_data[f"{isotope}{ACTIVITY_TAG}"],
+                cdgs.mesh.cell_data[f"{isotope}{ATOM_DENSITY_TAG}"] * lam,
+            )
 
     def test_update_cooling(self, cdgs: CDGS):
         # Test that the cooling time updates the mesh correctly

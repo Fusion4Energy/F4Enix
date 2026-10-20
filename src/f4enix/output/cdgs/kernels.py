@@ -120,9 +120,11 @@ class DistanceKernel(SphereKernel):
         # pure overhead when called millions of times on tiny arrays
         diff = dest_coords[dest_idx, :] - source_coord
         distances = np.sqrt((diff * diff).sum(axis=1))
-        if (distances == 0).any():
-            # Coincident point: assign full weight to it, zero to others
-            weights = np.zeros_like(distances)
+        zero_mask = distances == 0
+        if zero_mask.any():
+            # Coincident point(s): assign full weight to them, zero to others
+            weights = zero_mask.astype(distances.dtype)
+            weights /= weights.sum()
         else:
             max_distance = distances.max()
             weights = max_distance / distances  # inverse distance weights

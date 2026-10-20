@@ -1,7 +1,7 @@
 from enum import Enum
 from io import TextIOWrapper
 import logging
-from matplotlib.pyplot import grid
+import numbers
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -56,7 +56,9 @@ class CDGS:
         """
 
         # TODO: this may be extended to other type of geometries
-        self.mesh: pv.StructuredGrid = mesh
+        # copy so that the intensity arrays added below do not leak into the
+        # caller's mesh
+        self.mesh: pv.StructuredGrid = mesh.copy()
         self.mesh_type: CDGS_MESH_TYPE = CDGS_MESH_TYPE.RECTANGULAR
         self.voxel_vol: float = np.min(np.abs(mesh.compute_cell_sizes()["Volume"]))
 
@@ -75,6 +77,11 @@ class CDGS:
         for name in self.mesh.array_names:
             if ACTIVITY_TAG in name:
                 isotopes.append(name.replace(ACTIVITY_TAG, ""))
+        if len(isotopes) == 0:
+            raise ValueError(
+                f"No isotope activity arrays (named '<isotope>{ACTIVITY_TAG}') "
+                "found in the mesh cell data."
+            )
 
         self.isotopes: dict[str, dict[str, np.ndarray]] = {}
         db = ag.Decay2012Database()
@@ -102,11 +109,11 @@ class CDGS:
             self.all_df = all_df
 
         elif energy_type == CDGS_ENERGY_TYPE.BINS:
-            e_bins = np.array(e_bins)  # be sure e_bins is a numpy array
             if e_bins is None:
                 raise ValueError(
                     "Energy bins must be provided when energy_type is CDGS_ENERGY_TYPE.BINS."
                 )
+            e_bins = np.array(e_bins)  # be sure e_bins is a numpy array
             self.e_bins = e_bins
             grid = ag.EnergyGrid(bounds=e_bins)
             self._lc = ag.LineAggregator(db, grid)
@@ -120,6 +127,18 @@ class CDGS:
                 intensities, _ = self._lc(inv, spectype=self._particle)
                 self.isotopes[isotope] = {"intensities": np.array(intensities)}
 
+                # lines falling outside e_bins are dropped by the aggregator,
+                # so warn the user about the emission that is not accounted for
+                full = np.sum(db.getintensities(isotope, spectype=particle))
+                binned = np.sum(intensities)
+                if full > 0 and binned < full * (1 - 1e-6):
+                    logging.warning(
+                        f"{isotope}: {(1 - binned / full) * 100:.2f}% of the "
+                        f"{particle} emission ({full - binned:.4e} per decay) "
+                        "falls outside the provided energy bins and will be "
+                        "ignored."
+                    )
+
         # add the intensities to the mesh cell data for each isotope
         for isotope, vals in self.isotopes.items():
             values = (
@@ -130,7 +149,7 @@ class CDGS:
             self.mesh.cell_data[f"{isotope}{INTENSITY_TAG}"] = values
 
         # Store original mesh at shutdown
-        self._mesh_zero_cooling = mesh.copy()
+        self._mesh_zero_cooling = self.mesh.copy()
 
     def particle(self) -> str:
         return self._particle
@@ -200,7 +219,8 @@ class CDGS:
         value : float
             The new cooling time to set.
         """
-        if not isinstance(value, (int, float)):
+        # numbers.Real also covers numpy scalars (e.g. np.int64)
+        if not isinstance(value, numbers.Real) or isinstance(value, bool):
             raise TypeError("Cooling time must be a number.")
         if value < 0:
             raise ValueError("Cooling time cannot be negative.")
@@ -279,7 +299,11 @@ class CDGS:
             Path to the CSV file containing the cloud point data or a DataFrame directly.
         isotopes : dict[str, str]
             Dictionary mapping isotope names to their column in the CSV file. Isotopes
-            names should be like "Co60".
+            names should be like "Co60". Each column must contain the atom density
+            of the isotope (atoms per unit volume). Coordinates, cell volumes and
+            atom densities must use consistent units: since the resulting mesh
+            arrays are labelled as Bq/m3 and atom/m3, coordinates are expected in
+            m, volumes in m3 and atom densities in atom/m3.
         interpolation_kernel : InterpolationKernel
             An instance of an InterpolationKernel subclass that defines how to distribute
             the activity from the cloud point to the regular mesh.
@@ -356,8 +380,7 @@ class CDGS:
         db = ag.Decay2012Database()
 
         for isotope, col in isotopes.items():
-            # initialize the activity array for each isotope and isotope counter
-            activity_array = np.zeros(len(centroids_voxels))
+            # initialize the atoms array for each isotope
             atoms_array = np.zeros(len(centroids_voxels))
             # extract once as a numpy array: df[col].iloc[i] rebuilds a Series
             # on every call and dominates runtime over millions of rows
@@ -365,18 +388,6 @@ class CDGS:
             atoms_per_point = col_values * UM_vols  # atoms
 
             if getattr(interpolation_kernel, "supports_batch", False):
-                # activity_from_atoms is a linear scaling of atoms, so it
-                # broadcasts fine over the whole array in a single call
-                activities_per_point = ag.activity_from_atoms(
-                    db, isotope, atoms_per_point
-                )  # Bq
-                interpolation_kernel._kernel_batch(
-                    coords,
-                    neighbours_idx,
-                    centroids_voxels,
-                    activity_array,
-                    activities_per_point,
-                )
                 interpolation_kernel._kernel_batch(
                     coords,
                     neighbours_idx,
@@ -385,25 +396,19 @@ class CDGS:
                     atoms_per_point,
                 )
             else:
-                # Cycle on all UM centroids and distribute the activity
+                # Cycle on all UM centroids and distribute the atoms
                 for i in range(len(coords)):
-                    source_coord = coords[i]
-                    atoms = atoms_per_point[i]
-                    activity = ag.activity_from_atoms(db, isotope, atoms)  # Bq
                     interpolation_kernel._kernel(
-                        source_coord,
-                        neighbours_idx[i],
-                        centroids_voxels,
-                        activity_array,
-                        activity,
-                    )
-                    interpolation_kernel._kernel(
-                        source_coord,
+                        coords[i],
                         neighbours_idx[i],
                         centroids_voxels,
                         atoms_array,
-                        atoms,
+                        atoms_per_point[i],
                     )
+            # activity_from_atoms is a linear scaling of atoms, so interpolating
+            # the atoms once and converting afterwards is equivalent to
+            # interpolating the activity separately
+            activity_array = ag.activity_from_atoms(db, isotope, atoms_array)  # Bq
             mesh.cell_data[f"{isotope}{ACTIVITY_TAG}"] = activity_array / vol  # Bq/m3
             mesh.cell_data[f"{isotope}{ATOM_DENSITY_TAG}"] = (
                 atoms_array / vol
