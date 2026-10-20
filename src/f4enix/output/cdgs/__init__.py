@@ -11,6 +11,7 @@ from f4enix.output.cdgs.mesh_definitions import (
     RegularMeshDefinition,
 )
 from f4enix.output.cdgs.cdgs import CDGS, CDGS_ENERGY_TYPE
+from f4enix.output.cdgs.sensitivity import get_recommended_parameters
 
 __all__ = [
     "MeshByAverageDistance",
@@ -23,4 +24,5 @@ __all__ = [
     "KNearestKernel",
     "CDGS",
     "CDGS_ENERGY_TYPE",
+    "get_recommended_parameters",
 ]

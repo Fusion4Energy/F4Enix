@@ -19,6 +19,7 @@ from f4enix.output.cdgs import (
     MeshByBinSize,
 )
 from f4enix.output.cdgs.cdgs import (
+    _interpolate_cloud_point,
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
     _floats_to_multiline_string,
@@ -194,6 +195,65 @@ class TestMeshDefinition:
         assert grid_avg.n_cells == grid_bin.n_cells == grid_nvox.n_cells == 12
         assert np.allclose(grid_avg.points, grid_bin.points)
         assert np.allclose(grid_avg.points, grid_nvox.points)
+
+    @pytest.mark.parametrize(
+        "kernel, n_pad",
+        [
+            (KNearestKernel(k=1), 0),
+            (KNearestKernel(k=8), 1),
+            (KNearestKernel(k=27), 1),
+            (KNearestKernel(k=64), 2),
+            (SphereKernel(n_voxels=2), 2),
+            (DistanceKernel(radius=1.5), 2),  # 1.5 voxels -> 2 layers
+        ],
+    )
+    def test_kernel_padding(self, kernel, n_pad):
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 1.0]])
+        mesh_def = MeshByBinSize(bin_size=(1.0, 1.0, 1.0))
+        plain = mesh_def._build_grid(coords)
+        padded = mesh_def._build_grid(coords, kernel)
+        assert np.allclose(
+            np.array(padded.bounds),
+            np.array(plain.bounds) + np.array([-1, 1, -1, 1, -1, 1]) * n_pad,
+        )
+
+    def test_explicit_bbox_not_padded(self):
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 1.0]])
+        bbox = {
+            "x_min": -0.5, "x_max": 2.5,
+            "y_min": -0.5, "y_max": 1.5,
+            "z_min": -0.5, "z_max": 1.5,
+        }
+        grid = MeshByBinSize((1.0, 1.0, 1.0), bbox=bbox)._build_grid(
+            coords, KNearestKernel(k=27)
+        )
+        assert np.allclose(grid.bounds, [-0.5, 2.5, -0.5, 1.5, -0.5, 1.5])
+
+    def test_padding_avoids_overfilling_at_boundaries(self):
+        # thin jittered slab of cells, only 2 layers thick in z: without
+        # padding the points cannot be spread outwards in z and k=27 pushes
+        # their volume into the voxels of the slab, overfilling them
+        rng = np.random.default_rng(0)
+        c = np.arange(10) + 0.5
+        x, y, z = np.meshgrid(c, c, [0.5, 1.5], indexing="ij")
+        coords = np.stack([x.ravel(), y.ravel(), z.ravel()], axis=1)
+        coords += rng.uniform(-0.2, 0.2, coords.shape)
+        vols = np.ones(len(coords))
+        kernel = KNearestKernel(k=27)
+        tight = {
+            "x_min": coords[:, 0].min() - 0.5, "x_max": coords[:, 0].max() + 0.5,
+            "y_min": coords[:, 1].min() - 0.5, "y_max": coords[:, 1].max() + 0.5,
+            "z_min": coords[:, 2].min() - 0.5, "z_max": coords[:, 2].max() + 0.5,
+        }
+        fills = {}
+        for name, bbox in [("tight", tight), ("auto", None)]:
+            _, res, vox = _interpolate_cloud_point(
+                coords, {"vol": vols}, kernel, MeshByBinSize((1.0, 1.0, 1.0), bbox)
+            )
+            fills[name] = res["vol"] / vox
+            assert np.isclose(res["vol"].sum(), vols.sum())  # always conserved
+        overfill = {k: np.clip(f - 1, 0, None).sum() for k, f in fills.items()}
+        assert overfill["auto"] < 0.5 * overfill["tight"]
 
     def test_mesh_by_avg_distance(self):
         coords = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])

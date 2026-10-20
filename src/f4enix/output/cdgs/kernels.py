@@ -32,6 +32,18 @@ class InterpolationKernel(ABC):
     ) -> None:
         pass
 
+    def _spread_radius(self, voxel_size: float) -> float:
+        """Maximum distance in m, beyond the voxel containing a point, at which
+        the kernel may deposit its activity. Used to pad automatic mesh
+        bounding boxes so that the outermost points can be spread outwards.
+
+        Parameters
+        ----------
+        voxel_size : float
+            Size of the voxels in m.
+        """
+        return 0.0
+
     @abstractmethod
     def get_neighbours(
         self, source_coords: np.ndarray, dest_coords: np.ndarray, **kwargs
@@ -71,6 +83,11 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Either radius or n_voxels must be provided")
         if self.radius is not None and self.n_voxels is not None:
             raise ValueError("Only one of radius or n_voxels should be provided.")
+
+    def _spread_radius(self, voxel_size: float) -> float:
+        if self.radius is not None:
+            return self.radius
+        return self.n_voxels * voxel_size
 
     def get_neighbours(
         self,
@@ -160,6 +177,12 @@ class KNearestKernel(InterpolationKernel):
             raise ValueError("k must be a positive integer")
         self.k = k
 
+    def _spread_radius(self, voxel_size: float) -> float:
+        # the k nearest voxels form roughly a cube of n = k^(1/3) voxels per
+        # side around the point, extending n // 2 voxels beyond its own voxel
+        n = int(np.ceil(round(self.k ** (1 / 3), 9)))
+        return (n // 2) * voxel_size
+
     def get_neighbours(
         self, source_coords: np.ndarray, dest_coords: np.ndarray, **kwargs
     ) -> np.ndarray:
@@ -218,7 +241,10 @@ class KNearestKernel(InterpolationKernel):
         max_distance = distances.max(axis=1, keepdims=True)
         safe_distances = np.where(zero_mask, 1.0, distances)
         inv_weights = max_distance / safe_distances
-        inv_weights /= inv_weights.sum(axis=1, keepdims=True)
+        # rows where all neighbours are coincident sum to 0 and give 0/0 here,
+        # they are replaced by the coincident weights anyway
+        with np.errstate(invalid="ignore", divide="ignore"):
+            inv_weights /= inv_weights.sum(axis=1, keepdims=True)
 
         # coincident point(s): full weight to them, zero to others
         coincident_weights = zero_mask.astype(distances.dtype)

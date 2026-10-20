@@ -350,88 +350,23 @@ class CDGS:
         CDGS
             A CDGS object populated with data from the CSV file.
         """
-        if length_unit not in LENGTH_UNITS:
-            raise ValueError(
-                f"Length unit {length_unit} not supported. Supported units are "
-                f"{list(LENGTH_UNITS)}."
-            )
-        to_m = LENGTH_UNITS[length_unit]
+        df, coords, UM_vols, to_m = _read_cloud_point(
+            cloud_point, col_names, length_unit
+        )
 
-        if isinstance(cloud_point, pd.DataFrame):
-            df = cloud_point.copy()
-        else:
-            df = pd.read_csv(cloud_point)
-        df.columns = (
-            df.columns.str.strip()
-        )  # remove any leading/trailing whitespace from column names
-        if col_names is None:
-            col_names = {
-                "x": "x-coordinate",
-                "y": "y-coordinate",
-                "z": "z-coordinate",
-                "vol": "cell-volume",
-            }
-        coords = df[[col_names["x"], col_names["y"], col_names["z"]]].to_numpy()
-
-        # Check if there are duplicated points, if so, drop them and warn the user.
-        # pandas.duplicated() hashes rows instead of sorting them like
-        # np.unique(axis=0) would, which is much cheaper for millions of points
-        dup_cols = [col_names["x"], col_names["y"], col_names["z"]]
-        if df.duplicated(subset=dup_cols).any():
-            print(
-                "Warning: Duplicated points found in the cloud point data. "
-                "These will be dropped."
-            )
-            df = df.drop_duplicates(subset=dup_cols)
-            coords = df[[col_names["x"], col_names["y"], col_names["z"]]].to_numpy()
-
-        # convert everything to SI
-        coords = coords * to_m  # m
-        UM_vols = df[col_names["vol"]].to_numpy() * to_m**3  # m3
-
-        # build the regular mesh
-        mesh = mesh_definition._build_grid(coords)
-        vol = np.min(np.abs(mesh.compute_cell_sizes()["Volume"]))
-        # strip the pyvista_ndarray subclass: its __array_finalize__/__array_wrap__
-        # hooks fire on every slice and add up over millions of kernel calls
-        centroids_voxels = np.asarray(mesh.cell_centers().points)
-
-        # Query the KDTree to find neighboring points
-        neighbours_idx = interpolation_kernel.get_neighbours(
-            source_coords=coords,
-            dest_coords=centroids_voxels,
-            voxel_size=vol ** (1 / 3),
+        # extract once as numpy arrays: df[col].iloc[i] rebuilds a Series
+        # on every call and dominates runtime over millions of rows
+        atoms_per_point = {
+            isotope: df[col].to_numpy() / to_m**3 * UM_vols  # atom/m3 * m3 = atoms
+            for isotope, col in isotopes.items()
+        }
+        mesh, atoms, vol = _interpolate_cloud_point(
+            coords, atoms_per_point, interpolation_kernel, mesh_definition
         )
 
         # add the different isotopes activities
         db = ag.Decay2012Database()
-
-        for isotope, col in isotopes.items():
-            # initialize the atoms array for each isotope
-            atoms_array = np.zeros(len(centroids_voxels))
-            # extract once as a numpy array: df[col].iloc[i] rebuilds a Series
-            # on every call and dominates runtime over millions of rows
-            col_values = df[col].to_numpy() / to_m**3  # atom/m3
-            atoms_per_point = col_values * UM_vols  # atoms
-
-            if getattr(interpolation_kernel, "supports_batch", False):
-                interpolation_kernel._kernel_batch(
-                    coords,
-                    neighbours_idx,
-                    centroids_voxels,
-                    atoms_array,
-                    atoms_per_point,
-                )
-            else:
-                # Cycle on all UM centroids and distribute the atoms
-                for i in range(len(coords)):
-                    interpolation_kernel._kernel(
-                        coords[i],
-                        neighbours_idx[i],
-                        centroids_voxels,
-                        atoms_array,
-                        atoms_per_point[i],
-                    )
+        for isotope, atoms_array in atoms.items():
             # activity_from_atoms is a linear scaling of atoms, so interpolating
             # the atoms once and converting afterwards is equivalent to
             # interpolating the activity separately
@@ -614,6 +549,125 @@ energy_type {self.energy_type.value}
     #     f.write(_floats_to_multiline_string(self.translation[0, :]))
     #     f.write(_floats_to_multiline_string(self.translation[1, :]))
     #     f.write(_floats_to_multiline_string(self.translation[2, :]))
+
+
+def _read_cloud_point(
+    cloud_point: str | Path | pd.DataFrame,
+    col_names: dict[str, str] | None,
+    length_unit: str,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, float]:
+    """Read a cloud point, drop duplicated points and convert coordinates and
+    volumes to SI.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, np.ndarray, np.ndarray, float]
+        The (deduplicated) dataframe with the original values, the point
+        coordinates in m, the point volumes in m3 and the conversion factor
+        from length_unit to m.
+    """
+    if length_unit not in LENGTH_UNITS:
+        raise ValueError(
+            f"Length unit {length_unit} not supported. Supported units are "
+            f"{list(LENGTH_UNITS)}."
+        )
+    to_m = LENGTH_UNITS[length_unit]
+
+    if isinstance(cloud_point, pd.DataFrame):
+        df = cloud_point.copy()
+    else:
+        df = pd.read_csv(cloud_point)
+    df.columns = (
+        df.columns.str.strip()
+    )  # remove any leading/trailing whitespace from column names
+    if col_names is None:
+        col_names = {
+            "x": "x-coordinate",
+            "y": "y-coordinate",
+            "z": "z-coordinate",
+            "vol": "cell-volume",
+        }
+
+    # Check if there are duplicated points, if so, drop them and warn the user.
+    # pandas.duplicated() hashes rows instead of sorting them like
+    # np.unique(axis=0) would, which is much cheaper for millions of points
+    dup_cols = [col_names["x"], col_names["y"], col_names["z"]]
+    if df.duplicated(subset=dup_cols).any():
+        print(
+            "Warning: Duplicated points found in the cloud point data. "
+            "These will be dropped."
+        )
+        df = df.drop_duplicates(subset=dup_cols)
+
+    # convert everything to SI
+    coords = df[dup_cols].to_numpy() * to_m  # m
+    vols = df[col_names["vol"]].to_numpy() * to_m**3  # m3
+    return df, coords, vols, to_m
+
+
+def _interpolate_cloud_point(
+    coords: np.ndarray,
+    quantities: dict[str, np.ndarray],
+    interpolation_kernel: InterpolationKernel,
+    mesh_definition: RegularMeshDefinition,
+) -> tuple[pv.StructuredGrid, dict[str, np.ndarray], float]:
+    """Build the regular mesh and distribute extensive per-point quantities
+    (e.g. atoms, volumes) on its voxels.
+
+    Parameters
+    ----------
+    coords : np.ndarray
+        (n_points, 3) coordinates of the cloud point in m.
+    quantities : dict[str, np.ndarray]
+        Extensive quantities to distribute, one value per point.
+    interpolation_kernel : InterpolationKernel
+        Kernel used to distribute the quantities.
+    mesh_definition : RegularMeshDefinition
+        Definition of the regular mesh.
+
+    Returns
+    -------
+    tuple[pv.StructuredGrid, dict[str, np.ndarray], float]
+        The mesh, the per-voxel totals of each quantity and the voxel volume
+        in m3.
+    """
+    mesh = mesh_definition._build_grid(coords, interpolation_kernel)
+    vol = np.min(np.abs(mesh.compute_cell_sizes()["Volume"]))
+    # strip the pyvista_ndarray subclass: its __array_finalize__/__array_wrap__
+    # hooks fire on every slice and add up over millions of kernel calls
+    centroids_voxels = np.asarray(mesh.cell_centers().points)
+
+    # Query the KDTree to find neighboring points
+    neighbours_idx = interpolation_kernel.get_neighbours(
+        source_coords=coords,
+        dest_coords=centroids_voxels,
+        voxel_size=vol ** (1 / 3),
+    )
+
+    results = {}
+    for name, per_point in quantities.items():
+        interpolation = np.zeros(len(centroids_voxels))
+        if getattr(interpolation_kernel, "supports_batch", False):
+            interpolation_kernel._kernel_batch(
+                coords,
+                neighbours_idx,
+                centroids_voxels,
+                interpolation,
+                per_point,
+            )
+        else:
+            # Cycle on all UM centroids and distribute the quantity
+            for i in range(len(coords)):
+                interpolation_kernel._kernel(
+                    coords[i],
+                    neighbours_idx[i],
+                    centroids_voxels,
+                    interpolation,
+                    per_point[i],
+                )
+        results[name] = interpolation
+    return mesh, results, vol
+
 
 
 def _floats_to_multiline_string(
