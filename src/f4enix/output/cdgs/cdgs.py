@@ -16,6 +16,12 @@ ACTIVITY_TAG = "_specific_activity [Bq/m3]"
 INTENSITY_TAG = "_intensity [ph/s]"
 ATOM_DENSITY_TAG = "_specific_atom_density [atom/m3]"
 
+# conversion factors to m for the supported input length units. Internally,
+# CDGS works only in SI units
+LENGTH_UNITS = {"m": 1.0, "cm": 1e-2, "mm": 1e-3}
+# MCNP works in cm
+M_TO_CM = 1e2
+
 
 class CDGS_ENERGY_TYPE(Enum):
     LINE = "line"
@@ -39,10 +45,15 @@ class CDGS:
         """CDGS object. Handles all operations with respect to .cdgs and .vtk format.
         Computes lines and emission probabilities for isotopes.
 
+        All quantities are handled internally in SI units (m, s, Bq). Energies
+        are in eV, following the actigamma convention.
+
         Parameters
         ----------
         mesh : pv.StructuredGrid
             The mesh containing the activity and atom density data for isotopes.
+            Mesh coordinates must be in m, activities in Bq/m3 and atom
+            densities in atom/m3.
         energy_type : CDGS_ENERGY_TYPE, optional
             The type of energy representation, by default CDGS_ENERGY_TYPE.LINE
         particle : str, optional
@@ -289,6 +300,7 @@ class CDGS:
         col_names: dict[str, str] | None = None,
         e_bins: np.ndarray | None = None,
         particle: str = "gamma",
+        length_unit: str = "m",
     ) -> "CDGS":
         """Read a csv (typically produced from fluent) that contains a cloud
         point of data and convert it into a CDGS object.
@@ -300,15 +312,16 @@ class CDGS:
         isotopes : dict[str, str]
             Dictionary mapping isotope names to their column in the CSV file. Isotopes
             names should be like "Co60". Each column must contain the atom density
-            of the isotope (atoms per unit volume). Coordinates, cell volumes and
-            atom densities must use consistent units: since the resulting mesh
-            arrays are labelled as Bq/m3 and atom/m3, coordinates are expected in
-            m, volumes in m3 and atom densities in atom/m3.
+            of the isotope, in atoms per cubic length_unit (e.g. atom/cm3 if
+            length_unit is "cm").
         interpolation_kernel : InterpolationKernel
             An instance of an InterpolationKernel subclass that defines how to distribute
-            the activity from the cloud point to the regular mesh.
+            the activity from the cloud point to the regular mesh. Any length
+            parameter of the kernel (e.g. radius) must be given in m.
         mesh_definition : RegularMeshDefinition
-            An instance of a RegularMeshDefinition subclass that defines the mesh structure.
+            An instance of a RegularMeshDefinition subclass that defines the mesh
+            structure. Any length parameter of the definition (e.g. bin_size,
+            bbox) must be given in m.
         col_names : dict[str, str] | None, optional
             Dictionary mapping column names in the CSV to desired names in the CDGS
             object. If None, default names will be used. Default dictionary is:
@@ -319,19 +332,31 @@ class CDGS:
                 "vol": "cell-volume",
             }
         e_bins : np.ndarray, optional
-            The energy bins for the CDGS object, by default None. If provided, the
-            emission lines will be computed in the energy bins. Otherwise,
-            pure emission lines will be used.
+            The energy bin edges in eV for the CDGS object, by default None. If
+            provided, the emission lines will be computed in the energy bins.
+            Otherwise, pure emission lines will be used.
         particle : str, optional
             The type of particle, by default "gamma". Other supported one is
             "neutron". Be sure that the radioisotopes you are using have the
             corresponding particle emission data in the actigamma database.
+        length_unit : str, optional
+            Length unit used in the cloud point data, one of "m", "cm" or "mm",
+            by default "m". Coordinates are expected in length_unit, cell
+            volumes in length_unit^3 and atom densities in atom/length_unit^3.
+            Everything is converted to SI (m) internally.
 
         Returns
         -------
         CDGS
             A CDGS object populated with data from the CSV file.
         """
+        if length_unit not in LENGTH_UNITS:
+            raise ValueError(
+                f"Length unit {length_unit} not supported. Supported units are "
+                f"{list(LENGTH_UNITS)}."
+            )
+        to_m = LENGTH_UNITS[length_unit]
+
         if isinstance(cloud_point, pd.DataFrame):
             df = cloud_point.copy()
         else:
@@ -360,7 +385,9 @@ class CDGS:
             df = df.drop_duplicates(subset=dup_cols)
             coords = df[[col_names["x"], col_names["y"], col_names["z"]]].to_numpy()
 
-        UM_vols = df[col_names["vol"]].to_numpy()
+        # convert everything to SI
+        coords = coords * to_m  # m
+        UM_vols = df[col_names["vol"]].to_numpy() * to_m**3  # m3
 
         # build the regular mesh
         mesh = mesh_definition._build_grid(coords)
@@ -384,7 +411,7 @@ class CDGS:
             atoms_array = np.zeros(len(centroids_voxels))
             # extract once as a numpy array: df[col].iloc[i] rebuilds a Series
             # on every call and dominates runtime over millions of rows
-            col_values = df[col].to_numpy()
+            col_values = df[col].to_numpy() / to_m**3  # atom/m3
             atoms_per_point = col_values * UM_vols  # atoms
 
             if getattr(interpolation_kernel, "supports_batch", False):
@@ -481,10 +508,11 @@ energy_type {self.energy_type.value}
         if self.mesh_type == CDGS_MESH_TYPE.RECTANGULAR:
             nx, ny, nz = self.mesh.dimensions
             f.write(f"mesh_boundaries {nx} {ny} {nz}\n")
-            # Bin limits (grid edges) per direction
-            edges1 = sorted(np.unique(self.mesh.points[:, 0]))
-            edges2 = sorted(np.unique(self.mesh.points[:, 1]))
-            edges3 = sorted(np.unique(self.mesh.points[:, 2]))
+            # Bin limits (grid edges) per direction, converted from m to cm
+            # as the file is read by MCNP
+            edges1 = np.unique(self.mesh.points[:, 0]) * M_TO_CM
+            edges2 = np.unique(self.mesh.points[:, 1]) * M_TO_CM
+            edges3 = np.unique(self.mesh.points[:, 2]) * M_TO_CM
         else:
             raise NotImplementedError(
                 f"Mesh type {self.mesh_type} not implemented yet."
@@ -496,7 +524,9 @@ energy_type {self.energy_type.value}
         f.write(_floats_to_multiline_string(edges2))
         f.write(_floats_to_multiline_string(edges3))
 
-    def _write_values(self, f: TextIOWrapper, isotope: str) -> None:
+    def _write_values(
+        self, f: TextIOWrapper, isotope: str, chunk_size: int = 10000
+    ) -> None:
         """Write the per-voxel source data values for the given isotope to the file."""
         if isotope == "all":
             tot_intensity = np.zeros(self.mesh.n_cells)
@@ -507,54 +537,77 @@ energy_type {self.energy_type.value}
         else:
             tot_intensity = self.mesh.cell_data[f"{isotope}{INTENSITY_TAG}"]  # ph/s
 
-        for i, val in enumerate(tot_intensity):
-            if val > 0:
+        tot_intensity = np.asarray(tot_intensity)
+        voxel_vol_cm3 = self.voxel_vol * M_TO_CM**3  # MCNP works in cm
+        active_idx = np.flatnonzero(tot_intensity > 0)
+        # probabilities are computed for a chunk of voxels at a time: a single
+        # (n_voxels, n_lines) matrix for the whole mesh could exhaust memory
+        for start in range(0, len(active_idx), chunk_size):
+            chunk = active_idx[start : start + chunk_size]
+            vals = tot_intensity[chunk]
+            probabilities = self._get_probabilities(isotope, chunk)
+            intensities = probabilities * vals[:, None]  # ph/s
+            zeros = _floats_to_multiline_string([0] * intensities.shape[1])
+
+            for i, val, voxel_intensities in zip(chunk, vals, intensities):
                 # printing element id, element emission intensity, element volume,
                 # number of active cells under mesh element (assumed to be 1)
-                f.write(f"{i} {val:.5e} {self.voxel_vol:.5e} 1\n")
+                f.write(f"{i} {val:.5e} {voxel_vol_cm3:.5e} 1\n")
                 # Cell ID, volume fraction, intensity (ph/s).
                 f.write(f"0 1.0 {val:.5e}\n")  # All homogenous
 
-                probabilities = self._get_probabilities(isotope, i)
-                intensities = probabilities * val  # ph/s
-                f.write(_floats_to_multiline_string(intensities))
+                f.write(_floats_to_multiline_string(voxel_intensities))
                 # List of gamma source uncertainties is set to 0 for all values
-                f.write(_floats_to_multiline_string([0] * len(intensities)))
+                f.write(zeros)
 
-    def _get_probabilities(self, isotope: str, idx: int) -> np.ndarray:
-        """Return normalised per-line emission probabilities for a voxel and isotope."""
-        if isotope == "all":
-            if self.energy_type == CDGS_ENERGY_TYPE.LINE:
-                df = self.all_df.copy()
-                df["intensity"] = 0.0  # Initialize the intensity column
-                # assign intensities to the dataframe using the isotope column
-                for iso in self.isotopes.keys():
-                    df.loc[df["isotope"] == iso, "intensity"] = self.mesh.cell_data[
-                        f"{iso}{INTENSITY_TAG}"
-                    ][idx]  # ph/s
-                df["probability"] = df["intensity"] * df["intensities"]
-                df["probability"] /= df["probability"].sum()  # Normalize to sum to 1
-                return df["probability"].to_numpy()
-            elif self.energy_type == CDGS_ENERGY_TYPE.BINS:
-                data = []
-                for iso in self.isotopes.keys():
-                    data.append(
-                        (
-                            self._db.getzai(iso),
-                            self.mesh.cell_data[f"{iso}{ACTIVITY_TAG}"][idx]
-                            * self.voxel_vol,
-                        )
-                    )
-                inv = ag.UnstablesInventory(data)
-                hist, _ = self._lc(inv, spectype=self._particle)
-                return hist / hist.sum()  # Normalize to sum to 1
-            else:
-                raise NotImplementedError(
-                    f"Energy type {self.energy_type} not implemented yet."
-                )
-        else:
+    def _get_probabilities(
+        self, isotope: str, idx: int | np.ndarray
+    ) -> np.ndarray:
+        """Return normalised per-line (or per-bin) emission probabilities for the
+        given isotope in the voxel(s) idx.
+
+        If idx is an int the result is a 1D array of shape (n_lines,), if it is
+        an array of voxel indices the result has shape (len(idx), n_lines).
+        """
+        if isotope != "all":
+            # spectrum shape of a single isotope does not depend on the voxel
             prob = self.isotopes[isotope]["intensities"]
-            return prob / prob.sum()  # Normalize to sum to 1
+            prob = prob / prob.sum()  # Normalize to sum to 1
+            return np.broadcast_to(prob, (*np.shape(idx), len(prob)))
+
+        if self.energy_type == CDGS_ENERGY_TYPE.LINE:
+            # emission rate of each line is activity * line intensity (per decay)
+            # of the isotope it belongs to
+            iso_order = {iso: i for i, iso in enumerate(self.isotopes)}
+            line_iso = self.all_df["isotope"].map(iso_order).to_numpy()
+            per_decay = self.all_df["intensities"].to_numpy()
+            weights = self._get_activities(idx)[..., line_iso] * per_decay
+        elif self.energy_type == CDGS_ENERGY_TYPE.BINS:
+            # self.isotopes[iso]["intensities"] is the binned spectrum for 1 Bq
+            # and the aggregation is linear in the activity, so the spectrum of
+            # the mixture is the activity-weighted sum of the isotope spectra
+            per_decay = np.stack(
+                [vals["intensities"] for vals in self.isotopes.values()]
+            )  # (n_isotopes, n_bins)
+            weights = self._get_activities(idx) @ per_decay
+        else:
+            raise NotImplementedError(
+                f"Energy type {self.energy_type} not implemented yet."
+            )
+        # Normalize to sum to 1. The voxel volume would cancel out here, so
+        # activities (Bq/m3) are used directly
+        return weights / weights.sum(axis=-1, keepdims=True)
+
+    def _get_activities(self, idx: int | np.ndarray) -> np.ndarray:
+        """Return the specific activities (Bq/m3) of all isotopes in the voxel(s)
+        idx, with shape (n_isotopes,) or (len(idx), n_isotopes)."""
+        return np.stack(
+            [
+                np.asarray(self.mesh.cell_data[f"{iso}{ACTIVITY_TAG}"])[idx]
+                for iso in self.isotopes
+            ],
+            axis=-1,
+        )
 
     # def _write_translation_matrix(self, f: TextIOWrapper) -> None:
     #     """Write the three rows of the translation matrix to the file."""

@@ -1,6 +1,7 @@
 from importlib.resources import as_file, files
 import logging
 import numpy as np
+import pandas as pd
 import pyvista as pv
 import actigamma as ag
 import io
@@ -376,6 +377,114 @@ class TestCDGS:
         probabilities2 = cdgs._get_probabilities("all", 0)
 
         assert len(probabilities2) > len(probabilities1)
+
+    def test_get_probabilities_all_lines_weighting(self, easy_cdgs: CDGS):
+        cdgs = easy_cdgs
+        # each isotope's share of the photons is activity * photons per decay
+        # (N16 activity is 1, Co60 activity is 2 in every voxel)
+        prob = cdgs._get_probabilities("all", 0)
+        assert np.isclose(prob.sum(), 1.0)
+        yields = {
+            "N16": 1 * cdgs.isotopes["N16"]["intensities"].sum(),
+            "Co60": 2 * cdgs.isotopes["Co60"]["intensities"].sum(),
+        }
+        tot = sum(yields.values())
+        for iso, y in yields.items():
+            mask = (cdgs.all_df["isotope"] == iso).to_numpy()
+            assert np.isclose(prob[mask].sum(), y / tot)
+
+    @pytest.mark.parametrize("isotope", ["all", "N16"])
+    def test_get_probabilities_vectorized(self, easy_cdgs: CDGS, isotope):
+        cdgs = easy_cdgs
+        cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"] = np.arange(1, cdgs.mesh.n_cells + 1)
+        idx = np.array([0, 3, 5])
+        batch = cdgs._get_probabilities(isotope, idx)
+        for row, i in zip(batch, idx):
+            assert np.allclose(row, cdgs._get_probabilities(isotope, i))
+
+    def test_get_probabilities_all_bins(self):
+        x = np.arange(2, dtype=float)
+        mesh = pv.StructuredGrid(*np.meshgrid(x, x, x, indexing="ij"))
+        activities = {"Co60": 3.0, "Cs137": 1.0}
+        for iso, act in activities.items():
+            mesh.cell_data[f"{iso}{ACTIVITY_TAG}"] = np.full(mesh.n_cells, act)
+            mesh.cell_data[f"{iso}{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        e_bins = np.linspace(0, 2e6, 21)
+        cdgs = CDGS(mesh, energy_type=CDGS_ENERGY_TYPE.BINS, e_bins=e_bins)
+
+        # reference: aggregate the mixed inventory directly with actigamma
+        db = ag.Decay2012Database()
+        inv = ag.UnstablesInventory(
+            data=[(db.getzai(iso), act) for iso, act in activities.items()]
+        )
+        hist, _ = ag.LineAggregator(db, ag.EnergyGrid(bounds=e_bins))(
+            inv, spectype="gamma"
+        )
+        assert np.allclose(cdgs._get_probabilities("all", 0), hist / np.sum(hist))
+
+    def test_mesh_boundaries_and_volume_in_cm(self, easy_cdgs: CDGS):
+        # easy_cdgs mesh is defined in m: x, y edges 0-3 m, z edges 0-1 m,
+        # voxels of 1 m3
+        with io.StringIO() as f:
+            easy_cdgs._write_mesh_boundaries(f)
+            lines = f.getvalue().splitlines()
+        assert np.allclose(np.array(lines[2].split(), float), [0, 100, 200, 300])
+        assert np.allclose(np.array(lines[4].split(), float), [0, 100])
+
+        with io.StringIO() as f:
+            easy_cdgs._write_values(f, "N16")
+            first = f.getvalue().splitlines()[0].split()
+        assert np.isclose(float(first[2]), 1e6)  # cm3
+
+    @pytest.mark.parametrize("length_unit, to_m", [("cm", 1e-2), ("mm", 1e-3)])
+    def test_from_cloud_point_length_unit(self, length_unit, to_m):
+        with as_file(files(res).joinpath("test_activity.csv")) as file:
+            df = pd.read_csv(file)
+        df.columns = df.columns.str.strip()
+        # same data expressed in a different length unit
+        df_scaled = df.copy()
+        df_scaled[["x", "y", "z"]] /= to_m
+        df_scaled["cell-volume"] /= to_m**3
+        df_scaled["n16"] *= to_m**3
+
+        kwargs = dict(
+            isotopes={"N16": "n16"},
+            interpolation_kernel=KNearestKernel(k=4),
+            mesh_definition=MeshByAverageDistance(factor=10),
+            col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
+        )
+        ref = CDGS.from_cloud_point(df, **kwargs)
+        scaled = CDGS.from_cloud_point(df_scaled, length_unit=length_unit, **kwargs)
+
+        assert np.allclose(ref.mesh.points, scaled.mesh.points)
+        assert np.isclose(ref.voxel_vol, scaled.voxel_vol)
+        for tag in [ACTIVITY_TAG, ATOM_DENSITY_TAG]:
+            assert np.allclose(
+                ref.mesh.cell_data[f"N16{tag}"], scaled.mesh.cell_data[f"N16{tag}"]
+            )
+        assert np.isclose(
+            ref.get_total_intensity("all"), scaled.get_total_intensity("all")
+        )
+
+    def test_from_cloud_point_invalid_length_unit(self):
+        df = pd.DataFrame({"x": [0.0], "y": [0.0], "z": [0.0], "v": [1.0], "a": [1.0]})
+        with pytest.raises(ValueError):
+            CDGS.from_cloud_point(
+                df,
+                {"N16": "a"},
+                interpolation_kernel=KNearestKernel(k=1),
+                mesh_definition=MeshByBinSize((1.0, 1.0, 1.0)),
+                col_names={"x": "x", "y": "y", "z": "z", "vol": "v"},
+                length_unit="inch",
+            )
+
+    def test_write_values_chunking(self, easy_cdgs: CDGS):
+        texts = []
+        for chunk_size in [2, 10000]:
+            with io.StringIO() as f:
+                easy_cdgs._write_values(f, "all", chunk_size=chunk_size)
+                texts.append(f.getvalue())
+        assert texts[0] == texts[1]
 
     @pytest.mark.parametrize(
         ["particle", "e_bins", "isotopes"],

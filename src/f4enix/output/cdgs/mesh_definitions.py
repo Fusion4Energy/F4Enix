@@ -50,6 +50,7 @@ class MeshByAverageDistance(RegularMeshDefinition):
             Bounding box for the mesh. If None, the bounding box will be determined
             from the coordinates of the cloud points. The dictionary should have the
             following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            Values must be in m.
         """
         self.factor = factor
         self.bbox = bbox
@@ -74,11 +75,12 @@ class MeshByBinSize(RegularMeshDefinition):
         Parameters
         ----------
         bin_size : tuple[float, float, float]
-            Size of the bins in each dimension (x, y, z).
+            Size of the bins in each dimension (x, y, z) in m.
         bbox : dict, optional
             Bounding box for the mesh. If None, the bounding box will be determined
             from the coordinates of the cloud points. The dictionary should have the
             following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            Values must be in m.
         """
         self.bin_size = bin_size
         self.bbox = bbox
@@ -102,6 +104,7 @@ class MeshByNumberOfVoxels(RegularMeshDefinition):
         bbox : dict
             Bounding box for the mesh. The dictionary should have the
             following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            Values must be in m.
         """
         self.n_voxels = n_voxels
         self.bbox = bbox

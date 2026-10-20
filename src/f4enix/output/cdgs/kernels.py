@@ -55,6 +55,16 @@ class InterpolationKernel(ABC):
 
 class SphereKernel(InterpolationKernel):
     def __init__(self, radius: float | None = None, n_voxels: int | None = None):
+        """Distribute the activity uniformly among the destination points within
+        a sphere around each source point.
+
+        Parameters
+        ----------
+        radius : float, optional
+            Radius of the sphere in m.
+        n_voxels : int, optional
+            Radius of the sphere expressed as a number of voxel sizes.
+        """
         self.radius = radius
         self.n_voxels = n_voxels
         if self.radius is None and self.n_voxels is None:
