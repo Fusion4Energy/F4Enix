@@ -206,22 +206,13 @@ class Meshtal:
         """
         transf_dict = {}
         pattern = r"tr\s*=\s*\d+"
-        for key, card in inp.other_data.items():
-            card_text = card.text
-            if "FMESH" in key.upper():
-                fmesh_num = (
-                    int(re.search(r"\d+", key.upper()).group())
-                    if re.search(r"\d+", key.upper())
-                    else None
-                )
-                if fmesh_num not in self.mesh.keys():
-                    continue
-                match = re.search(pattern, card_text, re.IGNORECASE)
-                if match:
-                    tr_num = int(match.group().split("=")[-1].strip())
-                    tr = inp.transformations[f"TR{tr_num}"]
-                    if tr is not None:
-                        transf_dict[fmesh_num] = tr
+        for card in inp._model.data_cards("fmesh"):
+            if card.number not in self.mesh.keys():
+                continue
+            match = re.search(pattern, card.text, re.IGNORECASE)
+            if match:
+                tr_num = int(match.group().split("=")[-1].strip())
+                transf_dict[card.number] = inp.transformations[f"TR{tr_num}"]
         self.transform_multiple_fmesh(transf_dict)
 
     def transform_multiple_fmesh(

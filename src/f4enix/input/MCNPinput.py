@@ -37,7 +37,6 @@ from matplotlib.ticker import MaxNLocator
 from f4enix.core.constants import (
     PAT_ALL_TALLY_KEYS,
     PAT_COMMENT,
-    PAT_FMESH_KEY,
 )
 from f4enix.core.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
@@ -100,16 +99,13 @@ class Input:
         self._model = model
         # remove all materials from migjorn model to avoid confusion
         for mat in self._model.materials():
-            self._model.remove_material(mat.id)
+            mat.remove()
         self._mat_section = mat_section
 
     def __deepcopy__(self, memo: dict) -> "Input":
-        # migjorn.Model can't be pickled; rebuild from its text source
         new_obj = self.__class__.__new__(self.__class__)
         memo[id(self)] = new_obj
-        new_obj.__init__(
-            migjorn.Model(self._model.to_source()), deepcopy(self._mat_section, memo)
-        )
+        new_obj.__init__(self._model.copy(), deepcopy(self._mat_section, memo))
         return new_obj
 
     # ------------------------------------------------------------------
@@ -138,9 +134,8 @@ class Input:
     def transformations(self) -> _TransformsProxy:
         """Proxy mapping of TR cards keyed by 'TRn'.
 
-        Supports ``del inp.transformations['TR5']`` to remove a transform.
-        Assigning a mapping removes all current transforms (add is unsupported by migjorn).
-        Setting is not supported; modify the live handle in-place instead.
+        Supports ``inp.transformations['TR5'] = 'TR5 1 0 0'`` to add or replace a
+        transform and ``del inp.transformations['TR5']`` to remove it.
         """
         return _TransformsProxy(self._model)
 
@@ -169,18 +164,7 @@ class Input:
         -------
         list[int]
         """
-        keys = []
-        for name in self.other_data.keys():
-            m = PAT_ALL_TALLY_KEYS.match(name)
-            if (
-                m
-                and name[0].upper() == "F"
-                and name[:2].upper()
-                not in ("FM", "FC", "FN", "FU", "FT", "FQ", "FS", "FP")
-            ):
-                keys.append(int(m.group(2)))
-
-        return keys
+        return [card.number for card in self._model.data_cards("f")]
 
     @property
     def fmesh_keys(self) -> list[int]:
@@ -190,11 +174,7 @@ class Input:
         -------
         list[int]
         """
-        keys = []
-        for name in self.other_data.keys():
-            if PAT_FMESH_KEY.match(name):
-                keys.append(int(re.search(r"\d+", name).group()))
-        return keys
+        return [card.number for card in self._model.data_cards("fmesh")]
 
     @property
     def header(self) -> str:
@@ -256,16 +236,13 @@ class Input:
         wrap : bool
             ignored (kept for API compatibility); migjorn output is lossless
         """
-        # recreate the migjorn materials
+        # materials are handled by mat_section: add them to a copy of the model
+        model = self._model.copy()
         for mat in self.mat_section.materials:
-            self._model.add_material(mat.to_text())
+            model.add_material(mat.to_text())
         logging.info(f"Writing to {outfilepath}")
-        self._model.save(str(outfilepath))
+        model.save(outfilepath)
         logging.info("File was written correctly")
-
-        # remove the migjorn materials again to allow further modifications
-        for mat in self._model.materials():
-            self._model.remove_material(mat.id)
 
     # ------------------------------------------------------------------
     # Structural operations
@@ -315,20 +292,18 @@ class Input:
         """
         if renum_all is not None:
             cells = surfs = universes = tranformations = renum_all
-        if cells is not None:
-            self._model.offset_cells(int(cells))
-        if surfs is not None:
-            self._model.offset_surfaces(int(surfs))
-        if universes is not None:
-            mapping = {}
-            for u in self._model.universe_ids():
-                mapping[u] = u + int(universes)
-            self._model.renumber_universes(mapping)
-        if tranformations is not None:
-            mapping = {}
-            for tr in self._model.transforms():
-                mapping[tr.id] = tr.id + int(tranformations)
-            self._model.renumber_transforms(mapping)
+        offsets = {
+            "cell": cells,
+            "surface": surfs,
+            "universe": universes,
+            "transform": tranformations,
+        }
+        for kind, delta in offsets.items():
+            if delta is None:
+                continue
+            # references that migjorn could not follow are left as written
+            for msg in self._model.offset(kind, int(delta)):
+                logging.warning(f"Renumbering {kind}s: {msg}")
 
     def translate(self, newlib: str | dict, libmanager: LibManager) -> None:
         """
@@ -417,11 +392,11 @@ class Input:
         # remove u= keywords if requested
         if not keep_universe:
             for cell in extracted_inp._model.cells():
-                cell.remove_param("u")
+                cell.universe = None
 
         # Re-assign old datacards and transformations
         for tr_card in extracted_inp._model.transforms():
-            extracted_inp._model.remove_transform(tr_card.id)
+            tr_card.remove()
         for tr_card in self._model.transforms():
             extracted_inp._model.add_transform(tr_card.text)
         for _, card in self.other_data.items():
@@ -730,13 +705,8 @@ class Input:
         -------
         migjorn.Cell
         """
-        # TODO: I do not know if migjorn handles case
-        replaced = cell.set_param(param.upper(), str(param_value))
-        if not replaced:
-            replaced = cell.set_param(param.lower(), str(param_value))
-        if not replaced:
-            cell.add_param(f"{param}={param_value}")
-
+        # migjorn ignores the case and adds the parameter if not present
+        cell.set_param(param, param_value)
         return cell
 
     @staticmethod
@@ -755,7 +725,8 @@ class Input:
         add_surface : int
             signed surface number to add
         new_cell_num : int, optional
-            ignored with migjorn (cells are mutated in-place in the model)
+            new ID for the cell. Only the cell's own ID is changed, references
+            to it (e.g. #n) are not updated.
         mode : str, optional
             'intersect' (default) or 'union'.
         """
@@ -766,8 +737,7 @@ class Input:
         else:
             raise ValueError(f"Invalid mode {mode}. Use 'union' or 'intersect'.")
         if new_cell_num is not None:
-            # TODO migjorn: add Cell.id setter to allow renumbering
-            cell.id = new_cell_num
+            cell.set_id(new_cell_num)
 
         return cell
 
@@ -786,11 +756,11 @@ class Input:
         hash_id : int
             ID of the cell to complement
         new_cell_num : int, optional
-            ignored with migjorn
+            new ID for the cell. Only the cell's own ID is changed, references
+            to it (e.g. #n) are not updated.
         """
         if new_cell_num is not None:
-            # TODO migjorn: add Cell.id setter to allow renumbering
-            cell.id = new_cell_num
+            cell.set_id(new_cell_num)
         _insert_parenthesis_modifier(cell, f"#{hash_id}")
         return cell
 
@@ -843,10 +813,10 @@ class Input:
 
         # remove the non-base cells from the model
         for c in cells[1:]:
-            self._model.remove_cell(c.id)
+            c.remove()
 
         if new_cell_num is not None:
-            base.id = new_cell_num
+            base.set_id(new_cell_num)
 
     def add_F_tally(
         self,
@@ -884,7 +854,6 @@ class Input:
         """
         # Add the tally card
         tally_ID = int(tally_ID)
-        self.tally_keys.append(tally_ID)
 
         particles_str = particles[0]
         if len(particles) > 1:
@@ -967,8 +936,7 @@ class Input:
     def delete_fill_cards(self) -> None:
         """Delete all fill cards from the input cells."""
         for _, cell in self.cells.items():
-            if cell.fill is not None:
-                cell.remove_param("fill")
+            cell.fill = None
 
     def remove_tallies(self, tally_ids: list[int] | None = None) -> None:
         """Remove tallies from the input.
@@ -1027,7 +995,7 @@ class Input:
             if the provided surface is not a sphere
         """
         surf = self.surfs[str(surface)]
-        if surf.kind.lower() not in ["so", "sx", "sy", "sz", "s"]:
+        if surf.mnemonic.lower() not in ["so", "sx", "sy", "sz", "s"]:
             raise ValueError("The provided surface is not a sphere")
         radius = surf.coeffs[-1]
         weight = np.pi * radius**2
@@ -1149,9 +1117,7 @@ class D1S_Input(Input):
     def __deepcopy__(self, memo: dict) -> "D1S_Input":
         new_obj = self.__class__.__new__(self.__class__)
         memo[id(self)] = new_obj
-        new_obj.__init__(
-            migjorn.Model(self._model.to_source()), deepcopy(self._mat_section, memo)
-        )
+        new_obj.__init__(self._model.copy(), deepcopy(self._mat_section, memo))
         new_obj.irrad_file = deepcopy(self.irrad_file, memo)
         new_obj.reac_file = deepcopy(self.reac_file, memo)
         return new_obj
