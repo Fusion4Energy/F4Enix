@@ -30,7 +30,8 @@ M_TO_CM = 1e2
 
 
 class CDGS_ENERGY_TYPE(Enum):
-    LINE = "line"
+    # keywords of the CDGS standard, as read by D1SUNED
+    LINE = "lines"
     BINS = "bins"
 
 
@@ -448,13 +449,23 @@ energy_type {self.energy_type.value}
             )
 
     def _write_mesh_boundaries(self, f: TextIOWrapper) -> None:
-        """Write the mesh type, boundaries, and translation matrix to the file."""
-        # write the translation matrix
+        """Write the mesh type, mesh orientation and boundaries to the file."""
         f.write(f"mesh_type {self.mesh_type.value}\n")
 
         if self.mesh_type == CDGS_MESH_TYPE.RECTANGULAR:
             nx, ny, nz = self.mesh.dimensions
             f.write(f"mesh_boundaries {nx} {ny} {nz}\n")
+            # origin, x axis and y axis of the mesh. D1SUNED expects this line
+            # for rectangular meshes too. The edges below are absolute
+            # coordinates, so the mesh frame is the global one. Same fixed
+            # layout as D1SUNED, which the f4enix Meshtal reader relies on.
+            f.write(
+                "".join(
+                    " " + "".join(f"{v:14.5E}" for v in vec)
+                    for vec in ((0, 0, 0), (1, 0, 0), (0, 1, 0))
+                )
+                + "\n"
+            )
             # Bin limits (grid edges) per direction, converted from m to cm
             # as the file is read by MCNP
             edges1 = np.unique(self.mesh.points[:, 0]) * M_TO_CM
@@ -464,8 +475,6 @@ energy_type {self.energy_type.value}
             raise NotImplementedError(
                 f"Mesh type {self.mesh_type} not implemented yet."
             )
-
-        # self._write_translation_matrix(f)
 
         f.write(_floats_to_multiline_string(edges1))
         f.write(_floats_to_multiline_string(edges2))
@@ -486,7 +495,10 @@ energy_type {self.energy_type.value}
 
         tot_intensity = np.asarray(tot_intensity)
         voxel_vol_cm3 = self.voxel_vol * M_TO_CM**3  # MCNP works in cm
+        voxel_ids = self._get_voxel_ids()
         active_idx = np.flatnonzero(tot_intensity > 0)
+        # readers (e.g. f4enix Meshtal) expect the elements sorted by id
+        active_idx = active_idx[np.argsort(voxel_ids[active_idx], kind="stable")]
         # probabilities are computed for a chunk of voxels at a time: a single
         # (n_voxels, n_lines) matrix for the whole mesh could exhaust memory
         for start in range(0, len(active_idx), chunk_size):
@@ -499,7 +511,7 @@ energy_type {self.energy_type.value}
             for i, val, voxel_intensities in zip(chunk, vals, intensities):
                 # printing element id, element emission intensity, element volume,
                 # number of active cells under mesh element (assumed to be 1)
-                f.write(f"{i} {val:.5e} {voxel_vol_cm3:.5e} 1\n")
+                f.write(f"{voxel_ids[i]} {val:.5e} {voxel_vol_cm3:.5e} 1\n")
                 # Cell ID, volume fraction, intensity (ph/s).
                 f.write(f"0 1.0 {val:.5e}\n")  # All homogenous
 
@@ -556,11 +568,21 @@ energy_type {self.energy_type.value}
             axis=-1,
         )
 
-    # def _write_translation_matrix(self, f: TextIOWrapper) -> None:
-    #     """Write the three rows of the translation matrix to the file."""
-    #     f.write(_floats_to_multiline_string(self.translation[0, :]))
-    #     f.write(_floats_to_multiline_string(self.translation[1, :]))
-    #     f.write(_floats_to_multiline_string(self.translation[2, :]))
+    def _get_voxel_ids(self) -> np.ndarray:
+        """Return the CDGS element id of every mesh cell.
+
+        The CDGS ids start from 1 and cycle through the last coordinate first
+        (z, then y, then x), which is how D1SUNED maps an id to its voxel. This
+        differs from the VTK cell ordering, where x varies fastest.
+        """
+        edges = [np.unique(self.mesh.points[:, i]) for i in range(3)]
+        centers = self.mesh.cell_centers().points
+        i1, i2, i3 = (
+            np.searchsorted(edge, centers[:, i]) - 1 for i, edge in enumerate(edges)
+        )
+        n2 = len(edges[1]) - 1
+        n3 = len(edges[2]) - 1
+        return i1 * n2 * n3 + i2 * n3 + i3 + 1
 
 
 class MultiCDGS:
@@ -680,6 +702,11 @@ class MultiCDGS:
             Path to the output .cdgs file.
         isotope : str
             The isotope to write. If "all" is specified, combine all isotopes.
+
+        Notes
+        -----
+        In D1SUNED the file is read with IDUM i1 = number of meshes written. D1SUNED
+        4.1.2 aborts (heap corruption) with 4 or more meshes, use 4.1.3.2 or later.
         """
         if isotope != "all" and isotope not in self.isotopes:
             raise ValueError(f"Isotope {isotope} not found in any of the meshes.")
@@ -698,8 +725,8 @@ class MultiCDGS:
             raise ValueError(f"No source found for {isotope} in any of the meshes.")
 
         global_source = sum(intensity for _, intensity in to_write)
-        header = f"""
-num_meshes {len(to_write)}
+        # num_meshes must be the first entry of line 1 (CDGS standard)
+        header = f"""num_meshes {len(to_write)}
 global_source {global_source:.5e}
 """
         with open(outfile, "w") as f:

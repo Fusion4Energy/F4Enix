@@ -8,6 +8,7 @@ import io
 import pytest
 
 import tests.resources.cdgs as res
+from f4enix.output.meshtal import Meshtal
 from f4enix.output.cdgs import (
     CDGS,
     CDGS_ENERGY_TYPE,
@@ -23,6 +24,7 @@ from f4enix.output.cdgs.cdgs import (
     _interpolate_cloud_point,
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
+    INTENSITY_TAG,
     _floats_to_multiline_string,
     _split_cloud_point,
 )
@@ -402,7 +404,10 @@ class TestCDGS:
             cdgs._write_mesh_boundaries(f)
             text = f.getvalue()
             lines = text.splitlines()
-            assert len(lines) == 5
+            assert len(lines) == 6
+            # origin, x axis and y axis line read by D1SUNED
+            orientation = np.array(lines[2].split(), float)
+            assert np.allclose(orientation, [0, 0, 0, 1, 0, 0, 0, 1, 0])
 
     def test_write_values(self, easy_cdgs: CDGS):
         cdgs = easy_cdgs
@@ -490,8 +495,8 @@ class TestCDGS:
         with io.StringIO() as f:
             easy_cdgs._write_mesh_boundaries(f)
             lines = f.getvalue().splitlines()
-        assert np.allclose(np.array(lines[2].split(), float), [0, 100, 200, 300])
-        assert np.allclose(np.array(lines[4].split(), float), [0, 100])
+        assert np.allclose(np.array(lines[3].split(), float), [0, 100, 200, 300])
+        assert np.allclose(np.array(lines[5].split(), float), [0, 100])
 
         with io.StringIO() as f:
             easy_cdgs._write_values(f, "N16")
@@ -571,6 +576,125 @@ class TestCDGS:
         cdgs.to_cdgs(tmp_path.joinpath("all.cdgs"), "all")
         cdgs.to_cdgs(tmp_path.joinpath("isotope.cdgs"), list(cdgs.isotopes.keys())[0])
         cdgs.to_vtk(tmp_path.joinpath("cdgs.vtk"))
+
+    @staticmethod
+    def _asymmetric_cdgs(**kwargs) -> CDGS:
+        # 4x3x2 cells with a different activity in each cell, so that any
+        # mix-up of the axes in the voxel ids changes the written values
+        x = np.arange(5, dtype=float)
+        y = np.arange(4, dtype=float) * 2
+        z = np.arange(3, dtype=float) * 3 + 10
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        mesh.cell_data[f"N16{ACTIVITY_TAG}"] = np.arange(1.0, mesh.n_cells + 1)
+        mesh.cell_data[f"N16{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        return CDGS(mesh, **kwargs)
+
+    @staticmethod
+    def _read_like_d1suned(path) -> list[dict]:
+        """Read a CDGS file with the same sequence of list-directed reads as
+        D1SUNED 4.1.x (read_common_fileV2 in commonfile_mod.F90): each read
+        starts on a new line and takes values from as many lines as needed."""
+        lines = iter(path.read_text().splitlines())
+
+        def read(n: int) -> list[str]:
+            tokens = []
+            while len(tokens) < n:
+                tokens += next(lines).split()
+            return tokens[:n]
+
+        nmesh = int(read(2)[1])
+        read(2)  # global_source
+        meshes = []
+        for _ in range(nmesh):
+            read(2)  # mesh_id
+            next(lines)  # title
+            read(2)  # cooling_time
+            read(2)  # total_source
+            etype = read(2)[1]
+            assert etype in ("bins", "lines")
+            nbound = int(read(2)[1])
+            [float(v) for v in read(nbound)]
+            assert read(2)[1] == "rec"
+            n = [int(v) for v in read(4)[1:]]
+            orientation = [float(v) for v in read(9)]
+            edges = [np.array([float(v) for v in read(k)]) for k in n]
+            next(lines)  # source_data
+            ne = nbound - 1 if etype == "bins" else nbound
+            voxels = {}
+            while True:
+                tokens = next(lines).split()
+                try:  # D1SUNED stops at the first line that is not a voxel
+                    vid, strength = int(tokens[0]), float(tokens[1])
+                    ncel = int(tokens[3])
+                except (ValueError, IndexError):
+                    break
+                for _ in range(ncel):
+                    [float(v) for v in read(3)]
+                    [float(v) for v in read(ne)]  # spectrum
+                    [float(v) for v in read(ne)]  # uncertainties
+                voxels[vid] = strength
+            meshes.append(
+                {
+                    "etype": etype,
+                    "orientation": orientation,
+                    "edges": edges,
+                    "voxels": voxels,
+                }
+            )
+        return meshes
+
+    def test_energy_type_keyword(self, tmp_path):
+        # D1SUNED accepts only 'bins' or 'lines'
+        for kwargs, keyword in [
+            ({}, "lines"),
+            ({"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]}, "bins"),
+        ]:
+            outfile = tmp_path / f"{keyword}.cdgs"
+            self._asymmetric_cdgs(**kwargs).to_cdgs(outfile, "N16")
+            assert f"energy_type {keyword}\n" in outfile.read_text()
+
+    @pytest.mark.parametrize("bins", [False, True])
+    def test_voxel_ids_d1suned_convention(self, tmp_path, bins):
+        kwargs = {"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]}
+        cdgs = self._asymmetric_cdgs(**(kwargs if bins else {}))
+        outfile = tmp_path / "src.cdgs"
+        cdgs.to_cdgs(outfile, "N16")
+
+        (mesh,) = self._read_like_d1suned(outfile)
+        assert mesh["orientation"] == [0, 0, 0, 1, 0, 0, 0, 1, 0]
+        ids = list(mesh["voxels"])
+        assert ids == sorted(ids)
+        # decode the ids as D1SUNED does: 1-based, last coordinate fastest
+        edges = mesh["edges"]
+        n2, n3 = len(edges[1]) - 1, len(edges[2]) - 1
+        expected = cdgs.mesh.cell_data[f"N16{INTENSITY_TAG}"]
+        centers = cdgs.mesh.cell_centers().points * 100  # m -> cm
+        assert len(ids) == cdgs.mesh.n_cells
+        for vid, strength in mesh["voxels"].items():
+            i1, rest = divmod(vid - 1, n2 * n3)
+            i2, i3 = divmod(rest, n3)
+            center = [(e[i] + e[i + 1]) / 2 for e, i in zip(edges, (i1, i2, i3))]
+            cell = np.argmin(np.linalg.norm(centers - center, axis=1))
+            assert np.allclose(centers[cell], center)
+            assert np.isclose(strength, expected[cell], rtol=1e-4)
+
+    def test_read_back_with_meshtal(self, tmp_path):
+        cdgs = self._asymmetric_cdgs()
+        outfile = tmp_path / "src.cdgs"
+        cdgs.to_cdgs(outfile, "N16")
+        meshtal = Meshtal(outfile, filetype="CDGS")
+        meshtal.readMesh()
+        grid = meshtal.mesh[1].grid
+        centers = grid.cell_centers().points
+        expected = cdgs.mesh.cell_data[f"N16{INTENSITY_TAG}"]
+        cdgs_centers = cdgs.mesh.cell_centers().points * 100  # m -> cm
+        # with several lines the reader stores the total over energy as _eTot
+        values = grid.cell_data["Value - Total_eTot"]
+        for center, value in zip(centers, values):
+            cell = np.argmin(np.linalg.norm(cdgs_centers - center, axis=1))
+            assert np.allclose(cdgs_centers[cell], center)
+            assert np.isclose(value, expected[cell], rtol=1e-4)
 
     def test_from_cloud_point_k_nearest_kernel(self):
         with as_file(files(res).joinpath("test_activity.csv")) as file:
