@@ -49,6 +49,7 @@ from f4enix.input.migjorn_proxies import (
     _SurfsProxy,
     _TransformsProxy,
 )
+from f4enix.output.fispact_legacy_out import Pathway
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -1293,6 +1294,120 @@ class D1S_Input(Input):
             self.reac_file = reac_file
 
         return reac_file
+
+    def filter_by_paths(self, pathways: list[Pathway]) -> None:
+        """Filter the reaction file using a list of pathways and update the
+        irradiation file accordingly.
+
+        Reactions not matching any of the pathways are removed from the
+        reaction file (see :py:meth:`ReactionFile.filter_by_paths`). Afterwards,
+        all the daughters of the irradiation file that are no longer produced by
+        any reaction are removed as well, so that the two files stay consistent.
+        This happens for instance when a daughter can only be produced through
+        multi-step pathways, which cannot be modelled by D1S.
+
+        Parameters
+        ----------
+        pathways : list[Pathway]
+            reactions must be present in this list of pathways to be kept in the
+            reaction file.
+
+        Raises
+        ------
+        ValueError
+            if either the reaction or irradiation file have not been assigned
+            yet to the input
+        """
+        if self.reac_file is None or self.irrad_file is None:
+            raise ValueError(
+                "both reac_file and irrad_file must be assigned for this operation"
+            )
+
+        self.reac_file.filter_by_paths(pathways)
+
+        produced = {
+            reaction.daughter.write_to_int_string()
+            for reaction in self.reac_file.reactions
+        }
+        kept = []
+        removed = []
+        for daughter in self.irrad_file.get_daughters():
+            daughter_str = daughter.write_to_int_string()
+            if daughter_str in produced:
+                kept.append(daughter_str)
+            else:
+                removed.append(daughter)
+
+        if len(removed) > 0:
+            logging.warning(
+                "The following daughters are not produced by any reaction after "
+                "the pathway filtering and have been removed from the irradiation "
+                f"file: {removed}. Their contribution will not be computed."
+            )
+            self.irrad_file.select_daughters_irradiation_file(kept)
+
+    def check_aux_files_consistency(self) -> None:
+        """Check that the reaction and irradiation files are consistent with
+        each other, i.e., that every daughter of the irradiation file is produced
+        by at least one reaction and that every daughter produced by a reaction
+        is listed in the irradiation file. Inconsistent files would make the
+        D1S-UNED run fail.
+
+        Raises
+        ------
+        ValueError
+            if either the reaction or irradiation file have not been assigned
+            yet to the input, or if the two files are not consistent.
+        """
+        if self.reac_file is None or self.irrad_file is None:
+            raise ValueError(
+                "both reac_file and irrad_file must be assigned for this operation"
+            )
+
+        irrad_daughters = {
+            daughter.write_to_int_string()
+            for daughter in self.irrad_file.get_daughters()
+        }
+        reac_daughters = {
+            reaction.daughter.write_to_int_string()
+            for reaction in self.reac_file.reactions
+        }
+
+        msg = ""
+        missing_reactions = irrad_daughters - reac_daughters
+        if len(missing_reactions) > 0:
+            msg += (
+                "The following daughters of the irradiation file are not produced "
+                f"by any reaction: {sorted(missing_reactions)}. "
+            )
+        missing_irrad = reac_daughters - irrad_daughters
+        if len(missing_irrad) > 0:
+            msg += (
+                "The following daughters of the reaction file are not listed in "
+                f"the irradiation file: {sorted(missing_irrad)}."
+            )
+        if msg:
+            raise ValueError(f"Inconsistent reaction and irradiation files. {msg}")
+
+    def write(self, outfilepath: os.PathLike | str, wrap: bool = False) -> None:
+        """Write the input to a file. If both the reaction and irradiation files
+        are assigned, their consistency is checked before writing.
+
+        Parameters
+        ----------
+        outfilepath : os.PathLike | str
+            output file path
+        wrap : bool
+            ignored (kept for API compatibility); migjorn output is lossless
+
+        Raises
+        ------
+        ValueError
+            if the reaction and irradiation files are not consistent.
+        """
+        if self.reac_file is not None and self.irrad_file is not None:
+            self.check_aux_files_consistency()
+        super().write(outfilepath, wrap=wrap)
 
     def smart_translate(
         self,

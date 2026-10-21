@@ -300,11 +300,18 @@ M1
 
     def test_to_text(self):
         libman = LibManager()
-        material = Material.from_zaids([(1000, 1), (56000, 1)], libman, "31c")
-        assert (
-            "1001.31c        9.998550E-1     $ H1     WEIGHT(%) 0.72865 AB(%) 99.986"
-            in material.to_text()
-        )
+        material = Material.from_zaids([(1000, -1), (56000, -1)], libman, "31c")
+
+        text = material.to_text()
+        assert "1001.31c       -9.997103E-1" in text
+        assert "WEIGHT(%) 50.0" in text
+        assert "99.986" not in text
+
+        material.switch_fraction("atom", libman, inplace=True)
+        text = material.to_text()
+        assert "1001.31c        9.925696E-1" in text
+        assert "WEIGHT(%) 50.0" in text
+        assert "99.986" in text
 
     def test_additional_cards(self):
         with as_file(resources.joinpath("mat_test2.i")) as inp:
@@ -312,6 +319,14 @@ M1
 
         assert len(mat.additional_keys) == 1
         assert mat.mx_cards[0].strip("\n").strip("\r") == "MX102 1002.21c 1002.31c"
+
+    def test_normalize_fractions(self):
+        libman = LibManager()
+        material = Material.from_zaids([(1000, -1), (56000, -1)], libman, "31c")
+
+        material.normalize_fractions()
+        tot_fraction = material.get_tot_fraction()
+        assert tot_fraction == pytest.approx(-1.0, rel=1e-5)
 
 
 class TestMatCardList:

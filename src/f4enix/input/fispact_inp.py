@@ -63,10 +63,14 @@ class FispactInp:
         lm = LibManager()
         if style == "mass":
             new_mat = material.switch_fraction("mass", lm, inplace=False)
+            new_mat.normalize_fractions()
+
             # fispact natural abundances are used! be sure these are consistent
             # with the material definition
             for element in new_mat.elements:
-                self.inp.addElement(element.name, percentage=-element.get_fraction())
+                self.inp.addElement(
+                    element.name, percentage=-element.get_fraction() * 100
+                )
             if mass:
                 m = mass
             elif volume and density:
@@ -79,6 +83,7 @@ class FispactInp:
 
         elif style == "fuel":
             new_mat = material.switch_fraction("atom", lm, inplace=False)
+            new_mat.normalize_fractions()
             if density:
                 rho = density
             elif volume and mass:
@@ -100,7 +105,10 @@ class FispactInp:
             tad = new_mat.get_tad(rho, lm)
             for zaid in new_mat.zaids:
                 n_atoms = zaid.fraction * tad * vol * 1e6 * 1e24
-                self.inp.addIsotope(zaid.name, n_atoms)
+                self.inp.addIsotope(zaid.fullname, n_atoms)
+
+            self.inp.setFuel()
+            self.inp.setDensity(rho)
         else:
             raise ValueError(
                 f"Unknown style: {style}, only 'mass' and 'fuel' are supported."
