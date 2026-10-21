@@ -12,6 +12,7 @@ import tests.resources.meshtal.tests as res
 import tests.resources.irradiation as res_irr
 
 from f4enix.input.MCNPinput import Input
+from f4enix.output.meshtal.aux_meshtal_functions import _to_float
 from f4enix.output.meshtal.meshtal import Meshtal
 from f4enix.input.d1suned import IrradiationFile
 
@@ -362,6 +363,31 @@ class TestMeshtal:
         meshtal.readMesh()
         meshtal.mesh[1].write(tmpdir)
 
+    @pytest.mark.parametrize("out", ["col", "cf"])
+    def test_three_digit_exponent(self, tmp_path, out):
+        # Fortran writes exponents with three digits without the "E"
+        text = RESOURCES.joinpath("meshtal_CUBE_SQUARE").read_text()
+        old = "4           0.00000E+00"
+        assert text.count(old) == 1
+        text = text.replace(old, "1.77613-306 2.00000-101")
+        if out == "col":
+            # drop the Volume and Rslt * Vol columns
+            head, data = text.split("Rslt * Vol\n")
+            head = head.replace("     Volume    ", "")
+            data = "".join(
+                " ".join(row.split()[:5]) + "\n" for row in data.splitlines()
+            )
+            text = head + "\n" + data
+        modified = tmp_path / "meshtal"
+        modified.write_text(text)
+
+        meshtal = Meshtal(modified)
+        meshtal.readMesh()
+        grid = meshtal.mesh[list(meshtal.mesh)[0]].grid
+        # the grid is stored in single precision, so these tiny values become 0
+        assert list(grid.cell_data["Value - Total"]) == [1, 9, 0, 16]
+        assert list(grid.cell_data["Error - Total"]) == [0, 0, 0, 0]
+
     def test_rescale_dose_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
             meshtal = Meshtal(inp)
@@ -380,3 +406,17 @@ class TestMeshtal:
             pytest.approx(rescaled_mesh.cell_data["Value - Total_e002"][0])
             == 0.04435259766561963
         )
+
+
+@pytest.mark.parametrize(
+    ["text", "value"],
+    [
+        ("1.0E-03", 1e-3),
+        ("2", 2.0),
+        ("1.77613-306", 1.77613e-306),
+        ("-3.5+100", -3.5e100),
+        ("4.-120", 4e-120),
+    ],
+)
+def test_to_float(text, value):
+    assert _to_float(text) == pytest.approx(value)
