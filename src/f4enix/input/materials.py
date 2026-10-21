@@ -41,7 +41,6 @@ from f4enix.core.constants import (
     AVOGADRO_NUMBER,
     PAT_COMMENT,
     PAT_MAT,
-    PAT_MX,
     PAT_KEY_VALUE,
 )
 from f4enix.input.libmanager import LibManager
@@ -1102,15 +1101,9 @@ class MatCardsList(Sequence[Material]):
 
         mat_card_list = cls(materials)
 
-        for card in model.data_cards():
-            name = card.name
-            if name is None:
-                continue
-
-            if PAT_MX.match(name):
-                mat_id = name.upper().replace("MX", "M")
-                mat_card_list[mat_id].mx_cards.append(card.text)
-                card.remove()
+        for card in model.data_cards("mx"):
+            mat_card_list[f"M{card.number}"].mx_cards.append(card.text)
+            card.remove()
 
         return mat_card_list
 

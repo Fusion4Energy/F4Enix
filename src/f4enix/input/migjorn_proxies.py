@@ -1,10 +1,23 @@
 import hashlib
 import migjorn
 from collections.abc import MutableMapping
-import re
 from f4enix.core.errors import InvalidCardError
 
-PAT_NOT_OTHER = re.compile(r"(m|mx|tr)\d+", re.IGNORECASE)
+# data cards that are not handled by the other_data proxy
+NOT_OTHER_MNEMONICS = ("m", "mx", "tr")
+
+
+def _replace_card(card, add, text: str) -> None:
+    """Replace the text of a card in place (keeping its position), or add it
+    to the model if the card does not exist. Raise InvalidCardError if the new
+    text is not a valid card."""
+    try:
+        if card is None:
+            add(text)
+        else:
+            card.text = text
+    except ValueError as e:
+        raise InvalidCardError(text) from e
 
 
 class _CellsProxy(MutableMapping[str, migjorn.Cell]):
@@ -27,15 +40,11 @@ class _CellsProxy(MutableMapping[str, migjorn.Cell]):
 
     def __setitem__(self, key: str, value: "migjorn.Cell | str") -> None:
         """Replace the cell in the model. value may be a Cell handle or raw text."""
-        cell_id = int(key)
         text = value.text if isinstance(value, migjorn.Cell) else value
-        self._model.remove_cell(cell_id)
-        cell = self._model.add_cell(text)
-        if not cell.well_formed:
-            raise InvalidCardError(cell)
+        _replace_card(self._model.cell(int(key)), self._model.add_cell, text)
 
     def __delitem__(self, key: str) -> None:
-        self._model.remove_cell(int(key))
+        self[key].remove()
 
     def __iter__(self):
         return (str(c.id) for c in self._model.cells())
@@ -71,13 +80,10 @@ class _SurfsProxy(MutableMapping[str, migjorn.Surface]):
         """Replace the surface in the model. value may be a Surface handle or raw text."""
         sid = int(key.lstrip("*"))
         text = value.text if isinstance(value, migjorn.Surface) else value
-        self._model.remove_surface(sid)
-        sur = self._model.add_surface(text)
-        if not sur.well_formed:
-            raise InvalidCardError(sur)
+        _replace_card(self._model.surface(sid), self._model.add_surface, text)
 
     def __delitem__(self, key: str) -> None:
-        self._model.remove_surface(int(key.lstrip("*")))
+        self[key].remove()
 
     def __iter__(self):
         return (self._key(s) for s in self._model.surfaces())
@@ -118,12 +124,10 @@ class _TransformsProxy(MutableMapping[str, migjorn.Transform]):
     def __setitem__(self, key: str, value) -> None:
         tid = self._get_id_from_key(key)
         text = value.text if isinstance(value, migjorn.Transform) else value
-        self._model.remove_transform(tid)
-        self._model.add_transform(text)
+        _replace_card(self._model.transform(tid), self._model.add_transform, text)
 
     def __delitem__(self, key: str) -> None:
-        tid = self._get_id_from_key(key)
-        self._model.remove_transform(tid)
+        self[key].remove()
 
     def __iter__(self):
         return (f"TR{t.id}" for t in self._model.transforms())
@@ -199,11 +203,9 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
 
     def __iter__(self):
         # exclude materials and transforms
-        # TODO this will need to be changed from migjorn
         keys = []
         for card in self._model.data_cards():
-            name = card.name
-            if name is not None and PAT_NOT_OTHER.match(name):
+            if card.mnemonic in NOT_OTHER_MNEMONICS:
                 continue
             keys.append(self._key(card))
         return iter(keys)

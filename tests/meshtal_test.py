@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 from importlib.resources import as_file, files
 
 from f4enix.core.constants import TIME_UNITS
@@ -280,6 +282,28 @@ class TestMeshtal:
         expected = 6.52463
         assert pytest.approx(meshtal.mesh[2324].grid.bounds[0], 1e-5) == expected
         meshtal.write_all(tmpdir)
+
+    def test_transform_grid_rotation_direction(self):
+        # the mesh is defined in the auxiliary system of TR4 and must be
+        # moved to the main one: main = R @ aux + o, where the columns of R
+        # are the auxiliary axes in main coordinates (MCNP convention)
+        with as_file(RESOURCES.joinpath("meshtal_transform")) as inp:
+            meshtal = Meshtal(inp)
+        with as_file(RESOURCES.joinpath("transforms.i")) as mcnp_inp:
+            input_file = Input.from_input(mcnp_inp)
+        meshtal.readMesh()
+        aux_points = meshtal.mesh[2324].grid.cast_to_structured_grid().points
+
+        meshtal.transform_fmesh(input_file)
+
+        # *TR4  10 10 10  10 100 90  80 10 90  90 90 0
+        cos = lambda deg: np.cos(np.radians(deg))  # noqa: E731
+        x_aux = [cos(10), cos(100), cos(90)]
+        y_aux = [cos(80), cos(10), cos(90)]
+        z_aux = [cos(90), cos(90), cos(0)]
+        rotation = np.array([x_aux, y_aux, z_aux]).T
+        expected = aux_points @ rotation.T + np.array([10, 10, 10])
+        assert np.allclose(meshtal.mesh[2324].grid.points, expected)
 
     def test_time_energy_bins(self):
         # To check if the meshtal can be read without any problem"

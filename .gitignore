@@ -15,6 +15,6 @@ example_testing/**
 build/
 src/_version.py
 coverage.xml
-docs/source/tutorial/Sphere_modified.i
-docs/source/tutorial/meshtal_124_vtk.vtr
+docs/source/tutorial/**/Sphere_modified.i
+docs/source/tutorial/**/*_vtk.vtr
 tester_root.ipynb

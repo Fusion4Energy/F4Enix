@@ -654,6 +654,9 @@ class Fmesh(MeshData):
     def apply_transformation(self, tr: migjorn.Transform) -> None:
         """Apply a transformation to the mesh object.
 
+        The mesh is assumed to be defined in the auxiliary coordinate system of
+        the transformation and is moved to the main one, as MCNP does.
+
         Parameters
         ----------
         tr : migjorn.Transform
@@ -661,65 +664,13 @@ class Fmesh(MeshData):
 
         Raises
         ------
-        ValueError
-            If the transformation has not 3 (translation) or 12 (rototranslation) rotation values
+        migjorn.ReadError
+            If the transformation card is not one MCNP would accept
         """
-        rotation = tr.coeffs[3:]
-        n_rot = len(rotation)
-        transf_values = list(tr.displacement)
-        if n_rot == 9:
-            rot = list(rotation)
-            if tr.degrees:
-                rot = [np.cos(np.radians(v)) for v in rot]
-            transf_values.extend(rot)
-            transf_matrix_dcm = np.array(
-                [
-                    transf_values[3:6],
-                    transf_values[6:9],
-                    transf_values[9:],
-                ]
-            )
-            transposed_matrix = np.transpose(transf_matrix_dcm)
-            try:
-                inverted_transposed_matrix = np.linalg.inv(transposed_matrix)
-            except np.linalg.LinAlgError:
-                print("The transformation matrix is not invertible.")
-            transform_matrix = np.array(
-                [
-                    [
-                        inverted_transposed_matrix[0][0],
-                        inverted_transposed_matrix[0][1],
-                        inverted_transposed_matrix[0][2],
-                        transf_values[0],
-                    ],
-                    [
-                        inverted_transposed_matrix[1][0],
-                        inverted_transposed_matrix[1][1],
-                        inverted_transposed_matrix[1][2],
-                        transf_values[1],
-                    ],
-                    [
-                        inverted_transposed_matrix[2][0],
-                        inverted_transposed_matrix[2][1],
-                        inverted_transposed_matrix[2][2],
-                        transf_values[2],
-                    ],
-                    [0, 0, 0, 1],
-                ]
-            )
-        elif n_rot == 0:
-            transform_matrix = np.array(
-                [
-                    [1, 0, 0, transf_values[0]],
-                    [0, 1, 0, transf_values[1]],
-                    [0, 0, 1, transf_values[2]],
-                    [0, 0, 0, 1],
-                ]
-            )
-        else:
-            raise ValueError(
-                f"Transformation has {n_rot} rotation values; expected 0 (translation) or 9 (rototranslation)"
-            )
+        affine = tr.affine
+        transform_matrix = np.eye(4)
+        transform_matrix[:3, :3] = affine.rotation
+        transform_matrix[:3, 3] = affine.translation
         if isinstance(self.grid, pv.RectilinearGrid):
             # If the grid is a RectilinearGrid, cast it to StructuredGrid to avoid
             # a bug regarding rotation

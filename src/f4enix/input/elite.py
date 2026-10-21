@@ -218,7 +218,7 @@ def _set_boundaries(
             else:
                 bound_opt = 2
             # check if the surface is a plane
-            kind = surf.kind.lower()
+            kind = surf.mnemonic.lower()
             if kind in ["p", "px", "py", "pz"]:
                 if kind == "p":
                     p_coeffs = np.array(surf.coeffs[:3])
@@ -297,24 +297,8 @@ def _modify_graveyard(inp: Input, sectors: list[int | str]):
 
 
 def _rotate_plane(trans: migjorn.Transform, p_coeffs: np.ndarray) -> np.ndarray:
-    # compute rotation matrix
-    coeffs = trans.coeffs
-    if trans.degrees:
-        coeffs = [math.cos(math.radians(v)) for v in coeffs]
-    # define rotation matrix
-    rot_matrix = np.array(
-        [
-            [coeffs[3], coeffs[4], coeffs[5]],
-            [coeffs[6], coeffs[7], coeffs[8]],
-            [coeffs[9], coeffs[10], coeffs[11]],
-        ]
-    )
-    # compute inverse rotation matrix
-    inv_rot = np.linalg.inv(rot_matrix)
-    # compute rotated plane's coefficients to be checked
-    dp = np.dot(inv_rot, p_coeffs)
-
-    return dp
+    # express the plane normal (given in the auxiliary frame) in the main frame
+    return np.array(trans.affine.rotate(tuple(p_coeffs)))
 
 
 def _check_tol(tol: float, n_coeff: list[tuple[float, float]]) -> bool:
