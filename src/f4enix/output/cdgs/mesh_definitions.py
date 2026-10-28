@@ -3,6 +3,8 @@ import numpy as np
 from abc import ABC, abstractmethod
 from sklearn.neighbors import KDTree
 
+from f4enix.output.cdgs.kernels import InterpolationKernel
+
 
 # --- Mesh definitions ---
 class RegularMeshDefinition(ABC):
@@ -10,6 +12,7 @@ class RegularMeshDefinition(ABC):
     def _build_grid(
         self,
         coords: np.ndarray,
+        kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
         pass
 
@@ -18,14 +21,20 @@ class RegularMeshDefinition(ABC):
         coords: np.ndarray,
         steps: tuple[float, float, float],
         bbox: dict | None = None,
+        kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
         if bbox is not None:
             x_min, y_min, z_min = bbox["x_min"], bbox["y_min"], bbox["z_min"]
             x_max, y_max, z_max = bbox["x_max"], bbox["y_max"], bbox["z_max"]
         else:
             # bounding box will be min and max of the coordinates + half the step
-            x_min, y_min, z_min = coords.min(axis=0) - np.array(steps) / 2
-            x_max, y_max, z_max = coords.max(axis=0) + np.array(steps) / 2
+            # + the padding needed by the kernel. Without the padding, the
+            # kernel could not spread the outermost points outwards and would
+            # overfill the voxels on the inner side instead
+            steps_arr = np.array(steps, dtype=float)
+            n_pad = _padding_voxels(steps_arr, kernel)
+            x_min, y_min, z_min = coords.min(axis=0) - steps_arr * (0.5 + n_pad)
+            x_max, y_max, z_max = coords.max(axis=0) + steps_arr * (0.5 + n_pad)
 
         # build the grid
         xrng = np.linspace(x_min, x_max, round((x_max - x_min) / steps[0]) + 1)
@@ -48,8 +57,11 @@ class MeshByAverageDistance(RegularMeshDefinition):
             determine the voxel size.
         bbox : dict, optional
             Bounding box for the mesh. If None, the bounding box will be determined
-            from the coordinates of the cloud points. The dictionary should have the
-            following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            from the coordinates of the cloud points, extended by half a voxel
+            plus the voxel layers needed by the interpolation kernel to spread
+            the outermost points outwards. An explicit bounding box is used as
+            it is. The dictionary should have the following keys: "x_min",
+            "x_max", "y_min", "y_max", "z_min", "z_max". Values must be in m.
         """
         self.factor = factor
         self.bbox = bbox
@@ -57,13 +69,14 @@ class MeshByAverageDistance(RegularMeshDefinition):
     def _build_grid(
         self,
         coords: np.ndarray,
+        kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
         tree = KDTree(coords)
         distances, _ = tree.query(coords, k=2)
         distances = distances[:, 1]
         step = distances.mean() * self.factor
         steps = (step, step, step)
-        return self._get_regular_mesh(coords, steps, bbox=self.bbox)
+        return self._get_regular_mesh(coords, steps, bbox=self.bbox, kernel=kernel)
 
 
 class MeshByBinSize(RegularMeshDefinition):
@@ -74,11 +87,14 @@ class MeshByBinSize(RegularMeshDefinition):
         Parameters
         ----------
         bin_size : tuple[float, float, float]
-            Size of the bins in each dimension (x, y, z).
+            Size of the bins in each dimension (x, y, z) in m.
         bbox : dict, optional
             Bounding box for the mesh. If None, the bounding box will be determined
-            from the coordinates of the cloud points. The dictionary should have the
-            following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            from the coordinates of the cloud points, extended by half a voxel
+            plus the voxel layers needed by the interpolation kernel to spread
+            the outermost points outwards. An explicit bounding box is used as
+            it is. The dictionary should have the following keys: "x_min",
+            "x_max", "y_min", "y_max", "z_min", "z_max". Values must be in m.
         """
         self.bin_size = bin_size
         self.bbox = bbox
@@ -86,8 +102,11 @@ class MeshByBinSize(RegularMeshDefinition):
     def _build_grid(
         self,
         coords: np.ndarray,
+        kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
-        return self._get_regular_mesh(coords, self.bin_size, bbox=self.bbox)
+        return self._get_regular_mesh(
+            coords, self.bin_size, bbox=self.bbox, kernel=kernel
+        )
 
 
 class MeshByNumberOfVoxels(RegularMeshDefinition):
@@ -102,6 +121,7 @@ class MeshByNumberOfVoxels(RegularMeshDefinition):
         bbox : dict
             Bounding box for the mesh. The dictionary should have the
             following keys: "x_min", "x_max", "y_min", "y_max", "z_min", "z_max".
+            Values must be in m.
         """
         self.n_voxels = n_voxels
         self.bbox = bbox
@@ -109,7 +129,9 @@ class MeshByNumberOfVoxels(RegularMeshDefinition):
     def _build_grid(
         self,
         coords: np.ndarray,
+        kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
+        # the bounding box is always explicit, so no padding is applied
         x_min, y_min, z_min = (
             self.bbox["x_min"],
             self.bbox["y_min"],
@@ -127,3 +149,15 @@ class MeshByNumberOfVoxels(RegularMeshDefinition):
             (z_max - z_min) / self.n_voxels[2],
         )
         return self._get_regular_mesh(coords, steps, bbox=self.bbox)
+
+
+def _padding_voxels(
+    steps: np.ndarray, kernel: InterpolationKernel | None
+) -> np.ndarray:
+    """Number of voxels to be added on each side of an automatic bounding box,
+    per axis, for the kernel to be able to spread the outermost points."""
+    if kernel is None:
+        return np.zeros(3)
+    spread = kernel._spread_radius(float(np.cbrt(np.prod(steps))))
+    # small tolerance so that exact multiples of the step are not rounded up
+    return np.ceil(spread / steps - 1e-9)

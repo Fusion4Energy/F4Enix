@@ -1,22 +1,32 @@
 from importlib.resources import as_file, files
+import logging
 import numpy as np
+import pandas as pd
 import pyvista as pv
+import actigamma as ag
 import io
 import pytest
 
 import tests.resources.cdgs as res
+from f4enix.output.meshtal import Meshtal
 from f4enix.output.cdgs import (
     CDGS,
+    CDGS_ENERGY_TYPE,
+    MultiCDGS,
     SphereKernel,
     DistanceKernel,
+    KNearestKernel,
     MeshByAverageDistance,
     MeshByNumberOfVoxels,
     MeshByBinSize,
 )
 from f4enix.output.cdgs.cdgs import (
+    _interpolate_cloud_point,
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
+    INTENSITY_TAG,
     _floats_to_multiline_string,
+    _split_cloud_point,
 )
 
 
@@ -53,6 +63,96 @@ class TestKernel:
         assert np.not_equal(
             interp1, interp2
         ).any()  # The two interpolations should differ
+
+    def test_get_neighbours_k_nearest_kernel(self):
+        kernel = KNearestKernel(k=2)
+        source_coords = np.array([[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]])
+        dest_coords = np.array([[0, 0, 0], [0.4, 0.4, 0.4], [0.9, 0.9, 0.9]])
+        neighbours_idx = kernel.get_neighbours(source_coords, dest_coords)
+
+        # always a dense (n_points, k) array, unlike the ragged SphereKernel result
+        assert neighbours_idx.shape == (3, 2)
+        assert list(neighbours_idx[0]) == [0, 1]
+        assert list(neighbours_idx[1]) == [0, 1]
+        assert list(neighbours_idx[2]) == [2, 1]
+
+    def test_k_nearest_kernel_invalid_k(self):
+        with pytest.raises(ValueError):
+            KNearestKernel(k=0)
+
+        dest_coords = np.array([[0, 0, 0], [0.4, 0.4, 0.4]])
+        with pytest.raises(ValueError):
+            KNearestKernel(k=3).get_neighbours(dest_coords, dest_coords)
+
+    def test_k_nearest_kernel_weights(self):
+        kernel = KNearestKernel(k=2)
+        dest_coords = np.array([[0.0, 0, 0], [1.0, 0, 0], [3.0, 0, 0]])
+
+        # coincident point: full weight goes to the collocated destination
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.0, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=2.0,
+        )
+        assert np.allclose(interp, [2.0, 0.0, 0.0])
+
+        # non-coincident: inverse-distance weights, summing to the full activity
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.5, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=2.0,
+        )
+        assert np.isclose(interp.sum(), 2.0)
+        assert np.isclose(interp[0], interp[1])  # equidistant -> equal weights
+
+    def test_distance_kernel_coincident_point(self):
+        kernel = DistanceKernel(radius=1.0)
+        dest_coords = np.array([[0.0, 0, 0], [0.5, 0, 0]])
+        interp = np.zeros(dest_coords.shape[0])
+        kernel._kernel(
+            source_coord=np.array([0.0, 0, 0]),
+            dest_idx=np.array([0, 1]),
+            dest_coords=dest_coords,
+            interpolation=interp,
+            activity=10.0,
+        )
+        # full weight to the collocated destination, activity is conserved
+        assert np.allclose(interp, [10.0, 0.0])
+
+    def test_k_nearest_kernel_batch_matches_loop(self):
+        kernel = KNearestKernel(k=2)
+        dest_coords = np.array([[0.0, 0, 0], [1.0, 0, 0], [3.0, 0, 0], [0.5, 1.0, 0]])
+        # includes a source point coincident with a destination point (index 0)
+        source_coords = np.array([[0.0, 0, 0], [0.5, 0, 0], [2.0, 0, 0]])
+        activities = np.array([2.0, 3.0, 1.5])
+        neighbours_idx = kernel.get_neighbours(source_coords, dest_coords)
+
+        interp_loop = np.zeros(dest_coords.shape[0])
+        for i in range(len(source_coords)):
+            kernel._kernel(
+                source_coord=source_coords[i],
+                dest_idx=neighbours_idx[i],
+                dest_coords=dest_coords,
+                interpolation=interp_loop,
+                activity=activities[i],
+            )
+
+        interp_batch = np.zeros(dest_coords.shape[0])
+        kernel._kernel_batch(
+            source_coords=source_coords,
+            neighbours_idx=neighbours_idx,
+            dest_coords=dest_coords,
+            interpolation=interp_batch,
+            activities=activities,
+        )
+
+        assert np.allclose(interp_loop, interp_batch)
 
 
 class TestMeshDefinition:
@@ -100,6 +200,65 @@ class TestMeshDefinition:
         assert np.allclose(grid_avg.points, grid_bin.points)
         assert np.allclose(grid_avg.points, grid_nvox.points)
 
+    @pytest.mark.parametrize(
+        "kernel, n_pad",
+        [
+            (KNearestKernel(k=1), 0),
+            (KNearestKernel(k=8), 1),
+            (KNearestKernel(k=27), 1),
+            (KNearestKernel(k=64), 2),
+            (SphereKernel(n_voxels=2), 2),
+            (DistanceKernel(radius=1.5), 2),  # 1.5 voxels -> 2 layers
+        ],
+    )
+    def test_kernel_padding(self, kernel, n_pad):
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 1.0]])
+        mesh_def = MeshByBinSize(bin_size=(1.0, 1.0, 1.0))
+        plain = mesh_def._build_grid(coords)
+        padded = mesh_def._build_grid(coords, kernel)
+        assert np.allclose(
+            np.array(padded.bounds),
+            np.array(plain.bounds) + np.array([-1, 1, -1, 1, -1, 1]) * n_pad,
+        )
+
+    def test_explicit_bbox_not_padded(self):
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 1.0]])
+        bbox = {
+            "x_min": -0.5, "x_max": 2.5,
+            "y_min": -0.5, "y_max": 1.5,
+            "z_min": -0.5, "z_max": 1.5,
+        }
+        grid = MeshByBinSize((1.0, 1.0, 1.0), bbox=bbox)._build_grid(
+            coords, KNearestKernel(k=27)
+        )
+        assert np.allclose(grid.bounds, [-0.5, 2.5, -0.5, 1.5, -0.5, 1.5])
+
+    def test_padding_avoids_overfilling_at_boundaries(self):
+        # thin jittered slab of cells, only 2 layers thick in z: without
+        # padding the points cannot be spread outwards in z and k=27 pushes
+        # their volume into the voxels of the slab, overfilling them
+        rng = np.random.default_rng(0)
+        c = np.arange(10) + 0.5
+        x, y, z = np.meshgrid(c, c, [0.5, 1.5], indexing="ij")
+        coords = np.stack([x.ravel(), y.ravel(), z.ravel()], axis=1)
+        coords += rng.uniform(-0.2, 0.2, coords.shape)
+        vols = np.ones(len(coords))
+        kernel = KNearestKernel(k=27)
+        tight = {
+            "x_min": coords[:, 0].min() - 0.5, "x_max": coords[:, 0].max() + 0.5,
+            "y_min": coords[:, 1].min() - 0.5, "y_max": coords[:, 1].max() + 0.5,
+            "z_min": coords[:, 2].min() - 0.5, "z_max": coords[:, 2].max() + 0.5,
+        }
+        fills = {}
+        for name, bbox in [("tight", tight), ("auto", None)]:
+            _, res, vox = _interpolate_cloud_point(
+                coords, {"vol": vols}, kernel, MeshByBinSize((1.0, 1.0, 1.0), bbox)
+            )
+            fills[name] = res["vol"] / vox
+            assert np.isclose(res["vol"].sum(), vols.sum())  # always conserved
+        overfill = {k: np.clip(f - 1, 0, None).sum() for k, f in fills.items()}
+        assert overfill["auto"] < 0.5 * overfill["tight"]
+
     def test_mesh_by_avg_distance(self):
         coords = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
         mesh_def = MeshByAverageDistance(factor=1.0)
@@ -137,6 +296,68 @@ class TestCDGS:
         mesh.cell_data[f"Co60{ATOM_DENSITY_TAG}"] = np.full(mesh.n_cells, 1e-6)
 
         return CDGS(mesh)
+
+    @staticmethod
+    def _simple_mesh() -> pv.StructuredGrid:
+        x = np.arange(3, dtype=float)
+        xx, yy, zz = np.meshgrid(x, x, x, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        mesh.cell_data[f"Co60{ACTIVITY_TAG}"] = np.ones(mesh.n_cells)
+        mesh.cell_data[f"Co60{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        return mesh
+
+    def test_init_does_not_modify_input_mesh(self):
+        mesh = self._simple_mesh()
+        names = list(mesh.array_names)
+        CDGS(mesh)
+        assert list(mesh.array_names) == names
+
+    def test_init_no_isotopes(self):
+        x = np.arange(3, dtype=float)
+        mesh = pv.StructuredGrid(*np.meshgrid(x, x, x, indexing="ij"))
+        with pytest.raises(ValueError):
+            CDGS(mesh)
+
+    def test_init_bins_without_e_bins(self):
+        with pytest.raises(ValueError):
+            CDGS(self._simple_mesh(), energy_type=CDGS_ENERGY_TYPE.BINS)
+
+    def test_bins_warn_lost_emission(self, caplog):
+        # Co60 main lines are at 1.17 and 1.33 MeV, outside a 0-1 MeV grid
+        with caplog.at_level(logging.WARNING):
+            CDGS(
+                self._simple_mesh(),
+                energy_type=CDGS_ENERGY_TYPE.BINS,
+                e_bins=np.array([0, 1e6]),
+            )
+        assert "Co60" in caplog.text
+        assert "outside the provided energy bins" in caplog.text
+
+        # no warning when all the lines are inside the bins
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            CDGS(
+                self._simple_mesh(),
+                energy_type=CDGS_ENERGY_TYPE.BINS,
+                e_bins=np.array([0, 1e7]),
+            )
+        assert "outside the provided energy bins" not in caplog.text
+
+    def test_cooling_time_numpy_scalar(self):
+        cdgs = CDGS(self._simple_mesh())
+        cdgs.cooling_time = np.int64(10)
+        assert cdgs.cooling_time == 10.0
+        with pytest.raises(TypeError):
+            cdgs.cooling_time = True
+
+    def test_activity_consistent_with_atoms(self, cdgs: CDGS):
+        db = ag.Decay2012Database()
+        for isotope in ["N16", "O19"]:
+            lam = np.log(2) / db.gethalflife(isotope)
+            assert np.allclose(
+                cdgs.mesh.cell_data[f"{isotope}{ACTIVITY_TAG}"],
+                cdgs.mesh.cell_data[f"{isotope}{ATOM_DENSITY_TAG}"] * lam,
+            )
 
     def test_update_cooling(self, cdgs: CDGS):
         # Test that the cooling time updates the mesh correctly
@@ -183,7 +404,10 @@ class TestCDGS:
             cdgs._write_mesh_boundaries(f)
             text = f.getvalue()
             lines = text.splitlines()
-            assert len(lines) == 5
+            assert len(lines) == 6
+            # origin, x axis and y axis line read by D1SUNED
+            orientation = np.array(lines[2].split(), float)
+            assert np.allclose(orientation, [0, 0, 0, 1, 0, 0, 0, 1, 0])
 
     def test_write_values(self, easy_cdgs: CDGS):
         cdgs = easy_cdgs
@@ -221,6 +445,114 @@ class TestCDGS:
 
         assert len(probabilities2) > len(probabilities1)
 
+    def test_get_probabilities_all_lines_weighting(self, easy_cdgs: CDGS):
+        cdgs = easy_cdgs
+        # each isotope's share of the photons is activity * photons per decay
+        # (N16 activity is 1, Co60 activity is 2 in every voxel)
+        prob = cdgs._get_probabilities("all", 0)
+        assert np.isclose(prob.sum(), 1.0)
+        yields = {
+            "N16": 1 * cdgs.isotopes["N16"]["intensities"].sum(),
+            "Co60": 2 * cdgs.isotopes["Co60"]["intensities"].sum(),
+        }
+        tot = sum(yields.values())
+        for iso, y in yields.items():
+            mask = (cdgs.all_df["isotope"] == iso).to_numpy()
+            assert np.isclose(prob[mask].sum(), y / tot)
+
+    @pytest.mark.parametrize("isotope", ["all", "N16"])
+    def test_get_probabilities_vectorized(self, easy_cdgs: CDGS, isotope):
+        cdgs = easy_cdgs
+        cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"] = np.arange(1, cdgs.mesh.n_cells + 1)
+        idx = np.array([0, 3, 5])
+        batch = cdgs._get_probabilities(isotope, idx)
+        for row, i in zip(batch, idx):
+            assert np.allclose(row, cdgs._get_probabilities(isotope, i))
+
+    def test_get_probabilities_all_bins(self):
+        x = np.arange(2, dtype=float)
+        mesh = pv.StructuredGrid(*np.meshgrid(x, x, x, indexing="ij"))
+        activities = {"Co60": 3.0, "Cs137": 1.0}
+        for iso, act in activities.items():
+            mesh.cell_data[f"{iso}{ACTIVITY_TAG}"] = np.full(mesh.n_cells, act)
+            mesh.cell_data[f"{iso}{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        e_bins = np.linspace(0, 2e6, 21)
+        cdgs = CDGS(mesh, energy_type=CDGS_ENERGY_TYPE.BINS, e_bins=e_bins)
+
+        # reference: aggregate the mixed inventory directly with actigamma
+        db = ag.Decay2012Database()
+        inv = ag.UnstablesInventory(
+            data=[(db.getzai(iso), act) for iso, act in activities.items()]
+        )
+        hist, _ = ag.LineAggregator(db, ag.EnergyGrid(bounds=e_bins))(
+            inv, spectype="gamma"
+        )
+        assert np.allclose(cdgs._get_probabilities("all", 0), hist / np.sum(hist))
+
+    def test_mesh_boundaries_and_volume_in_cm(self, easy_cdgs: CDGS):
+        # easy_cdgs mesh is defined in m: x, y edges 0-3 m, z edges 0-1 m,
+        # voxels of 1 m3
+        with io.StringIO() as f:
+            easy_cdgs._write_mesh_boundaries(f)
+            lines = f.getvalue().splitlines()
+        assert np.allclose(np.array(lines[3].split(), float), [0, 100, 200, 300])
+        assert np.allclose(np.array(lines[5].split(), float), [0, 100])
+
+        with io.StringIO() as f:
+            easy_cdgs._write_values(f, "N16")
+            first = f.getvalue().splitlines()[0].split()
+        assert np.isclose(float(first[2]), 1e6)  # cm3
+
+    @pytest.mark.parametrize("length_unit, to_m", [("cm", 1e-2), ("mm", 1e-3)])
+    def test_from_cloud_point_length_unit(self, length_unit, to_m):
+        with as_file(files(res).joinpath("test_activity.csv")) as file:
+            df = pd.read_csv(file)
+        df.columns = df.columns.str.strip()
+        # same data expressed in a different length unit
+        df_scaled = df.copy()
+        df_scaled[["x", "y", "z"]] /= to_m
+        df_scaled["cell-volume"] /= to_m**3
+        df_scaled["n16"] *= to_m**3
+
+        kwargs = dict(
+            isotopes={"N16": "n16"},
+            interpolation_kernel=KNearestKernel(k=4),
+            mesh_definition=MeshByAverageDistance(factor=10),
+            col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
+        )
+        ref = CDGS.from_cloud_point(df, **kwargs)
+        scaled = CDGS.from_cloud_point(df_scaled, length_unit=length_unit, **kwargs)
+
+        assert np.allclose(ref.mesh.points, scaled.mesh.points)
+        assert np.isclose(ref.voxel_vol, scaled.voxel_vol)
+        for tag in [ACTIVITY_TAG, ATOM_DENSITY_TAG]:
+            assert np.allclose(
+                ref.mesh.cell_data[f"N16{tag}"], scaled.mesh.cell_data[f"N16{tag}"]
+            )
+        assert np.isclose(
+            ref.get_total_intensity("all"), scaled.get_total_intensity("all")
+        )
+
+    def test_from_cloud_point_invalid_length_unit(self):
+        df = pd.DataFrame({"x": [0.0], "y": [0.0], "z": [0.0], "v": [1.0], "a": [1.0]})
+        with pytest.raises(ValueError):
+            CDGS.from_cloud_point(
+                df,
+                {"N16": "a"},
+                interpolation_kernel=KNearestKernel(k=1),
+                mesh_definition=MeshByBinSize((1.0, 1.0, 1.0)),
+                col_names={"x": "x", "y": "y", "z": "z", "vol": "v"},
+                length_unit="inch",
+            )
+
+    def test_write_values_chunking(self, easy_cdgs: CDGS):
+        texts = []
+        for chunk_size in [2, 10000]:
+            with io.StringIO() as f:
+                easy_cdgs._write_values(f, "all", chunk_size=chunk_size)
+                texts.append(f.getvalue())
+        assert texts[0] == texts[1]
+
     @pytest.mark.parametrize(
         ["particle", "e_bins", "isotopes"],
         [
@@ -244,6 +576,333 @@ class TestCDGS:
         cdgs.to_cdgs(tmp_path.joinpath("all.cdgs"), "all")
         cdgs.to_cdgs(tmp_path.joinpath("isotope.cdgs"), list(cdgs.isotopes.keys())[0])
         cdgs.to_vtk(tmp_path.joinpath("cdgs.vtk"))
+
+    @staticmethod
+    def _asymmetric_cdgs(**kwargs) -> CDGS:
+        # 4x3x2 cells with a different activity in each cell, so that any
+        # mix-up of the axes in the voxel ids changes the written values
+        x = np.arange(5, dtype=float)
+        y = np.arange(4, dtype=float) * 2
+        z = np.arange(3, dtype=float) * 3 + 10
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        mesh.cell_data[f"N16{ACTIVITY_TAG}"] = np.arange(1.0, mesh.n_cells + 1)
+        mesh.cell_data[f"N16{ATOM_DENSITY_TAG}"] = np.ones(mesh.n_cells)
+        return CDGS(mesh, **kwargs)
+
+    @staticmethod
+    def _read_like_d1suned(path) -> list[dict]:
+        """Read a CDGS file with the same sequence of list-directed reads as
+        D1SUNED 4.1.x (read_common_fileV2 in commonfile_mod.F90): each read
+        starts on a new line and takes values from as many lines as needed."""
+        lines = iter(path.read_text().splitlines())
+
+        def read(n: int) -> list[str]:
+            tokens = []
+            while len(tokens) < n:
+                tokens += next(lines).split()
+            return tokens[:n]
+
+        nmesh = int(read(2)[1])
+        read(2)  # global_source
+        meshes = []
+        for _ in range(nmesh):
+            read(2)  # mesh_id
+            next(lines)  # title
+            read(2)  # cooling_time
+            read(2)  # total_source
+            etype = read(2)[1]
+            assert etype in ("bins", "lines")
+            nbound = int(read(2)[1])
+            [float(v) for v in read(nbound)]
+            assert read(2)[1] == "rec"
+            n = [int(v) for v in read(4)[1:]]
+            orientation = [float(v) for v in read(9)]
+            edges = [np.array([float(v) for v in read(k)]) for k in n]
+            next(lines)  # source_data
+            ne = nbound - 1 if etype == "bins" else nbound
+            voxels = {}
+            while True:
+                tokens = next(lines).split()
+                try:  # D1SUNED stops at the first line that is not a voxel
+                    vid, strength = int(tokens[0]), float(tokens[1])
+                    ncel = int(tokens[3])
+                except (ValueError, IndexError):
+                    break
+                for _ in range(ncel):
+                    [float(v) for v in read(3)]
+                    [float(v) for v in read(ne)]  # spectrum
+                    [float(v) for v in read(ne)]  # uncertainties
+                voxels[vid] = strength
+            meshes.append(
+                {
+                    "etype": etype,
+                    "orientation": orientation,
+                    "edges": edges,
+                    "voxels": voxels,
+                }
+            )
+        return meshes
+
+    def test_energy_type_keyword(self, tmp_path):
+        # D1SUNED accepts only 'bins' or 'lines'
+        for kwargs, keyword in [
+            ({}, "lines"),
+            ({"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]}, "bins"),
+        ]:
+            outfile = tmp_path / f"{keyword}.cdgs"
+            self._asymmetric_cdgs(**kwargs).to_cdgs(outfile, "N16")
+            assert f"energy_type {keyword}\n" in outfile.read_text()
+
+    @pytest.mark.parametrize("bins", [False, True])
+    def test_voxel_ids_d1suned_convention(self, tmp_path, bins):
+        kwargs = {"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]}
+        cdgs = self._asymmetric_cdgs(**(kwargs if bins else {}))
+        outfile = tmp_path / "src.cdgs"
+        cdgs.to_cdgs(outfile, "N16")
+
+        (mesh,) = self._read_like_d1suned(outfile)
+        assert mesh["orientation"] == [0, 0, 0, 1, 0, 0, 0, 1, 0]
+        ids = list(mesh["voxels"])
+        assert ids == sorted(ids)
+        # decode the ids as D1SUNED does: 1-based, last coordinate fastest
+        edges = mesh["edges"]
+        n2, n3 = len(edges[1]) - 1, len(edges[2]) - 1
+        expected = cdgs.mesh.cell_data[f"N16{INTENSITY_TAG}"]
+        centers = cdgs.mesh.cell_centers().points * 100  # m -> cm
+        assert len(ids) == cdgs.mesh.n_cells
+        for vid, strength in mesh["voxels"].items():
+            i1, rest = divmod(vid - 1, n2 * n3)
+            i2, i3 = divmod(rest, n3)
+            center = [(e[i] + e[i + 1]) / 2 for e, i in zip(edges, (i1, i2, i3))]
+            cell = np.argmin(np.linalg.norm(centers - center, axis=1))
+            assert np.allclose(centers[cell], center)
+            assert np.isclose(strength, expected[cell], rtol=1e-4)
+
+    def test_read_back_with_meshtal(self, tmp_path):
+        cdgs = self._asymmetric_cdgs()
+        outfile = tmp_path / "src.cdgs"
+        cdgs.to_cdgs(outfile, "N16")
+        meshtal = Meshtal(outfile, filetype="CDGS")
+        meshtal.readMesh()
+        grid = meshtal.mesh[1].grid
+        centers = grid.cell_centers().points
+        expected = cdgs.mesh.cell_data[f"N16{INTENSITY_TAG}"]
+        cdgs_centers = cdgs.mesh.cell_centers().points * 100  # m -> cm
+        # with several lines the reader stores the total over energy as _eTot
+        values = grid.cell_data["Value - Total_eTot"]
+        for center, value in zip(centers, values):
+            cell = np.argmin(np.linalg.norm(cdgs_centers - center, axis=1))
+            assert np.allclose(cdgs_centers[cell], center)
+            assert np.isclose(value, expected[cell], rtol=1e-4)
+
+    def test_from_cloud_point_k_nearest_kernel(self):
+        with as_file(files(res).joinpath("test_activity.csv")) as file:
+            cdgs = CDGS.from_cloud_point(
+                file,
+                {"N16": "n16"},
+                interpolation_kernel=KNearestKernel(k=4),
+                mesh_definition=MeshByAverageDistance(factor=10),
+                col_names={"x": "x", "y": "y", "z": "z", "vol": "cell-volume"},
+            )
+        assert np.sum(cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"]) > 0
+
+
+class TestMultiCDGS:
+    @staticmethod
+    def _cdgs(
+        offset: float = 0.0, isotopes: tuple[str, ...] = ("N16", "Co60"), **kwargs
+    ) -> CDGS:
+        # 3x3x1 cells of 1 m3, shifted along x by offset
+        x = np.arange(4, dtype=float) + offset
+        y = np.arange(4, dtype=float)
+        z = np.array([0.0, 1.0])
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        mesh = pv.StructuredGrid(xx, yy, zz)
+        for i, iso in enumerate(isotopes):
+            mesh.cell_data[f"{iso}{ACTIVITY_TAG}"] = np.full(mesh.n_cells, i + 1.0)
+            mesh.cell_data[f"{iso}{ATOM_DENSITY_TAG}"] = np.full(mesh.n_cells, 1e-6)
+        return CDGS(mesh, **kwargs)
+
+    @staticmethod
+    def _read_header(text: str) -> dict[str, list[str]]:
+        values = {}
+        for line in text.splitlines():
+            tokens = line.split()
+            if len(tokens) == 2 and tokens[0] in [
+                "num_meshes",
+                "global_source",
+                "mesh_id",
+                "total_source",
+            ]:
+                values.setdefault(tokens[0], []).append(tokens[1])
+        return values
+
+    def test_empty(self):
+        with pytest.raises(ValueError):
+            MultiCDGS([])
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"particle": "neutron", "isotopes": ("N17",)},
+            {"energy_type": CDGS_ENERGY_TYPE.BINS, "e_bins": [1, 1e6, 1e7]},
+        ],
+    )
+    def test_mixed_meshes(self, tmp_path, kwargs):
+        a = self._cdgs()
+        b = self._cdgs(offset=3, **kwargs)
+        multi = MultiCDGS([a, b])
+        outfile = tmp_path / "multi.cdgs"
+        multi.to_cdgs(outfile, "all")
+        text = outfile.read_text()
+        header = self._read_header(text)
+        assert header["num_meshes"] == ["2"]
+        assert float(header["global_source"][0]) == pytest.approx(
+            a.get_total_intensity("all") + b.get_total_intensity("all"), rel=1e-5
+        )
+        energy_types = [
+            line.split()[1] for line in text.splitlines() if "energy_type" in line
+        ]
+        assert energy_types == [a.energy_type.value, b.energy_type.value]
+
+    def test_inconsistent_cooling_time(self):
+        b = self._cdgs(offset=3)
+        b.cooling_time = 10
+        with pytest.raises(ValueError):
+            MultiCDGS([self._cdgs(), b])
+
+    def test_overlap_warning(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        assert "overlap" not in caplog.text
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([self._cdgs(), self._cdgs(offset=1)])
+        assert "overlap" in caplog.text
+
+    def test_cooling_time(self):
+        multi = MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        tot = multi.get_total_intensity("all")
+        multi.cooling_time = 10
+        assert all(cdgs.cooling_time == 10 for cdgs in multi.cdgs_list)
+        assert multi.get_total_intensity("all") < tot
+
+    def test_total_intensity(self):
+        a = self._cdgs()
+        b = self._cdgs(offset=3, isotopes=("Co60",))
+        multi = MultiCDGS([a, b])
+        assert multi.isotopes == ["N16", "Co60"]
+        assert multi.get_total_intensity("N16") == pytest.approx(
+            a.get_total_intensity("N16")
+        )
+        assert multi.get_total_intensity("all") == pytest.approx(
+            a.get_total_intensity("all") + b.get_total_intensity("all")
+        )
+        with pytest.raises(ValueError):
+            multi.get_total_intensity("O19")
+
+    def test_to_cdgs(self, tmp_path):
+        a = self._cdgs()
+        b = self._cdgs(offset=3)
+        outfile = tmp_path / "multi.cdgs"
+        MultiCDGS([a, b]).to_cdgs(outfile, "all")
+        text = outfile.read_text()
+        header = self._read_header(text)
+        assert header["num_meshes"] == ["2"]
+        assert header["mesh_id"] == ["1", "2"]
+        tot_a = a.get_total_intensity("all")
+        tot_b = b.get_total_intensity("all")
+        assert float(header["global_source"][0]) == pytest.approx(
+            tot_a + tot_b, rel=1e-5
+        )
+        assert float(header["total_source"][0]) == pytest.approx(tot_a, rel=1e-5)
+        assert float(header["total_source"][1]) == pytest.approx(tot_b, rel=1e-5)
+        assert text.count("source_data\n") - text.count("end_source_data\n") == 2
+
+        # each mesh block is the same as the one of the single-mesh file
+        single = tmp_path / "single.cdgs"
+        b.to_cdgs(single, "all")
+        block = text[text.index("mesh_id 2") :]
+        single_block = single.read_text()
+        single_block = single_block[single_block.index("mesh_id 1") :]
+        # skip the mesh_id and timestamp lines
+        assert block.splitlines()[2:] == single_block.splitlines()[2:]
+
+    def test_to_cdgs_skips_missing_isotope(self, tmp_path, caplog):
+        a = self._cdgs(isotopes=("Co60",))
+        b = self._cdgs(offset=3)
+        outfile = tmp_path / "multi.cdgs"
+        with caplog.at_level(logging.WARNING):
+            MultiCDGS([a, b]).to_cdgs(outfile, "N16")
+        assert "Mesh 0 has no N16 source" in caplog.text
+        header = self._read_header(outfile.read_text())
+        assert header["num_meshes"] == ["1"]
+        assert header["mesh_id"] == ["1"]
+        assert header["global_source"] == header["total_source"]
+        with pytest.raises(ValueError):
+            MultiCDGS([a, b]).to_cdgs(outfile, "O19")
+
+    @staticmethod
+    def _l_pipe() -> pd.DataFrame:
+        # two 5 cm thick bars of 1 m forming an L, sampled every cm
+        step = 0.01
+        long = np.arange(0, 1, step) + step / 2
+        short = np.arange(0, 0.05, step) + step / 2
+        bar_x = np.stack(np.meshgrid(long, short, short, indexing="ij"), -1)
+        bar_y = np.stack(np.meshgrid(short + 0.95, long + 0.05, short, indexing="ij"), -1)
+        coords = np.concatenate([bar_x.reshape(-1, 3), bar_y.reshape(-1, 3)])
+        df = pd.DataFrame(coords, columns=["x", "y", "z"])
+        df["vol"] = step**3
+        df["n16"] = 1e10
+        return df
+
+    def test_split_cloud_point(self):
+        coords = self._l_pipe()[["x", "y", "z"]].to_numpy()
+        chunks = _split_cloud_point(
+            coords, split_size=0.05, min_fill=0.5, min_gain=0.1, min_points=10
+        )
+        assert len(chunks) == 2
+        # every point is in exactly one chunk
+        assert np.array_equal(np.sort(np.concatenate(chunks)), np.arange(len(coords)))
+        boxes = sum(np.prod(np.ptp(coords[c], axis=0)) for c in chunks)
+        assert boxes < 0.2 * np.prod(np.ptp(coords, axis=0))
+
+    def test_split_cloud_point_min_points(self):
+        coords = self._l_pipe()[["x", "y", "z"]].to_numpy()
+        chunks = _split_cloud_point(
+            coords, split_size=0.05, min_fill=0.5, min_gain=0.1, min_points=len(coords)
+        )
+        assert len(chunks) == 1
+
+    @pytest.mark.parametrize("parameters", [{"bin_size": 0.02, "k": 8}, None])
+    def test_from_cloud_point(self, parameters):
+        df = self._l_pipe()
+        col_names = {"x": "x", "y": "y", "z": "z", "vol": "vol"}
+        multi = MultiCDGS.from_cloud_point(
+            df,
+            {"N16": "n16"},
+            col_names=col_names,
+            split_size=0.05,
+            min_points=10,
+            parameters=parameters,
+        )
+        assert len(multi) == 2
+        # the activity is conserved over the chunks
+        db = ag.Decay2012Database()
+        expected = ag.activity_from_atoms(db, "N16", np.sum(df["n16"] * df["vol"]))
+        activity = sum(
+            np.sum(cdgs.mesh.cell_data[f"N16{ACTIVITY_TAG}"]) * cdgs.voxel_vol
+            for cdgs in multi
+        )
+        assert activity == pytest.approx(expected)
+
+    def test_to_vtk(self, tmp_path):
+        multi = MultiCDGS([self._cdgs(), self._cdgs(offset=3)])
+        outfile = tmp_path / "multi.vtm"
+        multi.to_vtk(outfile)
+        read = pv.read(outfile)
+        assert isinstance(read, pv.MultiBlock)
+        assert read.n_blocks == 2
 
 
 def test_floats_to_multiline_string():

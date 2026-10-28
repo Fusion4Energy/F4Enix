@@ -11,9 +11,27 @@ import numpy as np
 import vtk
 from vtk.util import numpy_support
 
+from f4enix.core.constants import PAT_FORTRAN_EXP3
+
 VALUE_LABEL = "Value - Total"
 ERROR_LABEL = "Error - Total"
 COLUMN_LABELS = (VALUE_LABEL, ERROR_LABEL)
+
+
+def _to_float(value: str) -> float:
+    """Convert a number written by MCNP to float, including the Fortran form
+    of three-digit exponents without "E" (e.g. 1.77613-306)."""
+    try:
+        return float(value)
+    except ValueError:
+        return float(PAT_FORTRAN_EXP3.sub(r"E\1", value))
+
+
+def _to_floats(values: list[str]) -> np.ndarray:
+    try:
+        return np.array(values, dtype=np.double)
+    except ValueError:
+        return np.array([_to_float(v) for v in values], dtype=np.double)
 
 
 class myOpen:
@@ -40,7 +58,7 @@ class myOpen:
         while len(values) < nvalues:
             line = self._file.readline()
             values.extend(line.split())
-        return np.array(values, dtype=np.double)
+        return _to_floats(values)
 
 
 class ExtraBin(np.ndarray):
@@ -116,7 +134,7 @@ def _read_block(fic: myOpen, nl: int, array: np.ndarray) -> None:
             values = []
             for x in line.split()[1:]:
                 try:
-                    values.append(float(x))
+                    values.append(_to_float(x))
                 except ValueError:
                     values.append(0.0)
             array[i, :, j] = values
@@ -202,8 +220,8 @@ def _get_column_data(
                 for i2 in range(nx2):
                     for i3 in range(nx3):
                         strvalues = fic._readline().split()
-                        val = float(strvalues[ival])
-                        err = float(strvalues[ierr])
+                        val = _to_float(strvalues[ival])
+                        err = _to_float(strvalues[ierr])
                         data[it, ie, i1, i2, i3, :] = (val, err)
     data = np.swapaxes(data, 2, 4)
     return data
@@ -221,8 +239,8 @@ def _read_cuv_cell_info(
         volf = float(line[1])
         cell_info.append((cell, volf))
         if len(line) == 4:
-            tot_value.append(float(line[2]))
-            tot_error.append(float(line[3]))
+            tot_value.append(_to_float(line[2]))
+            tot_error.append(_to_float(line[3]))
 
     addtot = len(tot_value) > 0
 
@@ -230,9 +248,9 @@ def _read_cuv_cell_info(
     err_tab = []
     for ic in range(ncell):
         line = fic._readline().split()
-        values = np.array(line, dtype=np.double)
+        values = _to_floats(line)
         line = fic._readline().split()
-        errors = np.array(line, dtype=np.double)
+        errors = _to_floats(line)
 
         if addtot:
             np.append(values, tot_value[ic])
@@ -264,11 +282,11 @@ def _read_cdgs_cell_info(
                 totval = np.sum(values)
                 errval = 0.0
             elif nh == 3:
-                totval = float(headline[2])
+                totval = _to_float(headline[2])
                 errval = 0.0
             else:
-                totval = float(headline[2])
-                errval = float(headline[3])
+                totval = _to_float(headline[2])
+                errval = _to_float(headline[3])
 
             values = np.append(values, totval)
             errors = np.append(errors, errval)
@@ -788,7 +806,8 @@ def _get_mesh_type(
     line = fic._readline()
 
     if "Result" in line:
-        return "col"
+        # out=cf adds the Volume and Rslt * Vol columns after Result and Error
+        return "cf" if "Volume" in line else "col"
     elif "GEOMETRY" in line:
         return "oldCUV"
 
