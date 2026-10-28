@@ -65,7 +65,7 @@ following steps:
 #. Be sure to have installed both ``pytest`` and ``pytest-cov``
 #. run:
    
-   ``pytest --cov=. --cov-report html -cov-config=.coveragerc``
+   ``pytest --cov=. --cov-report html``
 
 This will automatically collect and run all tests contained in 
 ``\tests\`` while also providing an html index with detailed
