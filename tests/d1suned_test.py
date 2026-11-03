@@ -218,7 +218,7 @@ class TestIrradiationFile:
             irrfile_1 = IrradiationFile.from_text(inp)
 
         df_scaling = irrfile_1.get_scaling_factors_cooling_time(
-            1, (9.91e6, TIME_UNITS.SECOND)
+            (9.91e6, TIME_UNITS.SECOND)
         )
         assert pytest.approx(df_scaling.loc[73182, "9910000.0s"], rel=1e-2) == 0.5
 

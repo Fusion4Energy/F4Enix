@@ -551,18 +551,20 @@ class IrradiationFile:
 
     def get_scaling_factors_cooling_time(
         self,
-        ref_scenario_num: int,
         cooling_time: tuple[float, TIME_UNITS],
     ) -> pd.DataFrame:
         """Given a cooling time, compute the scaling factors to be applied to dose tallies
         binned in daughter nuclides. It automatically computes the decay factors for the new cooling time
         and the scaling factors.
 
+        The scaling factors are the ratio between the time correction factors at the
+        new cooling time and at shutdown, i.e. the decay factor exp(-lambda t). They do
+        not depend on the irradiation scenario, hence the first irradiation scenario of
+        the file is always used to compute them.
+
         Parameters
         ----------
-        ref_scenario_num : int
-            reference irradiation scenario number in the current irradiation file.
-        cooling_time : Pulse
+        cooling_time : tuple[float, TIME_UNITS]
             cooling time to be considered for rescaling of dose tallies.
 
         Returns
@@ -570,6 +572,7 @@ class IrradiationFile:
         pd.DataFrame
             DataFrame containing the scaling factors for each daughter nuclide.
         """
+        ref_scenario_num = 1
 
         # Use pandas Series for robust broadcasting and alignment
         irr_df = self.to_df()

@@ -396,7 +396,7 @@ class TestMeshtal:
 
         irr_file = IrradiationFile.from_text(resources_irr.joinpath("d1stime_o_30d"))
         scaling_factors = irr_file.get_scaling_factors_cooling_time(
-            1, (200, TIME_UNITS.DAY)
+            (200, TIME_UNITS.DAY)
         )
         rescaled_mesh = meshtal.mesh[44].rescale_dose_map(
             scaling_factors_df=scaling_factors,
