@@ -1,9 +1,6 @@
-<<<<<<< HEAD
-import io
-=======
 from __future__ import annotations
 
->>>>>>> origin/developing
+import io
 import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
