@@ -5,7 +5,7 @@ import pytest
 
 import f4enix.resources as pkg_res
 import tests.resources.libmanager as lib_res
-from f4enix.input.libmanager import LibManager
+from f4enix.input.libmanager import LibManager, get_default_libmanager
 from f4enix.input.materials import Zaid
 
 RESOURCES = files(pkg_res)
@@ -13,6 +13,10 @@ LIB_RESOURCES = files(lib_res)
 ACTIVATION_FILE = as_file(LIB_RESOURCES.joinpath("Activation libs.xlsx"))
 XSDIR_FILE = as_file(LIB_RESOURCES.joinpath("xsdir"))
 ISOTOPES_FILE = as_file(RESOURCES.joinpath("Isotopes.txt"))
+
+
+def test_default_libmanager_is_cached():
+    assert get_default_libmanager() is get_default_libmanager()
 
 
 class TestLibManger:

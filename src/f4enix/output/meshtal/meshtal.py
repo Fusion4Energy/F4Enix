@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 import io
+=======
+from __future__ import annotations
+
+>>>>>>> origin/developing
 import re
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import migjorn
-import pyvista as pv
 
 from f4enix.core.constants import (
     PAT_FMESH_BINS,
@@ -26,6 +31,9 @@ PARSER_SELECTOR: dict[str, type[Parser]] = {
     "CDGS": CDGSMeshParser,
     "CUV": CUVMeshParser,
 }
+
+if TYPE_CHECKING:
+    import pyvista as pv
 
 
 class Meshtal:

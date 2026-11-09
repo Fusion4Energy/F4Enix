@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any, TextIO
 
 import numpy as np
-import vtk
-from vtk.util import numpy_support
+from vtkmodules.util import numpy_support
+from vtkmodules.vtkCommonCore import VTK_FLOAT, vtkFloatArray, vtkPoints
+from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid, vtkStructuredGrid
 
 from f4enix.core.constants import PAT_FORTRAN_EXP3
 
@@ -420,8 +421,8 @@ def _get_cdgs_element(
     return index, values, errors
 
 
-def _makeVTKarray(array: np.ndarray) -> vtk.vtkFloatArray:
-    return numpy_support.numpy_to_vtk(np.array(array).ravel(), array_type=vtk.VTK_FLOAT)
+def _makeVTKarray(array: np.ndarray) -> vtkFloatArray:
+    return numpy_support.numpy_to_vtk(np.array(array).ravel(), array_type=VTK_FLOAT)
 
 
 def _get_labels(
@@ -487,8 +488,8 @@ def _get_labels(
 
 def _rectilinear_grid(
     mesh: "Fmesh", labels: tuple[str, str] = COLUMN_LABELS
-) -> vtk.vtkRectilinearGrid:
-    rgrid = vtk.vtkRectilinearGrid()
+) -> vtkRectilinearGrid:
+    rgrid = vtkRectilinearGrid()
     rgrid.SetDimensions(mesh.nx1 + 1, mesh.nx2 + 1, mesh.nx3 + 1)
 
     bin1 = _makeVTKarray(mesh.x1bin)
@@ -516,16 +517,16 @@ def _rectilinear_grid(
 
 def _structured_grid(
     mesh: "Fmesh", trsf=None, labels: tuple[str, str] = COLUMN_LABELS
-) -> vtk.vtkStructuredGrid:
+) -> vtkStructuredGrid:
     if trsf is None:
         origin = (0.0, 0.0, 0.0)
     else:
         origin = trsf[0]
 
-    sgrid = vtk.vtkStructuredGrid()
+    sgrid = vtkStructuredGrid()
     sgrid.SetDimensions(mesh.nx1 + 1, mesh.nx2 + 1, mesh.nx3 + 1)
 
-    pts = vtk.vtkPoints()
+    pts = vtkPoints()
     pts.SetDataTypeToFloat()
 
     if mesh.geom == "cyl":

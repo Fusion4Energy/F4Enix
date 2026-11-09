@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import logging
 import os
@@ -6,9 +8,9 @@ import re
 import migjorn
 import numpy as np
 import pandas as pd
-import pyvista as pv
 from tqdm import tqdm
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 from f4enix.core.constants import PathLike
 from f4enix.output.meshtal.aux_meshtal_functions import (
@@ -16,6 +18,9 @@ from f4enix.output.meshtal.aux_meshtal_functions import (
     _rectilinear_grid,
     _structured_grid,
 )
+
+if TYPE_CHECKING:
+    import pyvista as pv
 
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
@@ -447,6 +452,8 @@ class Fmesh(MeshData):
         return int(self.tally), df, str(self.comments)
 
     def _create_grid(self, binlabels=None) -> pv.PolyData:
+        import pyvista as pv
+
         if self._geom == "rec" and self._trsf is None:
             if binlabels:
                 gd = _rectilinear_grid(self, labels=binlabels)
@@ -648,6 +655,8 @@ class Fmesh(MeshData):
 
     def _read_from_vtk(self, vtk_file: os.PathLike) -> None:
         # This is mostly used for quicker testing
+        import pyvista as pv
+
         grid = pv.read(vtk_file)
         self.grid = grid
 
@@ -671,6 +680,8 @@ class Fmesh(MeshData):
         transform_matrix = np.eye(4)
         transform_matrix[:3, :3] = affine.rotation
         transform_matrix[:3, 3] = affine.translation
+        import pyvista as pv
+
         if isinstance(self.grid, pv.RectilinearGrid):
             # If the grid is a RectilinearGrid, cast it to StructuredGrid to avoid
             # a bug regarding rotation

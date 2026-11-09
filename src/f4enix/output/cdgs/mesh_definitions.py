@@ -1,7 +1,7 @@
 import pyvista as pv
 import numpy as np
 from abc import ABC, abstractmethod
-from sklearn.neighbors import KDTree
+from scipy.spatial import KDTree
 
 from f4enix.output.cdgs.kernels import InterpolationKernel
 
@@ -71,6 +71,10 @@ class MeshByAverageDistance(RegularMeshDefinition):
         coords: np.ndarray,
         kernel: InterpolationKernel | None = None,
     ) -> pv.StructuredGrid:
+        if len(coords) < 2:
+            raise ValueError(
+                "At least two cloud points are needed to compute the average distance."
+            )
         tree = KDTree(coords)
         distances, _ = tree.query(coords, k=2)
         distances = distances[:, 1]

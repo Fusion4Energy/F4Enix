@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 import logging
-from sklearn.neighbors import KDTree
+from scipy.spatial import KDTree
 
 
 # --- Interpolation kernels ---
@@ -83,6 +83,10 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Either radius or n_voxels must be provided")
         if self.radius is not None and self.n_voxels is not None:
             raise ValueError("Only one of radius or n_voxels should be provided.")
+        if self.radius is not None and self.radius <= 0:
+            raise ValueError(f"radius must be positive, got {self.radius}")
+        if self.n_voxels is not None and self.n_voxels <= 0:
+            raise ValueError(f"n_voxels must be positive, got {self.n_voxels}")
 
     def _spread_radius(self, voxel_size: float) -> float:
         if self.radius is not None:
@@ -103,7 +107,16 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Insufficient information to determine search radius.")
 
         tree = KDTree(dest_coords)
-        neighbours_idx = tree.query_radius(source_coords, r=search_radius)
+        # object array of integer index arrays. Query in batches so that the
+        # Python lists returned by scipy never exist for the whole cloud at once
+        neighbours_idx = np.empty(len(source_coords), dtype=object)
+        batch = 100_000
+        for start in range(0, len(source_coords), batch):
+            ball = tree.query_ball_point(
+                source_coords[start : start + batch], r=search_radius
+            )
+            for i, idx in enumerate(ball, start=start):
+                neighbours_idx[i] = np.asarray(idx, dtype=np.intp)
         # check if there are empty queries and log a warning
         for i, idx in enumerate(neighbours_idx):
             if len(idx) == 0:
@@ -193,6 +206,8 @@ class KNearestKernel(InterpolationKernel):
             )
         tree = KDTree(dest_coords)
         _, neighbours_idx = tree.query(source_coords, k=self.k)
+        # scipy squeezes the k dimension when k == 1, keep it 2D
+        neighbours_idx = np.reshape(neighbours_idx, (len(source_coords), self.k))
         return neighbours_idx
 
     def _kernel(

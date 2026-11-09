@@ -8,17 +8,19 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pypact as pp
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 
 from f4enix.core.constants import REVERSED_MT_DICT, PathLike
 from f4enix.core.irradiation import Nuclide, TCF_Computer
 from f4enix.input.libmanager import LibManager
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 perc_pattern = re.compile(r"\d+\.*\d*%")
 scientific_number_pattern = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
@@ -838,6 +840,8 @@ class FispactOutput:
             raise NotImplementedError(
                 f"Plotting for quantity '{quantity}' is not implemented."
             )
+
+        import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots()
 
