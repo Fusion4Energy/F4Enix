@@ -24,15 +24,11 @@ import os
 import re
 from copy import deepcopy
 from typing import Sequence
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-import matplotlib.pyplot as plt
 import migjorn
 import numpy as np
 import pandas as pd
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from matplotlib.ticker import MaxNLocator
 
 from f4enix.core.constants import (
     PAT_ALL_TALLY_KEYS,
@@ -49,6 +45,10 @@ from f4enix.input.migjorn_proxies import (
     _TransformsProxy,
 )
 from f4enix.output.fispact_legacy_out import Pathway
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 PAT_MT = re.compile(r"m[tx]\d+", re.IGNORECASE)
 PAT_BLANK_LINE = re.compile(r"\n[\s\t]*\n")
@@ -1023,6 +1023,9 @@ class Input:
         """
         cell_ids = {int(x) for x in self.cells}
         surface_ids = {int(x.lstrip("*")) for x in self.surfs}
+
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator
 
         fig, ax = plt.subplots(figsize=(12, 3))
         ax.scatter(list(cell_ids), [1] * len(cell_ids), s=10, color="blue")

@@ -19,9 +19,8 @@ from f4enix.core.constants import (
     TIME_UNITS_CONVERSION,
     PathLike,
 )
-from f4enix.input.libmanager import LibManager
+from f4enix.input.libmanager import get_default_libmanager
 
-LM = LibManager()
 RES = files(resources)
 
 # D1STIME PATTERNS
@@ -460,7 +459,7 @@ class Nuclide:
         """
         if zaid:
             self._zaid = int(zaid)
-            _, formula = LM.get_zaidname(str(self._zaid))
+            _, formula = get_default_libmanager().get_zaidname(str(self._zaid))
             self._element = formula.split("-")[0].strip()
             try:
                 self._isotope = int(formula.split("-")[1].strip())
@@ -469,7 +468,7 @@ class Nuclide:
         elif element and isotope:
             self._element = element
             self._isotope = int(isotope)
-            self._zaid = LM.get_zaidnum(f"{element}{isotope}")
+            self._zaid = get_default_libmanager().get_zaidnum(f"{element}{isotope}")
 
         self.metastable = metastable
         self.IRS_active = IRS_active
@@ -510,7 +509,7 @@ class Nuclide:
         else:
             IRS_active = False
 
-        zaid = LM.get_zaidnum(zaid_str)
+        zaid = get_default_libmanager().get_zaidnum(zaid_str)
         if len(pieces) > 1:
             lib = pieces[1]
         else:
@@ -802,3 +801,10 @@ def _parse_ascii_pulse_line(tokens: list[str]) -> Pulse:
         intensity=float(tokens[2]),
         unit=TIME_UNITS(tokens[1]),
     )
+
+
+def __getattr__(name: str):
+    # Backwards compatibility: ``LM`` used to be a module-level LibManager
+    if name == "LM":
+        return get_default_libmanager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -31,6 +31,25 @@ from f4enix.output.cdgs.cdgs import (
 
 
 class TestKernel:
+    def test_sphere_kernel_empty_neighbours_are_int_indices(self):
+        kernel = SphereKernel(radius=0.1)
+        dest_coords = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+        source_coords = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]])
+        neighbours_idx = kernel.get_neighbours(source_coords, dest_coords)
+        assert list(neighbours_idx[0]) == [0]
+        assert len(neighbours_idx[1]) == 0
+        assert np.issubdtype(neighbours_idx[1].dtype, np.integer)
+        assert dest_coords[neighbours_idx[1]].shape == (0, 3)
+
+    @pytest.mark.parametrize(
+        "kwargs", [{"radius": -1.0}, {"radius": 0.0}, {"n_voxels": -2}]
+    )
+    def test_sphere_kernel_rejects_non_positive_radius(self, kwargs):
+        with pytest.raises(ValueError):
+            SphereKernel(**kwargs)
+        with pytest.raises(ValueError):
+            DistanceKernel(**kwargs)
+
     def test_get_neighbours_sphere_kernel(self):
         kernel = SphereKernel(radius=0.75)
         source_coords = np.array([[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]])
@@ -156,6 +175,11 @@ class TestKernel:
 
 
 class TestMeshDefinition:
+    def test_average_distance_needs_two_points(self):
+        bbox = {"x_min": -1, "x_max": 1, "y_min": -1, "y_max": 1, "z_min": -1, "z_max": 1}
+        with pytest.raises(ValueError):
+            MeshByAverageDistance(factor=1.0, bbox=bbox)._build_grid(np.zeros((1, 3)))
+
     def test_all_definitions_produce_same_mesh(self):
         # Regular grid of 12 points with unit spacing.
         # Every point's nearest neighbour is at distance 1.0, so the mean

@@ -26,7 +26,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-import pyvista as pv
 
 from f4enix.core.constants import PAT_DIGIT, SCIENTIFIC_PAT
 from f4enix.input.MCNPinput import Input
@@ -319,6 +318,8 @@ class Output:
 
         # visualize the cloud point
         logging.info("building the cloud point")
+        import pyvista as pv
+
         point_cloud = pv.PolyData(loc[["x", "y", "z"]].values)
 
         if print_video:

@@ -43,10 +43,8 @@ from f4enix.core.constants import (
     PAT_MAT,
     PAT_KEY_VALUE,
 )
-from f4enix.input.libmanager import LibManager
+from f4enix.input.libmanager import LibManager, get_default_libmanager
 from f4enix.core.irradiation import Nuclide
-
-LM = LibManager()
 
 
 # -------------------------------------
@@ -764,9 +762,10 @@ class Material:
                 elem_weights[elem.name] = elem.get_fraction() / totf
         else:
             # atom fractions — weight each zaid by atomic mass
+            lm = get_default_libmanager()
             total = 0.0
             for elem in self.elements:
-                w = sum(z.fraction * LM.get_zaid_mass(z) for z in elem.zaids)
+                w = sum(z.fraction * lm.get_zaid_mass(z) for z in elem.zaids)
                 elem_weights[elem.name] = w
                 total += w
             for name in elem_weights:
@@ -816,8 +815,9 @@ class Material:
             atom fraction, mass fraction, element atom fraction, and element
             mass fraction.
         """
-        material_atom = self.switch_fraction("atom", LM, inplace=False)
-        material_mass = self.switch_fraction("mass", LM, inplace=False)
+        lm = get_default_libmanager()
+        material_atom = self.switch_fraction("atom", lm, inplace=False)
+        material_mass = self.switch_fraction("mass", lm, inplace=False)
 
         df = self._get_info_df()
         df_a = material_atom._get_info_df()
@@ -1273,3 +1273,10 @@ def suppress_stdout():
             yield
         finally:
             sys.stdout = old_stdout
+
+
+def __getattr__(name: str):
+    # Backwards compatibility: ``LM`` used to be a module-level LibManager
+    if name == "LM":
+        return get_default_libmanager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
