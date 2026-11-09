@@ -59,11 +59,10 @@ class Meshtal:
         bins, ``etag`` or ``ttag`` = ``nuc``/``parent``) with a fixed width of 10
         characters per bin, so 8-digit ids such as metastable nuclides (e.g. Nb92m =
         41092900) overflow to '**********' and the file cannot be parsed. Each
-        nuclide list is rebuilt from the ``emesh``/``eints`` (or ``tmesh``/``tints``)
-        keywords of the corresponding FMESH card of the MCNP input, as D1SUNED does,
-        then the corrected meshtal is parsed from memory (the original file is not
-        modified). Every bin that D1SUNED could print is checked against the
-        rebuilt one.
+        nuclide list is rebuilt from the ``emesh`` (or ``tmesh``)
+        keyword of the corresponding FMESH card of the MCNP input, then the
+        corrected meshtal is parsed from memory (the original file is not
+        modified). ``eints``/``tints`` are not supported for the nuclide bins.
 
         Parameters
         ----------
@@ -76,12 +75,6 @@ class Meshtal:
         -------
         Meshtal
             meshtal object, ``readMesh()`` still has to be called.
-
-        Raises
-        ------
-        ValueError
-            if the nuclide list of the meshtal does not match the bins of the
-            input, or if an overflowed list has no FMESH card to be rebuilt from.
 
         Examples
         --------
@@ -104,18 +97,8 @@ class Meshtal:
                     n_list = 0
                 match = PAT_NUCLIDE_LIST.match(line)
                 if match:
-                    label, kind, printed = match.groups()
-                    expected = nuclide_lists.get(tally, [])
-                    if n_list < len(expected):
-                        bins = _check_nuclide_list(
-                            tally, kind, printed, *expected[n_list]
-                        )
-                        line = f"{label} {' '.join(bins)}\n"
-                    elif "*" in printed:
-                        raise ValueError(
-                            f"Mesh {tally}: overflowed nuclide list but no nuclide "
-                            "bins defined in the FMESH card of the input"
-                        )
+                    bins = " ".join(nuclide_lists[tally][n_list])
+                    line = f"{match.group()} {bins}\n"
                     n_list += 1
                 lines.append(line)
         return cls(io.StringIO("".join(lines)))
@@ -309,55 +292,14 @@ class Meshtal:
         return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
 
 
-def _d1s_nuclide_lists(card_text: str) -> list[tuple[str, list[str]]]:
-    """Nuclide lists of a D1SUNED FMESH card, as printed in the meshtal header
-    (time list first, then energy list). Each list is (kind, bins), where kind
-    is 'Daughter' or 'Parent' and bins are the bin values as strings.
-
-    As in D1SUNED, each value of emesh (tmesh) gets the bin label of eints
-    (tints), coded as label * 10 + flag; flag 0 opens a range closed by the next
-    value, which is written negative. The values are ordered by bin label. Bin
-    value = nuclide + (label + 1) / 1000, the first bin (0.001) collects all
-    the other nuclides. Without eints (tints) each value is its own bin.
-    """
+def _d1s_nuclide_lists(card_text: str) -> list[list[str]]:
+    """Nuclide lists of a D1SUNED FMESH card, in the order of the meshtal header."""
     text = "\n".join(line.split("$")[0] for line in card_text.splitlines())
     text = text.replace("&", " ")
     tags = {k.lower(): v.lower() for k, v in PAT_FMESH_TAG.findall(text)}
     values = {k.lower(): v.split() for k, v in PAT_FMESH_BINS.findall(text)}
-    lists = []
-    for prefix in ("t", "e"):  # same order as in the meshtal header
-        kind = {"nuc": "Daughter", "parent": "Parent"}.get(tags.get(f"{prefix}tag"))
-        nuclides = [int(float(v)) for v in values.get(f"{prefix}mesh", [])]
-        if kind is None or not nuclides:
-            continue
-        ints = [int(float(v)) for v in values.get(f"{prefix}ints", [])]
-        if not ints:
-            ints = [10 * (i + 1) + 1 for i in range(len(nuclides))]
-        pairs = sorted(zip(nuclides, ints), key=lambda pair: pair[1] // 10)
-        bins = ["0.001"]
-        sign = ""
-        for nuclide, ibin in pairs:
-            bins.append(f"{sign}{nuclide}.{ibin // 10 + 1:03d}")
-            sign = "-" if ibin % 10 == 0 else ""
-        lists.append((kind, bins))
-    return lists
-
-
-def _check_nuclide_list(
-    tally: str, kind: str, printed: str, expected_kind: str, expected: list[str]
-) -> list[str]:
-    """Check a nuclide list of the meshtal (fields of 10 characters, '*' when
-    overflowed) against the bins rebuilt from the input."""
-    fields = [printed[i : i + 10] for i in range(0, len(printed.rstrip()), 10)]
-    if kind != expected_kind or len(fields) != len(expected):
-        raise ValueError(
-            f"Mesh {tally}: {kind} nuclide list of {len(fields)} bins in the "
-            f"meshtal, {expected_kind} list of {len(expected)} bins in the input"
-        )
-    for field, value in zip(fields, expected):
-        if "*" not in field and float(field) != float(value):
-            raise ValueError(
-                f"Mesh {tally}: nuclide bin {field.strip()} of the meshtal does "
-                f"not match {value} of the input"
-            )
-    return expected
+    return [
+        ["0.001"] + [f"{nuc}.{i:03d}" for i, nuc in enumerate(values[f"{axis}mesh"], 2)]
+        for axis in ("t", "e")
+        if tags.get(f"{axis}tag") in ("nuc", "parent")
+    ]

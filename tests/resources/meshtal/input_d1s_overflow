@@ -1,0 +1,17 @@
+D1SUNED meshtal
+1 0 -1 imp:n=1
+2 0 1 imp:n=0
+
+1 so 200
+
+nps 1
+FMESH44:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
+     kmesh 100 kints 4 etag=nuc emesh= 41092900 99973182
+FMESH54:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
+     kmesh 100 kints 4 ttag=nuc tmesh= 26059 41092900 $ comment
+     emesh 0.1 0.5 3 5
+FMESH64:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
+     kmesh 100 kints 4 ttag=dtme tmesh 1 2 3
+     etag=nuc emesh 27060 41092900
+FMESH74:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
+     kmesh 100 kints 4

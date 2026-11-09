@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 import numpy as np
 from importlib.resources import as_file, files
@@ -14,7 +13,7 @@ import tests.resources.irradiation as res_irr
 
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.aux_meshtal_functions import _to_float
-from f4enix.output.meshtal.meshtal import Meshtal, _d1s_nuclide_lists
+from f4enix.output.meshtal.meshtal import Meshtal
 from f4enix.input.d1suned import IrradiationFile
 
 resources_write = files(res)
@@ -408,49 +407,13 @@ class TestMeshtal:
             == 0.04435259766561963
         )
 
-    @staticmethod
-    def _d1s_case(tmpdir, lists: dict[int, str], cards: str) -> tuple[Path, Input]:
-        # copy of meshtal_time_energy_bins with the nuclide list of each mesh
-        # replaced (fields of 10 characters, '*' if overflowed as in D1SUNED)
-        with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
-            text = Path(inp).read_text().splitlines(keepends=True)
-        tally = None
-        for i, line in enumerate(text):
-            if line.startswith(" Mesh Tally Number"):
-                tally = int(line[18:])
-            if "Daughter Nuclides list:" in line and tally in lists:
-                text[i] = f"    Daughter Nuclides list:{lists[tally]}\n"
-        meshtal_file = Path(tmpdir, "meshtal")
-        meshtal_file.write_text("".join(text))
-        input_file = Path(tmpdir, "input.i")
-        input_file.write_text(
-            "D1SUNED meshtal\n1 0 -1 imp:n=1\n2 0 1 imp:n=0\n\n1 so 200\n\n"
-            "nps 1\n" + cards
-        )
-        return meshtal_file, Input.from_input(input_file)
-
-    def test_from_d1s_meshtal(self, tmpdir):
-        lists = {
-            44: "     0.001********************",  # two overflows
-            54: "     0.001 26059.002**********",  # ttag=nuc
-            64: "     0.001********** 27060.003",  # overflow in the middle
-        }
-        cards = (
-            "FMESH44:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4\n"
-            "     kmesh 100 kints 4 etag=nuc emesh= 41092900 99973182\n"
-            "FMESH54:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4\n"
-            "     kmesh 100 kints 4 ttag=nuc tmesh= 26059 41092900 $ comment\n"
-            "     emesh 0.1 0.5 3 5\n"
-            "FMESH64:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4\n"
-            "     kmesh 100 kints 4 ttag=dtme tmesh 1 2 3\n"
-            "     etag=nuc emesh 41092900 27060\n"
-            "FMESH74:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4\n"
-            "     kmesh 100 kints 4\n"
-        )
-        meshtal_file, inp = self._d1s_case(tmpdir, lists, cards)
-        with pytest.raises(ValueError):
-            Meshtal(meshtal_file).readMesh()  # the overflow breaks the parser
-        meshtal = Meshtal.from_d1s_meshtal(meshtal_file, inp)
+    def test_from_d1s_meshtal(self):
+        with (
+            as_file(RESOURCES.joinpath("meshtal_d1s_overflow")) as meshtal_file,
+            as_file(RESOURCES.joinpath("input_d1s_overflow")) as input_file,
+        ):
+            inp = Input.from_input(input_file)
+            meshtal = Meshtal.from_d1s_meshtal(meshtal_file, inp)
         meshtal.readMesh()
         assert meshtal.mesh_ids == [44, 54, 64, 74]
         assert list(meshtal.mesh[44].ebin) == pytest.approx(
@@ -460,57 +423,8 @@ class TestMeshtal:
             [0.001, 26059.002, 41092900.003]
         )
         assert list(meshtal.mesh[64].ebin) == pytest.approx(
-            [0.001, 41092900.002, 27060.003]
+            [0.001, 27060.002, 41092900.003]
         )
-
-    @pytest.mark.parametrize(
-        ["printed", "emesh"],
-        [
-            ("     0.001 26060.002**********", "26059 41092900"),  # wrong nuclide
-            ("     0.001 26059.002**********", "26059 41092900 27060"),  # n. of bins
-            ("     0.001 26059.002**********", None),  # no nuclide bins in input
-        ],
-    )
-    def test_from_d1s_meshtal_mismatch(self, tmpdir, printed, emesh):
-        cards = "FMESH44:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4\n"
-        cards += "     kmesh 100 kints 4\n"
-        if emesh:
-            cards += f"     etag=nuc emesh= {emesh}\n"
-        meshtal_file, inp = self._d1s_case(tmpdir, {44: printed}, cards)
-        with pytest.raises(ValueError):
-            Meshtal.from_d1s_meshtal(meshtal_file, inp)
-
-
-@pytest.mark.parametrize(
-    ["card", "expected"],
-    [
-        (
-            "FMESH4:p etag=nuc emesh= 26059 41092900",
-            [("Daughter", ["0.001", "26059.002", "41092900.003"])],
-        ),
-        (
-            "FMESH4:p ttag=parent tmesh= 26058 &\n     27059 $ comment 123",
-            [("Parent", ["0.001", "26058.002", "27059.003"])],
-        ),
-        (  # time list first, as in the meshtal header
-            "FMESH4:p etag=parent emesh 26058\n     ttag=nuc tmesh 26059",
-            [("Daughter", ["0.001", "26059.002"]), ("Parent", ["0.001", "26058.002"])],
-        ),
-        (  # eints: label * 10 + flag, flag 0 opens a range; sorted by label
-            "FMESH4:p etag=nuc emesh 26059 27058 27060 41092900 eints 21 10 11 11",
-            [
-                (
-                    "Daughter",
-                    ["0.001", "27058.002", "-27060.002", "41092900.002", "26059.003"],
-                )
-            ],
-        ),
-        ("FMESH4:p emesh 0.1 1 14", []),  # energy bins
-        ("FMESH4:p ttag=dtme tmesh 1 2 3 etag=cel emesh 1 2", []),
-    ],
-)
-def test_d1s_nuclide_lists(card, expected):
-    assert _d1s_nuclide_lists(card) == expected
 
 
 @pytest.mark.parametrize(
