@@ -13,11 +13,8 @@ import endf
 import numpy as np
 
 from f4enix.core.egroups import GROUP_STRUCTURES
-from f4enix.input.libmanager import LibManager
+from f4enix.input.libmanager import get_default_libmanager
 from f4enix.input.materials import Material, Zaid
-
-# get a default library manager
-LM = LibManager()
 
 # Special MT values
 UNITY_MT = -1
@@ -365,13 +362,14 @@ def get_xs(
     """
     if isinstance(this, str):
         # either a nuclide or an element
-        mat = Material.from_zaids([(this, 1)], LM, "00c")
+        mat = Material.from_zaids([(this, 1)], get_default_libmanager(), "00c")
     else:
         mat = this
 
     # Force normalization and atom fractions
-    mat.switch_fraction("mass", LM, inplace=True)
-    mat.switch_fraction("atom", LM, inplace=True)
+    lm = get_default_libmanager()
+    mat.switch_fraction("mass", lm, inplace=True)
+    mat.switch_fraction("atom", lm, inplace=True)
 
     energy_grid, data = _get_xs_zaid_list(
         mat.zaids,
@@ -545,3 +543,10 @@ class Combination:
         # length = len(self.functions) - 1
         # cv.check_length("operations", operations, length, length_max=length)
         self._operations = operations
+
+
+def __getattr__(name: str):
+    # Backwards compatibility: ``LM`` used to be a module-level LibManager
+    if name == "LM":
+        return get_default_libmanager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

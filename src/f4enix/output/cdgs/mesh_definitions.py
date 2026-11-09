@@ -1,7 +1,7 @@
 import pyvista as pv
 import numpy as np
 from abc import ABC, abstractmethod
-from sklearn.neighbors import KDTree
+from scipy.spatial import KDTree
 
 from f4enix.output.cdgs.kernels import InterpolationKernel
 

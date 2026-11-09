@@ -27,6 +27,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions
 and limitations under the Licence.
 """
 
+import functools
 import logging
 import os
 import re
@@ -687,3 +688,18 @@ class LibManager:
             pass
 
         return reactions
+
+
+@functools.cache
+def get_default_libmanager() -> LibManager:
+    """Return a LibManager built with the package default data.
+
+    The object is created on first call and then shared, so that importing
+    f4enix does not have to read the default xsdir and activation files.
+
+    Returns
+    -------
+    LibManager
+        shared default library manager
+    """
+    return LibManager()

@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 import logging
-from sklearn.neighbors import KDTree
+from scipy.spatial import KDTree
 
 
 # --- Interpolation kernels ---
@@ -103,7 +103,11 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Insufficient information to determine search radius.")
 
         tree = KDTree(dest_coords)
-        neighbours_idx = tree.query_radius(source_coords, r=search_radius)
+        # same output as sklearn's query_radius: object array of index arrays
+        ball = tree.query_ball_point(source_coords, r=search_radius)
+        neighbours_idx = np.empty(len(ball), dtype=object)
+        for i, idx in enumerate(ball):
+            neighbours_idx[i] = np.asarray(idx, dtype=np.intp)
         # check if there are empty queries and log a warning
         for i, idx in enumerate(neighbours_idx):
             if len(idx) == 0:
@@ -193,6 +197,8 @@ class KNearestKernel(InterpolationKernel):
             )
         tree = KDTree(dest_coords)
         _, neighbours_idx = tree.query(source_coords, k=self.k)
+        # scipy squeezes the k dimension when k == 1, keep it 2D
+        neighbours_idx = np.reshape(neighbours_idx, (len(source_coords), self.k))
         return neighbours_idx
 
     def _kernel(

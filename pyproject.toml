@@ -30,7 +30,7 @@ dependencies = [
     "endf < 0.2",
     "pypact >= 1.3.8, < 2",
     "actigamma < 0.2",
-    "scikit-learn < 2",
+    "scipy >= 1.10, < 2",
 ]
 [project.optional-dependencies]
 tests = [
