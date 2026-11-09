@@ -83,6 +83,10 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Either radius or n_voxels must be provided")
         if self.radius is not None and self.n_voxels is not None:
             raise ValueError("Only one of radius or n_voxels should be provided.")
+        if self.radius is not None and self.radius <= 0:
+            raise ValueError(f"radius must be positive, got {self.radius}")
+        if self.n_voxels is not None and self.n_voxels <= 0:
+            raise ValueError(f"n_voxels must be positive, got {self.n_voxels}")
 
     def _spread_radius(self, voxel_size: float) -> float:
         if self.radius is not None:
@@ -103,11 +107,16 @@ class SphereKernel(InterpolationKernel):
             raise ValueError("Insufficient information to determine search radius.")
 
         tree = KDTree(dest_coords)
-        # same output as sklearn's query_radius: object array of index arrays
-        ball = tree.query_ball_point(source_coords, r=search_radius)
-        neighbours_idx = np.empty(len(ball), dtype=object)
-        for i, idx in enumerate(ball):
-            neighbours_idx[i] = np.asarray(idx, dtype=np.intp)
+        # object array of integer index arrays. Query in batches so that the
+        # Python lists returned by scipy never exist for the whole cloud at once
+        neighbours_idx = np.empty(len(source_coords), dtype=object)
+        batch = 100_000
+        for start in range(0, len(source_coords), batch):
+            ball = tree.query_ball_point(
+                source_coords[start : start + batch], r=search_radius
+            )
+            for i, idx in enumerate(ball, start=start):
+                neighbours_idx[i] = np.asarray(idx, dtype=np.intp)
         # check if there are empty queries and log a warning
         for i, idx in enumerate(neighbours_idx):
             if len(idx) == 0:
