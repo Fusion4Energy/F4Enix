@@ -415,7 +415,7 @@ class TestMeshtal:
             inp = Input.from_input(input_file)
             meshtal = Meshtal.from_d1s_meshtal(meshtal_file, inp)
         meshtal.readMesh()
-        assert meshtal.mesh_ids == [44, 54, 64, 74]
+        assert meshtal.mesh_ids == [44, 54, 64, 74, 84]
         assert list(meshtal.mesh[44].ebin) == pytest.approx(
             [0.001, 41092900.002, 99973182.003]
         )
@@ -424,6 +424,22 @@ class TestMeshtal:
         )
         assert list(meshtal.mesh[64].ebin) == pytest.approx(
             [0.001, 27060.002, 41092900.003]
+        )
+
+        # standard neutron flux mesh in the same file
+        neutron = meshtal.mesh[84]
+        assert neutron.particle == "neutron"
+        assert neutron.ebin.type == "erg"
+        assert list(neutron.ebin) == pytest.approx([0, 1, 20])
+        # value and relative error of the first voxel: two energy bins and the total
+        assert neutron.data[0, :, 0, 0, 0, :] == pytest.approx(
+            np.array(
+                [
+                    [7.77445e-04, 1.45738e-01],
+                    [1.62023e-02, 5.76506e-02],
+                    [1.69798e-02, 5.63547e-02],
+                ]
+            )
         )
 
 

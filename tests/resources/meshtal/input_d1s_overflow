@@ -15,3 +15,5 @@ FMESH64:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
      etag=nuc emesh 27060 41092900
 FMESH74:p origin 0 0 0 imesh 100 iints 4 jmesh 100 jints 4
      kmesh 100 kints 4
+FMESH84:n origin 0 -20 -20 imesh 10 iints 2 jmesh 20 jints 2
+     kmesh 20 kints 2 emesh 1 20
