@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import io
 import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import migjorn
 
-from f4enix.core.constants import PathLike
+from f4enix.core.constants import (
+    PAT_FMESH_BINS,
+    PAT_FMESH_TAG,
+    PAT_NUCLIDE_LIST,
+    PathLike,
+)
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
 from f4enix.output.meshtal.fmesh import Fmesh
@@ -49,6 +55,58 @@ class Meshtal:
 
         self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
         self.mesh: dict[int, Fmesh] = {}
+
+    @classmethod
+    def from_d1s_meshtal(cls, filename: PathLike, inp: Input) -> "Meshtal":
+        """Read a D1SUNED meshtal binned by nuclide.
+
+        D1SUNED writes the nuclide lists of the meshtal header (daughter or parent
+        bins, ``etag`` or ``ttag`` = ``nuc``/``parent``) with a fixed width of 10
+        characters per bin, so 8-digit ids such as metastable nuclides (e.g. Nb92m =
+        41092900) overflow to '**********' and the file cannot be parsed. Each
+        nuclide list is rebuilt from the ``emesh`` (or ``tmesh``)
+        keyword of the corresponding FMESH card of the MCNP input, then the
+        corrected meshtal is parsed from memory (the original file is not
+        modified). ``eints``/``tints`` are not supported for the nuclide bins.
+
+        Parameters
+        ----------
+        filename : PathLike
+            path to the D1SUNED meshtal file.
+        inp : Input
+            MCNP input where the FMESH tallies are defined.
+
+        Returns
+        -------
+        Meshtal
+            meshtal object, ``readMesh()`` still has to be called.
+
+        Examples
+        --------
+        >>> inp = Input.from_input("d1s_input.i")
+        >>> meshtal = Meshtal.from_d1s_meshtal("meshtal", inp)
+        >>> meshtal.readMesh()
+        """
+        nuclide_lists = {
+            str(card.number): _d1s_nuclide_lists(card.text)
+            for card in inp._model.data_cards("fmesh")
+        }
+
+        lines = []
+        tally = None
+        n_list = 0
+        with open(filename) as infile:
+            for line in infile:
+                if line.startswith(" Mesh Tally Number"):
+                    tally = line[18:].strip()
+                    n_list = 0
+                match = PAT_NUCLIDE_LIST.match(line)
+                if match:
+                    bins = " ".join(nuclide_lists[tally][n_list])
+                    line = f"{match.group()} {bins}\n"
+                    n_list += 1
+                lines.append(line)
+        return cls(io.StringIO("".join(lines)))
 
     def create_filtered_mesh(
         self,
@@ -237,3 +295,16 @@ class Meshtal:
     def mesh_ids(self) -> list[int]:
         """Returns the list of mesh IDs."""
         return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
+
+
+def _d1s_nuclide_lists(card_text: str) -> list[list[str]]:
+    """Nuclide lists of a D1SUNED FMESH card, in the order of the meshtal header."""
+    text = "\n".join(line.split("$")[0] for line in card_text.splitlines())
+    text = text.replace("&", " ")
+    tags = {k.lower(): v.lower() for k, v in PAT_FMESH_TAG.findall(text)}
+    values = {k.lower(): v.split() for k, v in PAT_FMESH_BINS.findall(text)}
+    return [
+        ["0.001"] + [f"{nuc}.{i:03d}" for i, nuc in enumerate(values[f"{axis}mesh"], 2)]
+        for axis in ("t", "e")
+        if tags.get(f"{axis}tag") in ("nuc", "parent")
+    ]

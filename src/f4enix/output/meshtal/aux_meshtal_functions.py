@@ -5,7 +5,7 @@ if TYPE_CHECKING:
 
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import numpy as np
 from vtkmodules.util import numpy_support
@@ -36,8 +36,12 @@ def _to_floats(values: list[str]) -> np.ndarray:
 
 
 class myOpen:
-    def __init__(self, filename: str | Path, mode: str):
-        self._file = open(filename, mode)
+    def __init__(self, filename: str | Path | TextIO, mode: str):
+        # an already open text stream (e.g. io.StringIO) can be given too
+        if hasattr(filename, "readline"):
+            self._file = filename
+        else:
+            self._file = open(filename, mode)
 
     def _readline(self):
         return self._file.readline()
