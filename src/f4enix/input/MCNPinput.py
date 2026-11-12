@@ -416,6 +416,8 @@ class Input:
             extracted_inp._model.add_transform(tr_card.text)
         for _, card in self.other_data.items():
             extracted_inp._model.add_data_card(card.text)
+        # drop the MTn cards of the materials that were not extracted
+        _prune_materials(extracted_inp._model, extracted_inp._mat_section)
 
         return extracted_inp
 
@@ -1643,10 +1645,14 @@ def _convert_range_to_string(current_range: list[int]) -> str:
 
 
 def _prune_materials(model: migjorn.Model, mat_section: MatCardsList) -> None:
-    """Remove from the model the Mn cards that are no longer in mat_section."""
+    """Remove from the model the Mn cards that are no longer in mat_section,
+    together with the MTn thermal-scattering cards that would refer to them."""
     for handle in model.materials():
         if f"M{handle.id}" not in mat_section.matdic:
             handle.remove()
+    for card in model.data_cards("mt"):
+        if f"M{card.number}" not in mat_section.matdic:
+            card.remove()
 
 
 def _sync_materials(model: migjorn.Model, mat_section: MatCardsList) -> None:

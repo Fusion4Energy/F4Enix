@@ -204,6 +204,36 @@ class TestInput:
             inp.other_data["M1"] = "M1 1001.31c 1"
         with pytest.raises(ValueError):
             inp.other_data["mx1:n"] = "MX1:n 1002.31c"
+        # the card text is checked too, and the existing card is left untouched
+        with pytest.raises(ValueError):
+            inp.other_data["NPS"] = "M8 1001.31c 1"
+        assert inp.other_data["NPS"].text.strip().lower() == "nps 100"
+
+    def test_prune_mt_cards(self, tmp_path):
+        """MTn cards are removed together with their Mn material."""
+        file = tmp_path / "mt.i"
+        file.write_text(
+            "title\n1 1 -1.0 -1\n2 2 -1.0 1 -2\n3 0 2\n\n1 so 10\n2 so 20\n\n"
+            "m1 1001.31c 1\n"
+            "mt1 lwtr.10t\n"
+            "m2 1001.31c 1\n"
+            "mt2 lwtr.10t\n"
+            "nps 100\n"
+        )
+        inp = Input.from_input(file)
+        inp.mat_section.remove(inp.mat_section["m2"])
+        outfile = tmp_path / "out.i"
+        inp.write(outfile)
+        names = [
+            card.name.lower() for card in migjorn.Model.from_file(outfile).data_cards()
+        ]
+        assert names == ["m1", "mt1", "nps"]
+
+        # extract_cells drops the MT cards of the materials not extracted
+        inp = Input.from_input(file)
+        extracted = inp.extract_cells([1])
+        assert "MT1" in extracted.other_data
+        assert "MT2" not in extracted.other_data
 
     def test_merge(self):
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE1:

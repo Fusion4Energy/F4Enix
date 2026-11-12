@@ -200,7 +200,13 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
 
     def __setitem__(self, key: str, value: str | migjorn.DataCard) -> None:
         mnemonic = re.match(r"\*?([a-z]*)", key.lower()).group(1)
-        if mnemonic in MATERIAL_MNEMONICS:
+        text = value if isinstance(value, str) else value.text
+        # classify the card text too, so that e.g. other_data["NPS"] = "M8 ..."
+        # is rejected before touching the model
+        new_mnemonics = {
+            card.mnemonic for card in migjorn.Model.from_data_cards(text).data_cards()
+        }
+        if mnemonic in MATERIAL_MNEMONICS or new_mnemonics & set(MATERIAL_MNEMONICS):
             raise ValueError(
                 "Material cards cannot be set through other_data, "
                 "use Input.mat_section instead"
@@ -209,10 +215,7 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
             del self[key]  # remove existing card if it exists
         except KeyError:
             pass  # it is ok, remove it only if found
-        if isinstance(value, str):
-            self._model.add_data_card(value)
-        else:
-            self._model.add_data_card(value.text)
+        self._model.add_data_card(text)
 
     def __delitem__(self, key: str) -> None:
         for card in self._cards():
