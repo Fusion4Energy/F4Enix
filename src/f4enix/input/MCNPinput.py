@@ -32,6 +32,7 @@ import pandas as pd
 from f4enix.core.constants import (
     PAT_ALL_TALLY_KEYS,
     PAT_COMMENT,
+    PAT_SOURCE_KEYS,
 )
 from f4enix.core.irradiation import METASTABLE_TAG, Nuclide
 from f4enix.input.d1suned import IrradiationFile, Reaction, ReactionFile
@@ -976,16 +977,15 @@ class Input:
                         del self.other_data[key]
 
     def remove_sdef(self) -> None:
-        """Remove the SDEF card and related source definition cards from the input."""
+        """Remove the SDEF card and related source definition cards from the input.
+
+        Removed cards are SDEF, KCODE, KSRC, SSR and the source distribution
+        cards SIn, SPn, SBn, DSn and SCn. Tally segment divisor cards (SDn)
+        are not source cards and are kept.
+        """
 
         for key in list(self.other_data.keys()):
-            key_lower = key.lower()
-            if key_lower.startswith(("sdef", "kcode", "ssr")) or key_lower[:2] in (
-                "si",
-                "sd",
-                "ds",
-                "sp",
-            ):
+            if PAT_SOURCE_KEYS.match(key):
                 del self.other_data[key]
 
     def prepare_void_check(

@@ -54,6 +54,10 @@ PAT_NP = re.compile(r"(?<=:)[nN,pP]+")
 PAT_ALL_TALLY_KEYS = re.compile(
     r"^(F|FMESH|FC|FM|SD|DE|DF|E|T|C|FQ|EM|CM|TM|FS|FU|FT)(\d+)", re.IGNORECASE
 )
+# source-related data cards: SDEF, KCODE, KSRC, SSR and SI/SP/SB/DS/SC + number
+PAT_SOURCE_KEYS = re.compile(
+    r"^((sdef|kcode|ksrc|ssr)$|(si|sp|sb|ds|sc)\d+$)", re.IGNORECASE
+)
 # Fortran drops the 'E' for 3-digit exponents (e.g. '1.60682-113')
 PAT_MISSING_EXP = re.compile(r"(?<=[\d.])([+-])(?=\d)")
 # D1SUNED nuclide binned meshes (etag/ttag = nuc or parent)

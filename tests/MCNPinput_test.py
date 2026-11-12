@@ -569,16 +569,36 @@ class TestInput:
         assert "F54" in inp2.other_data
 
     def test_remove_sdef(self, tmpdir):
-        with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
-            inp = Input.from_input(FILE1)
+        # add tally segment divisor (SD) and extra source cards to the input
+        text = RESOURCES_INP.joinpath("test.i").read_text()
+        text = text.replace(
+            "sp4      0    1\n",
+            "sp4      0    1\nsb4      0    1\nsc4  source comment\nsd54  1.0\n",
+        )
+        infile = tmpdir.mkdir("in").join("test_sd.i")
+        infile.write(text)
+        inp = Input.from_input(infile)
+        keys = [k.lower() for k in inp.other_data.keys()]
+        for card in ["sdef", "sp1", "si2", "sp4", "sb4", "sc4", "sd54"]:
+            assert card in keys
+
         inp.remove_sdef()
-        assert "SDEF" not in inp.other_data
+        source_cards = ["sdef", "sp1", "si2", "sp2", "si4", "sp4", "sb4", "sc4"]
+        keys = [k.lower() for k in inp.other_data.keys()]
+        for card in source_cards:
+            assert card not in keys
+        # tally cards, including the SD segment divisor, are kept
+        for card in ["sd54", "f54:n", "fc54", "fm54"]:
+            assert card in keys
 
         # check that the file can be written and read again
         outfile = tmpdir.mkdir("sub").join("test_sdef_removed.i")
         inp.write(outfile)
         newinp = Input.from_input(outfile)
-        assert "SDEF" not in newinp.other_data
+        keys = [k.lower() for k in newinp.other_data.keys()]
+        for card in source_cards:
+            assert card not in keys
+        assert "sd54" in keys
 
     def test_prepare_void_check(self, tmpdir):
         with as_file(RESOURCES_INP.joinpath("test.i")) as FILE1:
