@@ -1,8 +1,9 @@
 import hashlib
 import re
+from collections.abc import MutableMapping
 
 import migjorn
-from collections.abc import MutableMapping
+
 from f4enix.core.errors import InvalidCardError
 
 # data cards that are not handled by the other_data proxy

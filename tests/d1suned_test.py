@@ -1,7 +1,6 @@
 import os
 from importlib.resources import as_file, files
 
-import numpy as np
 import pytest
 
 import f4enix.resources as pkg_res

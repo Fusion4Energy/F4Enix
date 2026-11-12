@@ -708,8 +708,7 @@ def _scan_cdgsfile(fic: myOpen) -> dict[str, list]:
     srcmesh = dict()
     line = fic._readline().split()
     nmesh = int(float(line[1]))
-    line = fic._readline().split()
-    total_strength = float(line[1])
+    fic._readline()  # total source strength, not needed
 
     for i in range(nmesh):
         pos = fic._tell()
@@ -749,7 +748,6 @@ def _skip_cuvdata(fic: myOpen) -> tuple[int, int]:
     fic._skipline(1)
     for i in range(nelemts):
         headline = fic._readline().split()
-        index = int(float(headline[0]))
         ncel = int(float(headline[-1]))
         fic._skipline(3 * ncel)
     return (bound_pos, data_pos)

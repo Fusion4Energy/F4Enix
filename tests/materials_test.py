@@ -1,4 +1,3 @@
-import os
 import re
 from copy import deepcopy
 from importlib.resources import as_file, files
@@ -7,10 +6,10 @@ import pytest
 
 import f4enix.resources as pkg_res
 import tests.resources.materials as mat_res
+from f4enix.core.irradiation import Nuclide
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Element, MatCardsList, Material, Zaid
 from f4enix.input.MCNPinput import Input
-from f4enix.core.irradiation import Nuclide
 
 resources = files(mat_res)
 resources_pkg = files(pkg_res)

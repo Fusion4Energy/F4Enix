@@ -6,16 +6,17 @@ import migjorn
 import numpy as np
 import pytest
 
-from f4enix.core.errors import InvalidCardError
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
+from f4enix.core.errors import InvalidCardError
 from f4enix.core.irradiation import Nuclide
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
 from f4enix.input.materials import Material
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
 from f4enix.output.fispact_legacy_out import Pathway
+
 # ruff: noqa: PLR2004# ruff: noqa: PLR2004
 
 RESOURCES_INP = files(input_res)
@@ -191,7 +192,9 @@ class TestInput:
         outfile = tmp_path / "out.i"
         inp.write(outfile)
 
-        names = [card.name.lower() for card in migjorn.Model.from_file(outfile).data_cards()]
+        names = [
+            card.name.lower() for card in migjorn.Model.from_file(outfile).data_cards()
+        ]
         assert names == ["mode", "m1", "mx1", "m7", "nps", "sdef"]
 
         # material placeholders are not reachable through other_data
@@ -236,7 +239,7 @@ class TestInput:
 
     def test_update_card_keys(self):
         # _update_card_keys is superseded by migjorn; just check no error
-        inp = deepcopy(self.bugInput)
+        deepcopy(self.bugInput)
         assert True  # method removed, no-op
 
     def test_translate(self):

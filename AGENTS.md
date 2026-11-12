@@ -16,6 +16,11 @@ pytest tests/materials_test.py
 
 # Run sub-package tests (e.g. weight windows)
 pytest tests/test_ww_gvr/
+
+# Lint (incl. import sorting) and format with the pinned ruff (also run in CI)
+pip install --group lint
+ruff check --fix .
+ruff format .
 ```
 
 > Linux only: PyVista tests require a display. CI uses a virtual framebuffer (`Xvfb`). Set `DISPLAY` or use `pyvista.start_xvfb()` if running headlessly.

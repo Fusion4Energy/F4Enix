@@ -41,6 +41,11 @@ tests = [
     "ipykernel < 8",
 ]
 
+[dependency-groups]
+# Install with `pip install --group lint` (pip >= 25.1). Bump deliberately: new
+# ruff releases can change formatting.
+lint = ["ruff == 0.17.4"]
+
 [project.urls]
 Homepage = "https://github.com/fusion4energy"
 Repository = "https://github.com/Fusion4Energy/F4Enix"
@@ -54,3 +59,20 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
 "f4enix" = ["**/*.xlsx", "**/*.txt", "**/*.csv"]
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = ["src/_version.py"]
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes and import sorting. Listed explicitly so that
+# ruff upgrades do not silently change the rule set.
+select = ["E4", "E7", "E9", "F", "I"]
+# E402: the EUPL licence docstring sits between the module docstring and the
+# imports
+# E741: single-letter names such as I (intensity) or l (length) are standard
+# physics notation here
+ignore = ["E402", "E741"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["f4enix"]

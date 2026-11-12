@@ -10,11 +10,11 @@ import tests.resources.elite as elite_res
 from f4enix.input.elite import (
     Elite_Input,
     _check_tol,
+    _get_boundaries_angles,
     _modify_boundary,
+    _modify_graveyard,
     _rotate_plane,
     _set_sdef,
-    _get_boundaries_angles,
-    _modify_graveyard,
 )
 from f4enix.input.MCNPinput import Input
 

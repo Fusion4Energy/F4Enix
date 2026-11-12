@@ -1,22 +1,20 @@
-from enum import Enum
-from io import TextIOWrapper
 import logging
 import numbers
+from datetime import datetime
+from enum import Enum
+from io import TextIOWrapper
+from pathlib import Path
+from typing import Iterable
+
+import actigamma as ag
 import numpy as np
 import pandas as pd
-from pathlib import Path
 import pyvista as pv
-import actigamma as ag
 from matplotlib import pyplot as plt
-from f4enix.output.cdgs import (
-    InterpolationKernel,
-    KNearestKernel,
-    MeshByBinSize,
-    RegularMeshDefinition,
-)
+
 import f4enix
-from datetime import datetime
-from typing import Iterable
+from f4enix.output.cdgs.kernels import InterpolationKernel, KNearestKernel
+from f4enix.output.cdgs.mesh_definitions import MeshByBinSize, RegularMeshDefinition
 
 ACTIVITY_TAG = "_specific_activity [Bq/m3]"
 INTENSITY_TAG = "_intensity [ph/s]"
@@ -519,9 +517,7 @@ energy_type {self.energy_type.value}
                 # List of gamma source uncertainties is set to 0 for all values
                 f.write(zeros)
 
-    def _get_probabilities(
-        self, isotope: str, idx: int | np.ndarray
-    ) -> np.ndarray:
+    def _get_probabilities(self, isotope: str, idx: int | np.ndarray) -> np.ndarray:
         """Return normalised per-line (or per-bin) emission probabilities for the
         given isotope in the voxel(s) idx.
 
@@ -961,6 +957,7 @@ def _split_cloud_point(
     bounds = np.cumsum(np.bincount(point_leaf, minlength=len(leaves)))[:-1]
     return np.split(order, bounds)
 
+
 def _read_cloud_point(
     cloud_point: str | Path | pd.DataFrame,
     col_names: dict[str, str] | None,
@@ -1077,7 +1074,6 @@ def _interpolate_cloud_point(
                 )
         results[name] = interpolation
     return mesh, results, vol
-
 
 
 def _floats_to_multiline_string(

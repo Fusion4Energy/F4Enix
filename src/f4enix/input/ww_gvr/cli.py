@@ -179,7 +179,7 @@ class Menu:
             return list(self.weight_windows.keys())[0]
 
         for i, ww_key in enumerate(self.weight_windows.keys()):
-            print(f" {i+1}. {ww_key}")
+            print(f" {i + 1}. {ww_key}")
         while True:
             ww_key = input(" Select weight window by number: ")
             if ww_key.isdigit():

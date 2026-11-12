@@ -4,13 +4,13 @@ import csv
 import logging
 import os
 import re
+from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import migjorn
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from copy import deepcopy
-from typing import TYPE_CHECKING
 
 from f4enix.core.constants import PathLike
 from f4enix.output.meshtal.aux_meshtal_functions import (

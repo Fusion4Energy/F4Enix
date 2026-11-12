@@ -28,18 +28,18 @@ and limitations under the Licence.
 """
 
 import copy
-import logging
 import os
 import re
 import sys
 from collections.abc import Sequence
 from contextlib import contextmanager
 from decimal import Decimal
+
 import pandas as pd
 
 from f4enix.core.constants import AVOGADRO_NUMBER, PAT_MAT
-from f4enix.input.libmanager import LibManager, get_default_libmanager
 from f4enix.core.irradiation import Nuclide
+from f4enix.input.libmanager import LibManager, get_default_libmanager
 
 
 # -------------------------------------
@@ -564,9 +564,9 @@ class Material:
         for zaid in self.zaids:
             # Implement the capability to translate to different libraries
             # depending on the starting one
-            if type(newlib) == dict:
+            if type(newlib) is dict:
                 # Check for which kind of dic it is
-                if type(list(newlib.values())[0]) == str:
+                if type(list(newlib.values())[0]) is str:
                     # The assignment is based on old lib
                     try:
                         newtag = newlib[zaid.library]

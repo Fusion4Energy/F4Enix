@@ -23,8 +23,7 @@ import logging
 import os
 import re
 from copy import deepcopy
-from typing import Sequence
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, Sequence
 
 import migjorn
 import numpy as np

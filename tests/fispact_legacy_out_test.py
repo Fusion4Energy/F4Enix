@@ -1,16 +1,15 @@
 from importlib.resources import as_file, files
 
 import pytest
-import numpy as np
 
 import tests.resources.fispact_legacy_out as lib_res
 from f4enix.core.irradiation import Nuclide, TCF_Computer
+from f4enix.input.libmanager import LibManager
 from f4enix.output.fispact_legacy_out import (
     FispactOutput,
     Pathway,
     PathwayCollection,
 )
-from f4enix.input.libmanager import LibManager
 
 LIB_RESOURCES = files(lib_res)
 

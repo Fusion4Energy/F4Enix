@@ -373,6 +373,8 @@ class EEOUT:
         pat_type = re.compile(r"(?<=TYPE :)\s+\w+")
 
         valuesFlag = False
+        values_list = []
+        value_type = None
 
         edits = {}
 

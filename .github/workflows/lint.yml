@@ -1,0 +1,31 @@
+name: lint
+
+on:
+  push:
+    branches: [developing]
+  pull_request:
+    branches: [developing]
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # ruff version is pinned in the `lint` dependency group of pyproject.toml
+      - name: Install ruff
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group lint
+
+      - name: Lint (includes import sorting)
+        run: ruff check --output-format=github .
+
+      - name: Check formatting
+        run: ruff format --check --diff .
