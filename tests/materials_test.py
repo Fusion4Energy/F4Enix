@@ -394,6 +394,15 @@ class TestMatCardList:
                 == "C --- A\nC --- complex\nC header"
             )
 
+    def test_lowercase_header(self, tmp_path):
+        """A header written with lowercase 'c' comment lines is kept."""
+        file = tmp_path / "lower.i"
+        file.write_text(
+            "title\n1 0 -1\n\n1 so 1\n\nc lower header\nC upper line\nm1 1001.31c 1\n"
+        )
+        matcard = MatCardsList.from_input(file)
+        assert matcard["m1"].header == "C lower header\nC upper line"
+
     def test_translation(self):
         """
         Test that translation works (all possile modes)

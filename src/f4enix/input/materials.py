@@ -346,12 +346,7 @@ class Material:
             zaid = Zaid(fraction, Nuclide.from_int_string(zaid))
             zaids.append(zaid)
 
-        header = ""
-        for line in material.text.splitlines(keepends=True):
-            if line.startswith("C"):
-                header += line
-            else:
-                break
+        header = "\n".join(f"C {line}".rstrip() for line in material.header)
 
         body_lines = []
         for line in material.text.splitlines():
@@ -364,7 +359,7 @@ class Material:
         return cls(
             f"M{material.id}",
             zaids=zaids,
-            header=header.strip("\n").replace("\r", ""),
+            header=header,
             additional_keys=keys,
         )
 

@@ -428,14 +428,10 @@ class Input:
         Input
             new :py:class:`Input` containing only the cells of the universe.
         """
-        cells = []
-        # collect the needed cells
-        for key, cell in self.cells.items():
-            if cell.universe == universe:
-                cells.append(int(key))
-            if keep_level_0 and cell.fill:
-                if cell.fill.universe == universe:
-                    cells.append(int(key))
+        graph = self._model.universe_graph()
+        cells = graph.cells(universe)
+        if keep_level_0:
+            cells += [p.cell for p in graph.placements(universe)]
 
         extracted_inp = self.extract_cells(cells, keep_universe=False)
 
