@@ -63,7 +63,7 @@ class Spectra:
         if not len(ebins) - 1 == len(spectra_values):
             raise ValueError(
                 f"Spectra values length {len(spectra_values)} does not match "
-                f"energy bins length {len(ebins)-1}."
+                f"energy bins length {len(ebins) - 1}."
             )
         self.ebins = ebins  # bin edges including lowest and highest
         self.spectra_values = spectra_values  # values per bin
@@ -149,7 +149,7 @@ END
         Path
             Path to the generated input file.
         """
-        text = f"""MONITOR 1
+        text = """MONITOR 1
 CLOBBER
 SPEK
 GETDECAY 1
@@ -195,7 +195,7 @@ END
             # if there is no new line at the end, add it
             if (i + 1) % 6 != 0:
                 f.write("\n")
-            f.write(f"1\n")  # must have a wall load, likely not used
+            f.write("1\n")  # must have a wall load, likely not used
             f.write(f"{self.name}\n")
 
         return outfile

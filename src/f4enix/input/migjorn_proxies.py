@@ -1,10 +1,16 @@
 import hashlib
-import migjorn
+import re
 from collections.abc import MutableMapping
+
+import migjorn
+
 from f4enix.core.errors import InvalidCardError
 
 # data cards that are not handled by the other_data proxy
 NOT_OTHER_MNEMONICS = ("m", "mx", "tr")
+# material cards are owned by Input.mat_section: the Mn/MX cards left in the
+# model are only position placeholders, overwritten at write time
+MATERIAL_MNEMONICS = ("m", "mx")
 
 
 def _replace_card(card, add, text: str) -> None:
@@ -175,27 +181,44 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
 
+    def _cards(self) -> list[migjorn.DataCard]:
+        """Data cards reachable through the proxy (materials excluded)."""
+        return [
+            card
+            for card in self._model.data_cards()
+            if card.mnemonic not in MATERIAL_MNEMONICS
+        ]
+
     def __getitem__(self, key: str) -> migjorn.DataCard:
         # check if particles are specified in the key (e.g. F6:N,P)
 
-        for card in self._model.data_cards():
+        for card in self._cards():
             if self._match(key, card):
                 return card
 
         raise KeyError(f"Card {key} not found in data cards")
 
     def __setitem__(self, key: str, value: str | migjorn.DataCard) -> None:
+        mnemonic = re.match(r"\*?([a-z]*)", key.lower()).group(1)
+        text = value if isinstance(value, str) else value.text
+        # classify the card text too, so that e.g. other_data["NPS"] = "M8 ..."
+        # is rejected before touching the model
+        new_mnemonics = {
+            card.mnemonic for card in migjorn.Model.from_data_cards(text).data_cards()
+        }
+        if mnemonic in MATERIAL_MNEMONICS or new_mnemonics & set(MATERIAL_MNEMONICS):
+            raise ValueError(
+                "Material cards cannot be set through other_data, "
+                "use Input.mat_section instead"
+            )
         try:
             del self[key]  # remove existing card if it exists
         except KeyError:
             pass  # it is ok, remove it only if found
-        if isinstance(value, str):
-            self._model.add_data_card(value)
-        else:
-            self._model.add_data_card(value.text)
+        self._model.add_data_card(text)
 
     def __delitem__(self, key: str) -> None:
-        for card in self._model.data_cards():
+        for card in self._cards():
             if self._match(key, card):
                 card.remove()
                 return

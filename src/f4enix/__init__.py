@@ -5,4 +5,6 @@ from .output.MCNPoutput import Output
 from .output.mctal import Mctal
 from .output.meshtal import Meshtal
 
+__all__ = ["Input", "Output", "Mctal", "Meshtal"]
+
 __version__ = version("f4enix")

@@ -33,7 +33,7 @@ import numpy as np
 import pyvista as pv
 from docx.enum.section import WD_ORIENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Inches, Mm
+from docx.shared import Mm
 from matplotlib.ticker import PercentFormatter
 from PIL import Image, ImageOps
 

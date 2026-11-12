@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 import pypact as pp
-import numpy as np
 
 from f4enix.core.constants import REVERSED_MT_DICT, PathLike
 from f4enix.core.irradiation import Nuclide, TCF_Computer

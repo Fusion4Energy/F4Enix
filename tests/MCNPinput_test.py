@@ -6,15 +6,17 @@ import migjorn
 import numpy as np
 import pytest
 
-from f4enix.core.errors import InvalidCardError
 import f4enix.resources as pkg_res
 import tests.resources.input as input_res
 import tests.resources.libmanager as lib_res
+from f4enix.core.errors import InvalidCardError
 from f4enix.core.irradiation import Nuclide
 from f4enix.input.d1suned import IrradiationFile, ReactionFile
 from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import Material
 from f4enix.input.MCNPinput import D1S_Input, Input, get_formatted_range
 from f4enix.output.fispact_legacy_out import Pathway
+
 # ruff: noqa: PLR2004# ruff: noqa: PLR2004
 
 RESOURCES_INP = files(input_res)
@@ -170,6 +172,69 @@ class TestInput:
 
         assert True
 
+    def test_write_materials_in_place(self, tmp_path):
+        """Materials keep their position on write; MX follow their material,
+        removed materials disappear and new ones go after the last one."""
+        file = tmp_path / "mat_order.i"
+        file.write_text(
+            "title\n1 1 -1.0 -1\n2 0 1\n\n1 so 10\n\n"
+            "mode n\n"
+            "m1 1001.31c 1 nlib = 31c\n"
+            "mx1:n 1002.31c\n"
+            "nps 100\n"
+            "m2 26056.31c 1\n"
+            "sdef pos 0 0 0\n"
+        )
+        inp = Input.from_input(file)
+        assert inp.mat_section["m1"].additional_keys == ["nlib=31c"]
+        inp.mat_section.remove(inp.mat_section["m2"])
+        inp.mat_section.append(Material.from_text("M7 6000.31c 1"))
+        outfile = tmp_path / "out.i"
+        inp.write(outfile)
+
+        names = [
+            card.name.lower() for card in migjorn.Model.from_file(outfile).data_cards()
+        ]
+        assert names == ["mode", "m1", "mx1", "m7", "nps", "sdef"]
+
+        # material placeholders are not reachable through other_data
+        assert "M1" not in inp.other_data
+        assert "MX1" not in inp.other_data
+        with pytest.raises(ValueError):
+            inp.other_data["M1"] = "M1 1001.31c 1"
+        with pytest.raises(ValueError):
+            inp.other_data["mx1:n"] = "MX1:n 1002.31c"
+        # the card text is checked too, and the existing card is left untouched
+        with pytest.raises(ValueError):
+            inp.other_data["NPS"] = "M8 1001.31c 1"
+        assert inp.other_data["NPS"].text.strip().lower() == "nps 100"
+
+    def test_prune_mt_cards(self, tmp_path):
+        """MTn cards are removed together with their Mn material."""
+        file = tmp_path / "mt.i"
+        file.write_text(
+            "title\n1 1 -1.0 -1\n2 2 -1.0 1 -2\n3 0 2\n\n1 so 10\n2 so 20\n\n"
+            "m1 1001.31c 1\n"
+            "mt1 lwtr.10t\n"
+            "m2 1001.31c 1\n"
+            "mt2 lwtr.10t\n"
+            "nps 100\n"
+        )
+        inp = Input.from_input(file)
+        inp.mat_section.remove(inp.mat_section["m2"])
+        outfile = tmp_path / "out.i"
+        inp.write(outfile)
+        names = [
+            card.name.lower() for card in migjorn.Model.from_file(outfile).data_cards()
+        ]
+        assert names == ["m1", "mt1", "nps"]
+
+        # extract_cells drops the MT cards of the materials not extracted
+        inp = Input.from_input(file)
+        extracted = inp.extract_cells([1])
+        assert "MT1" in extracted.other_data
+        assert "MT2" not in extracted.other_data
+
     def test_merge(self):
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE1:
             inp1 = Input.from_input(FILE1)
@@ -204,7 +269,7 @@ class TestInput:
 
     def test_update_card_keys(self):
         # _update_card_keys is superseded by migjorn; just check no error
-        inp = deepcopy(self.bugInput)
+        deepcopy(self.bugInput)
         assert True  # method removed, no-op
 
     def test_translate(self):
@@ -256,12 +321,12 @@ class TestInput:
         inp2 = Input.from_input(outfile)
         assert len(inp2.cells) == 5
         assert len(inp2.surfs) == 10
-        # assert len(inp2.mat_section) == 3  entire mat section is copied now
+        # only the materials used by the extracted cells are kept
+        assert sorted(m.name for m in inp2.mat_section) == ["M12", "M13", "M14"]
         assert sorted(inp2.cells.keys()) == ["16", "24", "25", "26", "32"]
-        # verify that the number of transformations materials and datacards is the
+        # verify that the number of transformations and datacards is the
         # same as in the original input
         assert len(inp2.transformations) == len(full.transformations)
-        assert len(inp2.mat_section) == len(full.mat_section)
         assert len(inp2.other_data) == len(full.other_data)
 
         with as_file(RESOURCES_INP.joinpath("test_1.i")) as FILE:

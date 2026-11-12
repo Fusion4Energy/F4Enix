@@ -525,7 +525,7 @@ class LibManager:
             isotope name (e.g. H1).
 
         """
-        if type(zaid) == str:
+        if type(zaid) is str:
             splitted = zaid.split(".")
             elem = splitted[0][:-3]
             i = int(elem)

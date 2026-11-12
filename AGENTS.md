@@ -16,6 +16,11 @@ pytest tests/materials_test.py
 
 # Run sub-package tests (e.g. weight windows)
 pytest tests/test_ww_gvr/
+
+# Lint (incl. import sorting) and format with the pinned ruff (also run in CI)
+pip install --group lint
+ruff check --fix .
+ruff format .
 ```
 
 > Linux only: PyVista tests require a display. CI uses a virtual framebuffer (`Xvfb`). Set `DISPLAY` or use `pyvista.start_xvfb()` if running headlessly.
@@ -58,7 +63,7 @@ There are two patterns — check the class before instantiating:
 Every new source file must include the standard **EUPL-1.2** copyright header (copy from any existing module).
 
 ### Dependencies
-- `numjuggler` — MCNP input tokenizer; `chardet < 7.0.0` is pinned because newer versions break it — do not bump `chardet`.
+- `migjorn` — lossless Rust-based MCNP input parser backing `Input` (pinned to a minor series, e.g. `>= 0.4.0, < 0.5`). Materials are owned by `Input.mat_section`; the `Mn`/`MX` cards left in the migjorn model are only position placeholders, rewritten in place by `Input.write()`.
 - `pyvista` — mesh visualization; only needed for `plotter.py`-related code.
 - `polars` and `pandas` both used for tabular data — check which a module uses before adding dataframe operations.
 

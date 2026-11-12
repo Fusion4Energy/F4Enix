@@ -1,8 +1,10 @@
-from pypact import InputData, to_file
 from pathlib import Path
-from f4enix.input.materials import Material
+
+from pypact import InputData, to_file
+
 from f4enix.core.irradiation import IrradiationScenario
 from f4enix.input.libmanager import LibManager
+from f4enix.input.materials import Material
 
 
 class FispactInp:

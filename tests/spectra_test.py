@@ -32,9 +32,10 @@ class TestSpectra:
 
         # Check that the file is the same as the original one
         with as_file(RES.joinpath("FLUXESS1")) as f_original_ctxt:
-            with open(tmp_path.joinpath("FLUX1")) as f_new, open(
-                f_original_ctxt
-            ) as f_original:
+            with (
+                open(tmp_path.joinpath("FLUX1")) as f_new,
+                open(f_original_ctxt) as f_original,
+            ):
                 lines_new = f_new.readlines()
                 lines_original = f_original.readlines()
 

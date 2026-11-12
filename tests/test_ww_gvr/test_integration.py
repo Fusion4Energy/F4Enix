@@ -26,6 +26,6 @@ def test_write_multi_particle_ww_has_no_blank_line_between_particles(tmpdir):
     gvr.write_to_ww_file(ww_path)
 
     content = Path(ww_path).read_text()
-    assert (
-        "\n\n" not in content
-    ), "Blank line found in WW file (likely between particle sections)"
+    assert "\n\n" not in content, (
+        "Blank line found in WW file (likely between particle sections)"
+    )

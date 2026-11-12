@@ -106,16 +106,17 @@ class TestGetRecommendedParameters:
 
     def test_figure(self):
         _, _, fig = get_recommended_parameters(
-            _lattice(), "dens", col_names=COL_NAMES, voxel_layers=[1, 2],
+            _lattice(),
+            "dens",
+            col_names=COL_NAMES,
+            voxel_layers=[1, 2],
             slice_axis="z",
         )
         # 3 bin sizes x (reference + 2 x (density, fill)) panels + colorbars
         assert len(fig.axes) >= 3 * 5
         plt.close(fig)
 
-    @pytest.mark.parametrize(
-        "kwargs", [{"slice_axis": "w"}, {"voxel_layers": [0]}]
-    )
+    @pytest.mark.parametrize("kwargs", [{"slice_axis": "w"}, {"voxel_layers": [0]}])
     def test_invalid_inputs(self, kwargs):
         with pytest.raises(ValueError):
             get_recommended_parameters(

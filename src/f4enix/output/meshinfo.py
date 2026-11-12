@@ -18,7 +18,6 @@ import json
 import os
 import re
 from enum import Enum
-from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -300,7 +299,7 @@ class MeshInfo:
             assert (self.vector_j == __value.vector_j).all()
             assert (self.vector_k == __value.vector_k).all()
             assert self.data_mass.df.equals(__value.data_mass.df)
-            if type(self) == MeshInfoCyl:
+            if type(self) is MeshInfoCyl:
                 assert (self.origin == __value.origin).all()
                 assert (self.axis == __value.axis).all()
                 assert (self.vec == __value.vec).all()

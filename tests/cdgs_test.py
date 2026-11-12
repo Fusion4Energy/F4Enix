@@ -1,33 +1,34 @@
-from importlib.resources import as_file, files
+import io
 import logging
+from importlib.resources import as_file, files
+
+import actigamma as ag
 import numpy as np
 import pandas as pd
-import pyvista as pv
-import actigamma as ag
-import io
 import pytest
+import pyvista as pv
 
 import tests.resources.cdgs as res
-from f4enix.output.meshtal import Meshtal
 from f4enix.output.cdgs import (
     CDGS,
     CDGS_ENERGY_TYPE,
-    MultiCDGS,
-    SphereKernel,
     DistanceKernel,
     KNearestKernel,
     MeshByAverageDistance,
-    MeshByNumberOfVoxels,
     MeshByBinSize,
+    MeshByNumberOfVoxels,
+    MultiCDGS,
+    SphereKernel,
 )
 from f4enix.output.cdgs.cdgs import (
-    _interpolate_cloud_point,
     ACTIVITY_TAG,
     ATOM_DENSITY_TAG,
     INTENSITY_TAG,
     _floats_to_multiline_string,
+    _interpolate_cloud_point,
     _split_cloud_point,
 )
+from f4enix.output.meshtal import Meshtal
 
 
 class TestKernel:
@@ -176,7 +177,14 @@ class TestKernel:
 
 class TestMeshDefinition:
     def test_average_distance_needs_two_points(self):
-        bbox = {"x_min": -1, "x_max": 1, "y_min": -1, "y_max": 1, "z_min": -1, "z_max": 1}
+        bbox = {
+            "x_min": -1,
+            "x_max": 1,
+            "y_min": -1,
+            "y_max": 1,
+            "z_min": -1,
+            "z_max": 1,
+        }
         with pytest.raises(ValueError):
             MeshByAverageDistance(factor=1.0, bbox=bbox)._build_grid(np.zeros((1, 3)))
 
@@ -248,9 +256,12 @@ class TestMeshDefinition:
     def test_explicit_bbox_not_padded(self):
         coords = np.array([[0.0, 0.0, 0.0], [2.0, 1.0, 1.0]])
         bbox = {
-            "x_min": -0.5, "x_max": 2.5,
-            "y_min": -0.5, "y_max": 1.5,
-            "z_min": -0.5, "z_max": 1.5,
+            "x_min": -0.5,
+            "x_max": 2.5,
+            "y_min": -0.5,
+            "y_max": 1.5,
+            "z_min": -0.5,
+            "z_max": 1.5,
         }
         grid = MeshByBinSize((1.0, 1.0, 1.0), bbox=bbox)._build_grid(
             coords, KNearestKernel(k=27)
@@ -269,9 +280,12 @@ class TestMeshDefinition:
         vols = np.ones(len(coords))
         kernel = KNearestKernel(k=27)
         tight = {
-            "x_min": coords[:, 0].min() - 0.5, "x_max": coords[:, 0].max() + 0.5,
-            "y_min": coords[:, 1].min() - 0.5, "y_max": coords[:, 1].max() + 0.5,
-            "z_min": coords[:, 2].min() - 0.5, "z_max": coords[:, 2].max() + 0.5,
+            "x_min": coords[:, 0].min() - 0.5,
+            "x_max": coords[:, 0].max() + 0.5,
+            "y_min": coords[:, 1].min() - 0.5,
+            "y_max": coords[:, 1].max() + 0.5,
+            "z_min": coords[:, 2].min() - 0.5,
+            "z_max": coords[:, 2].max() + 0.5,
         }
         fills = {}
         for name, bbox in [("tight", tight), ("auto", None)]:
@@ -873,7 +887,9 @@ class TestMultiCDGS:
         long = np.arange(0, 1, step) + step / 2
         short = np.arange(0, 0.05, step) + step / 2
         bar_x = np.stack(np.meshgrid(long, short, short, indexing="ij"), -1)
-        bar_y = np.stack(np.meshgrid(short + 0.95, long + 0.05, short, indexing="ij"), -1)
+        bar_y = np.stack(
+            np.meshgrid(short + 0.95, long + 0.05, short, indexing="ij"), -1
+        )
         coords = np.concatenate([bar_x.reshape(-1, 3), bar_y.reshape(-1, 3)])
         df = pd.DataFrame(coords, columns=["x", "y", "z"])
         df["vol"] = step**3

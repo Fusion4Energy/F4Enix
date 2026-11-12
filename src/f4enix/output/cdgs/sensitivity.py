@@ -188,8 +188,18 @@ def get_recommended_parameters(
         }
 
     fig = _plot(
-        coords, density, column, axis, slice_position, cell_size, metrics,
-        sections, references, voxel_layers, vmin, vmax,
+        coords,
+        density,
+        column,
+        axis,
+        slice_position,
+        cell_size,
+        metrics,
+        sections,
+        references,
+        voxel_layers,
+        vmin,
+        vmax,
     )
     return recommended, metrics, fig
 
@@ -327,8 +337,11 @@ def _plot(
 
     n_cols = 1 + 2 * len(voxel_layers)
     fig, axs = plt.subplots(
-        len(bin_sizes), n_cols, figsize=(3.2 * n_cols, 3.4 * len(bin_sizes)),
-        squeeze=False, layout="constrained",
+        len(bin_sizes),
+        n_cols,
+        figsize=(3.2 * n_cols, 3.4 * len(bin_sizes)),
+        squeeze=False,
+        layout="constrained",
     )
     for row, b in zip(axs, bin_sizes):
         mask = references[b]
@@ -340,12 +353,18 @@ def _plot(
             dens, fill, edges = sections[(b, n)]
             extent = [edges[ax_u][0], edges[ax_u][-1], edges[ax_v][0], edges[ax_v][-1]]
             row[1 + 2 * j].imshow(
-                np.ma.masked_equal(dens, 0).T, origin="lower", extent=extent,
+                np.ma.masked_equal(dens, 0).T,
+                origin="lower",
+                extent=extent,
                 **dens_kw,
             )
             im_fill = row[2 + 2 * j].imshow(
-                np.ma.masked_equal(fill, 0).T, origin="lower", extent=extent,
-                cmap="RdBu_r", vmin=0, vmax=2,
+                np.ma.masked_equal(fill, 0).T,
+                origin="lower",
+                extent=extent,
+                cmap="RdBu_r",
+                vmin=0,
+                vmax=2,
             )
             m = metrics[(metrics["bin_size [m]"] == b) & (metrics["voxel_layers"] == n)]
             m = m.iloc[0]
@@ -365,7 +384,8 @@ def _plot(
         ax.set_ylabel(f"{names[ax_v]} [m]")
     fig.colorbar(sc, ax=axs[:, 0].tolist(), label=f"{column} [1/m3]", shrink=0.6)
     fig.colorbar(
-        im_fill, ax=axs[:, -1].tolist(),
+        im_fill,
+        ax=axs[:, -1].tolist(),
         label="Fill [-]: 1 full of fluid, <1 partially filled or missing, "
         ">1 overfilled (artefact)",
         shrink=0.6,

@@ -304,22 +304,6 @@ class Xsdir(object):
         for table in self.tables:
             yield table
 
-    def nucs(self):
-        """Provides a set of the valid nuclide ids for nuclides contained
-        in the xsdir.
-
-        Returns
-        -------
-        valid_nucs : set
-            The valid nuclide ids.
-        """
-        valid_nucs = set(
-            nucname.id(table.name.split(".")[0])
-            for table in self.tables
-            if nucname.isnuclide(table.name.split(".")[0])
-        )
-        return valid_nucs
-
 
 class XsdirTable(object):
     """Stores all information that describes a xsdir table entry, which appears
@@ -479,12 +463,7 @@ The views and conclusions contained in the software and documentation are those 
 authors and should not be interpreted as representing official policies, either expressed
 or implied, of the stakeholders of the PyNE project or the employers of PyNE developers.
 """
-import math
-import os
-import sys
 from typing import List, Tuple
-
-from f4enix.input.xsdirpyne import Xsdir, XsdirTable
 
 
 class SerpentXsdir(Xsdir):

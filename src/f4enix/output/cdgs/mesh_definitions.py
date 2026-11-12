@@ -1,6 +1,7 @@
-import pyvista as pv
-import numpy as np
 from abc import ABC, abstractmethod
+
+import numpy as np
+import pyvista as pv
 from scipy.spatial import KDTree
 
 from f4enix.output.cdgs.kernels import InterpolationKernel

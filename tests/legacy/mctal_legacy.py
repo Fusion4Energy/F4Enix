@@ -1082,7 +1082,7 @@ class Mctal:
 
         del Fld
 
-        if tally.mesh == False:
+        if not tally.mesh:
             # TFC JTF
             self.line = self.mctalFile.readline().strip().split()
             if self.line[0] != "tfc":
@@ -1170,7 +1170,7 @@ class Mctal:
             # --- Reorganize values ---
             # You cannot recover the following from the mctal
             # nDir = t._getNbins("d", False)
-            nMul = t._getNbins("m", False)
+            # nMul = t._getNbins("m", False)
             nSeg = t._getNbins("s", False)  # this can be used
 
             # Some checks for voids
@@ -1394,9 +1394,9 @@ class Mctal:
         df = self.tallydata[tally_number]
         # Remove rows where any column contains 'total'
         mask = ~df.apply(
-            lambda row: row.astype(str)
-            .str.contains("total", case=False, na=False)
-            .any(),
+            lambda row: (
+                row.astype(str).str.contains("total", case=False, na=False).any()
+            ),
             axis=1,
         )
         self.tallydata[tally_number] = df[mask].reset_index(drop=True)

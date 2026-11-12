@@ -1,20 +1,18 @@
 import os
-
-import numpy as np
 from importlib.resources import as_file, files
 
-from f4enix.core.constants import TIME_UNITS
+import numpy as np
 import pytest
 
+import tests.resources.irradiation as res_irr
 import tests.resources.meshtal as resources
 import tests.resources.meshtal.expected as res_exp
 import tests.resources.meshtal.tests as res
-import tests.resources.irradiation as res_irr
-
+from f4enix.core.constants import TIME_UNITS
+from f4enix.input.d1suned import IrradiationFile
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.aux_meshtal_functions import _to_float
 from f4enix.output.meshtal.meshtal import Meshtal
-from f4enix.input.d1suned import IrradiationFile
 
 resources_write = files(res)
 expected = files(res_exp)
