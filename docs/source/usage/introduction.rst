@@ -12,7 +12,7 @@ partially supported by F4Enix grouped by codes.
 
 **MCNP:**
 
-* MCNP Input file, which essentially is a wrapper of some parts of the `numjuggler <https://numjuggler.readthedocs.io/>`_ python package.
+* MCNP Input file, built on the lossless `migjorn <https://pypi.org/project/migjorn/>`_ MCNP parser.
   (`Examples <examples/input/jupyters/mcnp_inp.html#mcnp-input-files>`_)
 * MCNP Output file (`Examples <examples/output/jupyters/mcnp_out.html#mcnp-output-files>`_)
 * MCTAL file (`Examples <examples/output/jupyters/mctal.html#mctal-file>`_)
@@ -83,4 +83,3 @@ Both Linux and Windows OS are supported and tested.
 
 * compatibilty with newer output formats brought by MCNP v6.3
 * increase features in all modules depending on needs
-* change MCNP input parser engine from ``numjuggler`` to something more robust

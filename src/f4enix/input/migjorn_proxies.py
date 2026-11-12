@@ -1,10 +1,15 @@
 import hashlib
+import re
+
 import migjorn
 from collections.abc import MutableMapping
 from f4enix.core.errors import InvalidCardError
 
 # data cards that are not handled by the other_data proxy
 NOT_OTHER_MNEMONICS = ("m", "mx", "tr")
+# material cards are owned by Input.mat_section: the Mn/MX cards left in the
+# model are only position placeholders, overwritten at write time
+MATERIAL_MNEMONICS = ("m", "mx")
 
 
 def _replace_card(card, add, text: str) -> None:
@@ -175,16 +180,30 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
     def __init__(self, model: migjorn.Model) -> None:
         self._model = model
 
+    def _cards(self) -> list[migjorn.DataCard]:
+        """Data cards reachable through the proxy (materials excluded)."""
+        return [
+            card
+            for card in self._model.data_cards()
+            if card.mnemonic not in MATERIAL_MNEMONICS
+        ]
+
     def __getitem__(self, key: str) -> migjorn.DataCard:
         # check if particles are specified in the key (e.g. F6:N,P)
 
-        for card in self._model.data_cards():
+        for card in self._cards():
             if self._match(key, card):
                 return card
 
         raise KeyError(f"Card {key} not found in data cards")
 
     def __setitem__(self, key: str, value: str | migjorn.DataCard) -> None:
+        mnemonic = re.match(r"\*?([a-z]*)", key.lower()).group(1)
+        if mnemonic in MATERIAL_MNEMONICS:
+            raise ValueError(
+                "Material cards cannot be set through other_data, "
+                "use Input.mat_section instead"
+            )
         try:
             del self[key]  # remove existing card if it exists
         except KeyError:
@@ -195,7 +214,7 @@ class _OtherDataProxy(MutableMapping[str, migjorn.DataCard]):
             self._model.add_data_card(value.text)
 
     def __delitem__(self, key: str) -> None:
-        for card in self._model.data_cards():
+        for card in self._cards():
             if self._match(key, card):
                 card.remove()
                 return

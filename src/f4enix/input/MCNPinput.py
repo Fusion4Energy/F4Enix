@@ -96,10 +96,9 @@ class Input:
             title line and any leading comment lines before the first cell.
 
         """
+        # Mn/MX cards stay in the model only as position placeholders: the
+        # source of truth is mat_section, synced back at write time.
         self._model = model
-        # remove all materials from migjorn model to avoid confusion
-        for mat in self._model.materials():
-            mat.remove()
         self._mat_section = mat_section
 
     def __deepcopy__(self, memo: dict) -> "Input":
@@ -144,6 +143,8 @@ class Input:
         """Proxy mapping of non-material, non-transform data card texts.
 
         Supports ``inp.other_data['SI70'] = 'SI70 L 1\\n'`` to add or replace a card.
+        Material (``Mn``/``MX``) cards are not reachable here: use
+        :py:attr:`mat_section` instead (setting one raises ``ValueError``).
         """
         return _OtherDataProxy(self._model)
 
@@ -229,6 +230,11 @@ class Input:
     def write(self, outfilepath: os.PathLike | str, wrap: bool = False) -> None:
         """Write the input to a file.
 
+        Materials are taken from ``mat_section`` and written at the position
+        of the original material cards (MX cards right after their material).
+        Materials not present in the original input are written after the
+        last material, removed ones are dropped.
+
         Parameters
         ----------
         outfilepath : os.PathLike | str
@@ -236,10 +242,8 @@ class Input:
         wrap : bool
             ignored (kept for API compatibility); migjorn output is lossless
         """
-        # materials are handled by mat_section: add them to a copy of the model
         model = self._model.copy()
-        for mat in self.mat_section.materials:
-            model.add_material(mat.to_text())
+        _sync_materials(model, self.mat_section)
         logging.info(f"Writing to {outfilepath}")
         model.save(outfilepath)
         logging.info("File was written correctly")
@@ -264,6 +268,9 @@ class Input:
                 f"The following materials are duplicated {intersection}"
             )
 
+        # mat_section is the source of truth: drop stale Mn placeholders
+        _prune_materials(self._model, self._mat_section)
+        _prune_materials(other_inp._model, other_inp._mat_section)
         self._model.merge([other_inp._model])
         self._mat_section.extend(other_inp._mat_section.materials)
 
@@ -360,8 +367,10 @@ class Input:
     ) -> Input:
         """given a list of cells, dumps a minimum MCNP working file.
 
-        The file will includes all the requested cells, defined surfaces,
-        materials and translations.
+        The file will include all the requested cells (plus the cells they
+        need through FILL, LIKE n BUT and #n), their surfaces and the
+        materials they use. All transformations and other data cards of the
+        original input are kept.
 
         Parameters
         ----------
@@ -382,9 +391,16 @@ class Input:
         """
         logging.info("write MCNP reduced input")
         cell_ids = [int(c) for c in cells]
-        # not sure if extract_cells does some modification inplace
         newmodel = self._model.extract_cells(cell_ids)
-        extracted_inp = Input(newmodel, deepcopy(self.mat_section))
+        # keep only the materials used by the extracted cells (fillers and
+        # LIKE n BUT bases included, as pulled in by migjorn)
+        used = set()
+        for cell in newmodel.cells():
+            used.update((cell.material, cell.material_override))
+        materials = [
+            deepcopy(mat) for mat in self.mat_section if int(mat.name[1:]) in used
+        ]
+        extracted_inp = Input(newmodel, MatCardsList(materials))
 
         # renumber if requested
         if renumber_offsets is not None:
@@ -1625,6 +1641,52 @@ def _convert_range_to_string(current_range: list[int]) -> str:
         result += f"{current_range[-1] - current_range[0] - 1}I "
         result += f"{current_range[-1]} "
     return result
+
+
+def _prune_materials(model: migjorn.Model, mat_section: MatCardsList) -> None:
+    """Remove from the model the Mn cards that are no longer in mat_section."""
+    for handle in model.materials():
+        if f"M{handle.id}" not in mat_section.matdic:
+            handle.remove()
+
+
+def _sync_materials(model: migjorn.Model, mat_section: MatCardsList) -> None:
+    """Write the materials of mat_section into the model, keeping positions.
+
+    Each Mn card still in the model is rewritten in place (or removed if no
+    longer in mat_section); materials new to the model are added after the
+    last material. MX cards are placed right after their material.
+
+    Parameters
+    ----------
+    model : migjorn.Model
+        model to update (modified in place).
+    mat_section : MatCardsList
+        materials to be written.
+    """
+    _prune_materials(model, mat_section)
+    for mx in model.data_cards("mx"):
+        mx.remove()
+
+    def add_mx(mat, after):
+        # returns the last card written, to chain the next insertion
+        for mx in mat.mx_cards:
+            after = model.add_data_card(mx, after=after)
+        return after
+
+    in_model = set()
+    last = None
+    for handle in model.materials():
+        mat = mat_section.matdic[f"M{handle.id}"]
+        handle.text = mat.to_text(include_mx=False) + "\n"
+        last = add_mx(mat, handle)
+        in_model.add(handle.id)
+
+    for mat in mat_section.materials:
+        if int(mat.name[1:]) in in_model:
+            continue
+        text = mat.to_text(include_mx=False) + "\n"
+        last = add_mx(mat, model.add_data_card(text, after=last))
 
 
 def _insert_parenthesis_modifier(cell: migjorn.Cell, modifier: str) -> None:

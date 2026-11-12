@@ -37,12 +37,7 @@ from contextlib import contextmanager
 from decimal import Decimal
 import pandas as pd
 
-from f4enix.core.constants import (
-    AVOGADRO_NUMBER,
-    PAT_COMMENT,
-    PAT_MAT,
-    PAT_KEY_VALUE,
-)
+from f4enix.core.constants import AVOGADRO_NUMBER, PAT_MAT
 from f4enix.input.libmanager import LibManager, get_default_libmanager
 from f4enix.core.irradiation import Nuclide
 
@@ -341,26 +336,15 @@ class Material:
             generated material.
 
         """
-        zaids = []
-        for zaid, fraction in material.entries:
-            zaid = Zaid(fraction, Nuclide.from_int_string(zaid))
-            zaids.append(zaid)
-
-        header = "\n".join(f"C {line}".rstrip() for line in material.header)
-
-        body_lines = []
-        for line in material.text.splitlines():
-            if PAT_COMMENT.match(line):
-                continue
-            body_lines.append(line.split("$")[0])
-        # check for additional keys
-        keys = PAT_KEY_VALUE.findall("\n".join(body_lines))
-
+        zaids = [
+            Zaid(fraction, Nuclide.from_int_string(zaid))
+            for zaid, fraction in material.entries
+        ]
         return cls(
             f"M{material.id}",
             zaids=zaids,
-            header=header,
-            additional_keys=keys,
+            header="\n".join(f"C {line}".rstrip() for line in material.header),
+            additional_keys=[f"{k}={v}" for k, v in material.keywords.items()],
         )
 
     @classmethod
@@ -498,10 +482,15 @@ class Material:
 
         return elemList, collapsed_zaids
 
-    def to_text(self) -> str:
+    def to_text(self, include_mx: bool = True) -> str:
         """
         Write the material card to MCNP-formatted text.
 
+        Parameters
+        ----------
+        include_mx : bool, optional
+            if True (default) the MX cards are appended after the material
+            card.
 
         Returns
         -------
@@ -538,8 +527,9 @@ class Material:
             for key in self.additional_keys:
                 text = text + " " + key
         # Add mx cards
-        for mx in self.mx_cards:
-            text = text + "\n" + mx.upper()
+        if include_mx:
+            for mx in self.mx_cards:
+                text = text + "\n" + mx.upper()
 
         return text.strip("\n")
 
@@ -1096,9 +1086,9 @@ class MatCardsList(Sequence[Material]):
 
         mat_card_list = cls(materials)
 
+        # the model is left untouched: Input.write() re-syncs Mn and MX cards
         for card in model.data_cards("mx"):
             mat_card_list[f"M{card.number}"].mx_cards.append(card.text)
-            card.remove()
 
         return mat_card_list
 
