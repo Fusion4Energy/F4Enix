@@ -372,16 +372,37 @@ def _to_label_array(labels: list) -> np.ndarray:
     return array
 
 
+# MCTAL detector codes and MCNP 6 particles, in the order of the flags line
+_DETECTOR = {
+    None: 0,
+    "point": 1,
+    "ring": 2,
+    "pinhole image": 3,
+    "rectangular image": 4,
+    "cylindrical image": 5,
+}
+_PARTICLES = "npe|quvfhl+-xyo!<>g/zk%^b_~cw@dtsa*?#"
+# MCNP writes FC comments in lines of 75 columns
+_COMMENT_WIDTH = 75
+
+
 def _tally_from_aci(aci_tally: aci_mctal.Tally) -> Tally:
     tally = Tally(aci_tally.id)
-    tally.typeNumber = aci_tally.particle_code
-    tally.detectorType = aci_tally.detector_code
+    # MCNP 6 form: minus the number of particles, which the flags line gives
+    tally.typeNumber = -len(aci_tally.particles)
+    tally.tallyParticles = np.array(
+        [int(p in aci_tally.particles) for p in _PARTICLES], dtype=int
+    )
+    mesh = aci_tally.mesh
+    # negative for a TMESH mesh tally: minus its geometry (1 rec, 2 cyl, 3 sph)
+    tally.detectorType = -mesh["geometry"] if mesh else _DETECTOR[aci_tally.detector]
     tally.mesh = tally.detectorType <= -1
     tally.radiograph = tally.detectorType >= 3
-    flags = aci_tally.particle_flags
-    if flags is not None:
-        tally.tallyParticles = np.array(flags, dtype=int)
-    tally.tallyComment = list(aci_tally.comment_lines)
+    comment = aci_tally.comment or ""
+    tally.tallyComment = [
+        comment[i : i + _COMMENT_WIDTH].rstrip()
+        for i in range(0, len(comment), _COMMENT_WIDTH)
+    ]
     tally.axes = _build_axes(tally, aci_tally)
     # aci-tallies keeps MCNP's eight axes in the order of the VALS array
     tally.values = np.column_stack(
@@ -401,7 +422,6 @@ def _listed(axis: aci_tallies.Axis) -> list[float]:
 
 def _build_axes(tally: Tally, aci_tally: aci_mctal.Tally) -> list[Axis]:
     aci_axes = aci_tally.axes
-    counts = aci_tally.bin_counts
     axes: list[Axis] = []
 
     if tally.mesh:
@@ -427,8 +447,8 @@ def _build_axes(tally: Tally, aci_tally: aci_mctal.Tally) -> list[Axis]:
         _check_size(tally, "Cells", labels, size)
         axes.append(("Cells", labels, size))
 
-    n = counts[1]
-    axes.append(("Dir", list(range(n)) if n > 0 else None, max(n, 1)))
+    n = len(aci_axes["d"])
+    axes.append(("Dir", list(range(n)), n))
 
     axes.append(_listed_axis(tally, "User", aci_axes["u"]))
 
@@ -438,9 +458,10 @@ def _build_axes(tally: Tally, aci_tally: aci_mctal.Tally) -> list[Axis]:
     labels = list(range(1, n_real + 1)) + [TOTAL] * (size - n_real)
     axes.append(("Segments", labels, size))
 
-    n = counts[4]
     axis = aci_axes["m"]
-    if n > 0:
+    n = len(axis)
+    # a single multiplier bin (no FM card) is not binned
+    if n > 1 or axis.total:
         n_real = n - 1 if axis.total else n
         labels = list(range(n_real)) + [TOTAL] * (n - n_real)
         axes.append(("Multiplier", labels, n))
