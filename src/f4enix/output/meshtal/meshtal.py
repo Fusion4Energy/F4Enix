@@ -1,32 +1,27 @@
 from __future__ import annotations
 
-import io
 import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
+import aci_tallies
 import migjorn
 
-from f4enix.core.constants import (
-    PAT_FMESH_BINS,
-    PAT_FMESH_TAG,
-    PAT_NUCLIDE_LIST,
-    PathLike,
-)
+from f4enix.core.constants import PathLike
 from f4enix.input.MCNPinput import Input
 from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
 from f4enix.output.meshtal.fmesh import Fmesh
 from f4enix.output.meshtal.mesh_parser import (
-    CDGSMeshParser,
-    CUVMeshParser,
-    MeshtalParser,
+    AciCDGSMeshParser,
+    AciCUVMeshParser,
+    AciMeshtalParser,
     Parser,
 )
 
 PARSER_SELECTOR: dict[str, type[Parser]] = {
-    "MCNP": MeshtalParser,
-    "CDGS": CDGSMeshParser,
-    "CUV": CUVMeshParser,
+    "MCNP": AciMeshtalParser,
+    "CDGS": AciCDGSMeshParser,
+    "CUV": AciCUVMeshParser,
 }
 
 if TYPE_CHECKING:
@@ -65,9 +60,9 @@ class Meshtal:
         characters per bin, so 8-digit ids such as metastable nuclides (e.g. Nb92m =
         41092900) overflow to '**********' and the file cannot be parsed. Each
         nuclide list is rebuilt from the ``emesh`` (or ``tmesh``)
-        keyword of the corresponding FMESH card of the MCNP input, then the
-        corrected meshtal is parsed from memory (the original file is not
-        modified). ``eints``/``tints`` are not supported for the nuclide bins.
+        keyword of the corresponding FMESH card of the MCNP input (by
+        aci-tallies, which also takes the exact mesh geometry from the input).
+        ``eints``/``tints`` are not supported for the nuclide bins.
 
         Parameters
         ----------
@@ -87,26 +82,12 @@ class Meshtal:
         >>> meshtal = Meshtal.from_d1s_meshtal("meshtal", inp)
         >>> meshtal.readMesh()
         """
-        nuclide_lists = {
-            str(card.number): _d1s_nuclide_lists(card.text)
-            for card in inp._model.data_cards("fmesh")
-        }
-
-        lines = []
-        tally = None
-        n_list = 0
-        with open(filename) as infile:
-            for line in infile:
-                if line.startswith(" Mesh Tally Number"):
-                    tally = line[18:].strip()
-                    n_list = 0
-                match = PAT_NUCLIDE_LIST.match(line)
-                if match:
-                    bins = " ".join(nuclide_lists[tally][n_list])
-                    line = f"{match.group()} {bins}\n"
-                    n_list += 1
-                lines.append(line)
-        return cls(io.StringIO("".join(lines)))
+        meshtal = cls.__new__(cls)
+        meshtal.filetype = "MCNP"
+        aci_input = aci_tallies.Input.from_text(inp._model.to_source())
+        meshtal._meshtal_parser = AciMeshtalParser(filename, input=aci_input)
+        meshtal.mesh = {}
+        return meshtal
 
     def create_filtered_mesh(
         self,
@@ -135,9 +116,7 @@ class Meshtal:
         Fmesh
             Filtered Fmesh object containing only the specified bins.
         """
-        etbin_data = self.mesh[mesh_id].get_etbin_data(ebin=ebin, tbin=tbin)
-        etbin_mesh = Fmesh(etbin_data, str(mesh_id), trsf=None, binlabels=binlabels)
-        return etbin_mesh
+        return self.mesh[mesh_id].select_bins(ebin=ebin, tbin=tbin, binlabels=binlabels)
 
     def readMesh(
         self,
@@ -295,16 +274,3 @@ class Meshtal:
     def mesh_ids(self) -> list[int]:
         """Returns the list of mesh IDs."""
         return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
-
-
-def _d1s_nuclide_lists(card_text: str) -> list[list[str]]:
-    """Nuclide lists of a D1SUNED FMESH card, in the order of the meshtal header."""
-    text = "\n".join(line.split("$")[0] for line in card_text.splitlines())
-    text = text.replace("&", " ")
-    tags = {k.lower(): v.lower() for k, v in PAT_FMESH_TAG.findall(text)}
-    values = {k.lower(): v.split() for k, v in PAT_FMESH_BINS.findall(text)}
-    return [
-        ["0.001"] + [f"{nuc}.{i:03d}" for i, nuc in enumerate(values[f"{axis}mesh"], 2)]
-        for axis in ("t", "e")
-        if tags.get(f"{axis}tag") in ("nuc", "parent")
-    ]

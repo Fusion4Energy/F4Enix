@@ -47,8 +47,6 @@ PAT_MAT = re.compile(r"[\s\t]*[mM]\d+")
 PAT_MX = re.compile(r"[\s\t]*mx\d+", re.IGNORECASE)
 PAT_KEY_VALUE = re.compile(r"[A-Za-z]+=[A-Za-z0-9\.\+\-]+")
 SCIENTIFIC_PAT = re.compile(r"[-+]?\d*\.\d+(?:[eE][+-]?\d+)?")
-# Fortran drops the "E" of three-digit exponents (e.g. 1.77613-306)
-PAT_FORTRAN_EXP3 = re.compile(r"(?<=[0-9.])([+-]\d{3})$")
 PAT_FMESH_KEY = re.compile(r"^FMESH\d+")
 PAT_NP = re.compile(r"(?<=:)[nN,pP]+")
 PAT_ALL_TALLY_KEYS = re.compile(
@@ -58,12 +56,6 @@ PAT_ALL_TALLY_KEYS = re.compile(
 PAT_SOURCE_KEYS = re.compile(
     r"^((sdef|kcode|ksrc|ssr)$|(si|sp|sb|ds|sc)\d+$)", re.IGNORECASE
 )
-# Fortran drops the 'E' for 3-digit exponents (e.g. '1.60682-113')
-PAT_MISSING_EXP = re.compile(r"(?<=[\d.])([+-])(?=\d)")
-# D1SUNED nuclide binned meshes (etag/ttag = nuc or parent)
-PAT_NUCLIDE_LIST = re.compile(r"^\s*(?:Daughter|Parent) Nuclides list:")
-PAT_FMESH_TAG = re.compile(r"\b([et]tag)\s*=?\s*([a-z]+)", re.IGNORECASE)
-PAT_FMESH_BINS = re.compile(r"\b([et]mesh)\s*=?\s*((?:\d+\s*)+)", re.IGNORECASE)
 # --- Plotter ---
 # coordinates are in meters
 # ITER_Z_LEVELS = [
