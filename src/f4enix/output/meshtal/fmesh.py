@@ -14,13 +14,30 @@ from tqdm import tqdm
 
 from f4enix.core.constants import PathLike
 from f4enix.output.meshtal.aux_meshtal_functions import (
+    COLUMN_LABELS,
+    CustomTuple,
     ExtraBin,
+    _get_labels,
+    _get_rotation_matrix,
     _rectilinear_grid,
     _structured_grid,
 )
 
 if TYPE_CHECKING:
+    import aci_tallies
     import pyvista as pv
+
+PARTICLES = ("neutron", "photon", "electron", "proton", "deuteron")
+# ExtraBin tags of the discrete bins of aci-tallies axes
+_LABEL_TAGS = {
+    "nuclide": "nuc",
+    "parent": "nuc",
+    "cell": "cel",
+    "decay_time": "dtme",
+    "line": "line",
+}
+# MCNP's default time bin, when there is no TMESH
+_NO_TMESH = (0.0, 1e36)
 
 ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
@@ -248,6 +265,7 @@ class Fmesh(MeshData):
         meshLabel: str,
         trsf: None | tuple = None,
         binlabels: tuple[str] | None = None,
+        grid: pv.DataSet | None = None,
     ):
         super().__init__(
             mesh.geom,
@@ -272,6 +290,9 @@ class Fmesh(MeshData):
         binlabels : tuple[str] | None, optional
             Labels for the bins in the mesh. If None, default labels are used.
             Default is None.
+        grid : pv.DataSet | None, optional
+            Grid to use instead of building one from the mesh data. Default is
+            None.
 
         
         Attributes
@@ -286,9 +307,104 @@ class Fmesh(MeshData):
         self._type = None
         self._comments = None
         self._particle = None
-        self.grid: pv.DataSet = self._create_grid(binlabels=binlabels)
+        if grid is None:
+            grid = self._create_grid(binlabels=binlabels)
+        self.grid: pv.DataSet = grid
         self._strength = None
         self._cooling_time = None
+        self._aci: aci_tallies.meshtal.MeshTally | None = None
+
+    @classmethod
+    def from_aci(
+        cls,
+        tally: aci_tallies.meshtal.MeshTally,
+        binlabels: tuple[str] | None = None,
+        tags: tuple[str, str] | None = None,
+    ) -> Fmesh:
+        """Build an Fmesh from a mesh tally read by aci-tallies.
+
+        Parameters
+        ----------
+        tally : aci_tallies.meshtal.MeshTally
+            the mesh tally.
+        binlabels : tuple[str] | None, optional
+            labels of the value and error arrays of the grid, by default
+            ("Value - Total", "Error - Total").
+        tags : tuple[str, str] | None, optional
+            ExtraBin tags of the energy and time bins of a mesh the tally was
+            selected from (what a selected Total of discrete bins was), by default
+            None.
+
+        Returns
+        -------
+        Fmesh
+            the mesh, its data, and a PyVista grid of it (the exact geometry of
+            the mesh, cylinders included).
+        """
+        geometry = tally.geometry
+        geom = "cyl" if geometry.kind == "cylindrical" else "rec"
+        x1bin, x2bin, x3bin = (np.asarray(b, dtype=float) for b in geometry.bounds)
+        etag, ttag = tags or ("erg", "tme")
+        ebin = _extra_bin(tally.energy, "erg", etag)
+        tbin = _extra_bin(tally.time, "tme", ttag)
+        # aci-tallies: (energy, time, i, j, k); F4Enix: (time, energy, k, j, i, 2)
+        data = np.stack([tally.result, tally.rel_error], axis=-1)
+        data = np.ascontiguousarray(data.transpose(1, 0, 4, 3, 2, 5))
+        mesh = MeshData(geom, x1bin, x2bin, x3bin, ebin, tbin, data)
+
+        trsf = None
+        if geom == "cyl":
+            trsf = _cyl_transformation(geometry.origin, geometry.axis, geometry.vec)
+        grid = _aci_grid(tally, binlabels or COLUMN_LABELS)
+        fmesh = cls(mesh, str(tally.id), trsf=trsf, grid=grid)
+        fmesh._comments = tally.comment
+        fmesh._particle = next((p for p in PARTICLES if p in tally.particle), "")
+        fmesh._aci = tally
+        return fmesh
+
+    def select_bins(
+        self, ebin: int | None = None, tbin: int | None = None, binlabels=None
+    ) -> Fmesh:
+        """A new Fmesh with only energy bin `ebin` and time bin `tbin` (None: all of
+        them). Indices count the Total bin, last: -1 is the Total, when there is
+        one.
+
+        Parameters
+        ----------
+        ebin : int | None, optional
+            energy bin, by default None
+        tbin : int | None, optional
+            time bin, by default None
+        binlabels : tuple[str] | None, optional
+            labels of the value and error arrays of the grid, by default None
+
+        Returns
+        -------
+        Fmesh
+            the selected bins of this mesh.
+        """
+        if self._aci is None:
+            data = self.get_etbin_data(ebin=ebin, tbin=tbin)
+            return Fmesh(data, self.tally, trsf=None, binlabels=binlabels)
+        tally = self._aci
+        selection = {}
+        for name, index, axis in (
+            ("energy", ebin, tally.energy),
+            ("time", tbin, tally.time),
+        ):
+            if index is None:
+                continue
+            index = index + len(axis) if index < 0 else index
+            if not 0 <= index < len(axis):
+                raise IndexError(f"{name} bin {index} out of {len(axis)}")
+            selection[name] = "total" if index == axis.total_index else index
+        selected = tally.isel(**selection)
+        fmesh = Fmesh.from_aci(
+            selected, binlabels=binlabels, tags=(self.ebin.type, self.tbin.type)
+        )
+        for attr in ("_type", "_strength", "_cooling_time"):
+            setattr(fmesh, attr, getattr(self, attr))
+        return fmesh
 
     @property
     def trsf(self):
@@ -406,12 +522,13 @@ class Fmesh(MeshData):
         val = None
         err = None
         # Check if the mesh is 1D
-        if self.nx1 == 1 and self.nx2 == 1 and len(self.ebin) > 2:  # 1D Energy mesh
-            if (self.geom == "cyl" and self.nx3 == 2) or self.nx3 == 1:
-                col = "Energy"
-                idx_vals = self.ebin[1:]
-                val = self.data[0, : self.ne - 1, 0, 0, 0, 0]
-                err = self.data[0, : self.ne - 1, 0, 0, 0, 1]
+        if (
+            self.nx1 == 1 and self.nx2 == 1 and self.nx3 == 1 and len(self.ebin) > 2
+        ):  # 1D Energy mesh
+            col = "Energy"
+            idx_vals = self.ebin[1:]
+            val = self.data[0, : self.ne - 1, 0, 0, 0, 0]
+            err = self.data[0, : self.ne - 1, 0, 0, 0, 1]
         elif self.nx1 == self.nx2 == 1:  # z axis
             col = "Cor C"
             idx = self.nx3
@@ -440,8 +557,14 @@ class Fmesh(MeshData):
                 )
             )
         if val is None:
-            val = self.grid["Value - Total"][:idx]
-            err = self.grid["Error - Total"][:idx]
+            if self.ne > 1 or self.nt > 1:
+                raise RuntimeError(
+                    "convert2tally can only be used for 1D meshes without energy "
+                    "or time bins"
+                )
+            # one spatial axis: the voxels in order along it
+            val = self.data[0, 0, :, :, :, 0].reshape(-1)[:idx]
+            err = self.data[0, 0, :, :, :, 1].reshape(-1)[:idx]
         data = {
             col: idx_vals,
             "Value": val,
@@ -780,6 +903,75 @@ def rescale_dose_map_vtk(
     total_array = np.sum(np.stack(rescaled_arrays, axis=0), axis=0)
     new_grid.cell_data[f"{arr_prefix}Tot"] = total_array
     return new_grid
+
+
+def _extra_bin(axis: aci_tallies.Axis, tag: str, discrete_tag: str) -> ExtraBin:
+    """An aci-tallies energy or time axis as an F4Enix ExtraBin. `discrete_tag` is
+    the tag of a selected Total of discrete bins (a bin of -1, as F4Enix has it)."""
+    if axis.labels is not None:
+        return ExtraBin(np.asarray(axis.labels, dtype=float), _LABEL_TAGS[axis.kind])
+    bounds = axis.bounds
+    if bounds is None:
+        if axis.n_bins == 1 and discrete_tag not in ("erg", "tme"):
+            return ExtraBin(np.array([-1.0]), discrete_tag)
+        raise ValueError(f"Unsupported {tag} bins: {axis!r}")
+    if tag == "tme" and tuple(bounds) == _NO_TMESH:
+        # no time bins: F4Enix's default one
+        return ExtraBin(np.array([0.0, 1e20]), "tme", explicitbin=False)
+    return ExtraBin(np.asarray(bounds, dtype=float), tag)
+
+
+def _cyl_transformation(origin, axis, vec) -> CustomTuple | None:
+    """The transformation of a cylindrical mesh, as F4Enix gives it: None for a
+    mesh at the origin along Z (with X as its theta reference)."""
+    origin = np.asarray(origin, dtype=float)
+    axis = np.asarray(axis, dtype=float)
+    vec = None if vec is None else np.asarray(vec, dtype=float)
+    axis_z = abs(axis.dot(np.array((0, 0, 1.0))) - 1.0) < 1e-12
+    # as F4Enix's header parser did (it tests the axis, not VEC, against X), so
+    # that a cylinder with a VEC always has its transformation (used by ww_gvr)
+    axis_x = None if vec is None else abs(axis.dot(np.array((1.0, 0, 0))) - 1.0) < 1e-12
+    if axis_z and (axis_x is None or axis_x):
+        rotmat = None
+    else:
+        rotmat = _get_rotation_matrix(axis, vec)
+    if np.linalg.norm(origin) < 1e-12 and rotmat is None:
+        return None
+    if rotmat is None:
+        rotmat = np.identity(3)
+    result = CustomTuple(origin, rotmat)
+    result.origin = origin
+    result.vec = vec
+    result.axis = axis
+    return result
+
+
+def _aci_grid(
+    tally: aci_tallies.meshtal.MeshTally, labels: tuple[str, str]
+) -> pv.DataSet:
+    """The PyVista grid of an aci-tallies mesh tally, with F4Enix's array names
+    (`Value - Total`, `Value - Total_e001`, ..., `Error - Total_tTot_eTot`) in
+    F4Enix's order, as float32."""
+    grid = tally.to_pyvista(fields=["result", "rel_error"])
+    ne, nt = len(tally.energy), len(tally.time)
+    f4e_labels = _get_labels(nt, ne, labels)
+    arrays = {}
+
+    def suffix(axis, idx: int, name: str) -> str:
+        if len(axis) == 1:
+            return ""
+        return f"_{name}{'total' if idx == axis.total_index else idx}"
+
+    for it in range(nt):
+        for ie in range(ne):
+            aci = suffix(tally.energy, ie, "e") + suffix(tally.time, it, "t")
+            val_label, err_label = f4e_labels[it][ie]
+            arrays[val_label] = grid.cell_data[f"result{aci}"].astype(np.float32)
+            arrays[err_label] = grid.cell_data[f"rel_error{aci}"].astype(np.float32)
+    grid.clear_cell_data()
+    for name, values in arrays.items():
+        grid.cell_data[name] = values
+    return grid
 
 
 def _clean_path(name: str) -> str:

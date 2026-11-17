@@ -64,6 +64,7 @@ Every new source file must include the standard **EUPL-1.2** copyright header (c
 
 ### Dependencies
 - `migjorn` — lossless Rust-based MCNP input parser backing `Input` (pinned to a minor series, e.g. `>= 0.4.0, < 0.5`). Materials are owned by `Input.mat_section`; the `Mn`/`MX` cards left in the migjorn model are only position placeholders, rewritten in place by `Input.write()`.
+- `aci-tallies` — Rust-based reader of MCTAL, meshtal, D1SUNED CuV and CDGS files backing `Mctal`, `Meshtal` (`MCNP`, `CUV`, `CDGS`) and `Fmesh.from_aci` (pinned to a minor series). F4Enix has no text parsers of its own for these formats anymore: missing format support goes into aci-tallies. To develop against an unreleased version: `pip install -e ../aci-tallies`.
 - `pyvista` — mesh visualization; only needed for `plotter.py`-related code.
 - `polars` and `pandas` both used for tabular data — check which a module uses before adding dataframe operations.
 

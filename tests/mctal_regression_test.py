@@ -28,6 +28,17 @@ FIXTURES = [
 ]
 # legacy parser only kept 10 of the 12 radiograph t-axis bins
 INCOMPLETE_LEGACY = {"mctal_radio"}
+# Single-value tallies whose MCTAL says `m 1`: the legacy parser kept a constant
+# Multiplier = 0 column for them (and for no other tally with one multiplier
+# bin); aci-tallies reads `m 0` and `m 1` alike, as one bin, so the new parser
+# has no Multiplier column there. Values are the same.
+NO_MULTIPLIER_COLUMN = {
+    "error_summary.m": {
+        *(1000 + 100 * i + 34 for i in range(1, 10)),
+        *(1000 + 100 * i + 44 for i in range(1, 10)),
+    },
+    "test_m": {4, 14, 24, 34, 44},
+}
 
 
 def _labels(df: pd.DataFrame) -> list[str]:
@@ -66,6 +77,10 @@ def test_regression(filename):
         assert _keys(raw_new_df, _labels(raw_new_df)).is_unique, tally_number
         new_df = _normalize_new(raw_new_df)
         legacy_df = _normalize_legacy(legacy_df)
+        if tally_number in NO_MULTIPLIER_COLUMN.get(filename, set()):
+            assert len(legacy_df) == 1 and (legacy_df["Multiplier"] == 0).all()
+            assert "Multiplier" not in new_df.columns, tally_number
+            legacy_df = legacy_df.drop(columns="Multiplier")
 
         assert set(new_df.columns) == set(legacy_df.columns), tally_number
         label_cols = _labels(new_df)

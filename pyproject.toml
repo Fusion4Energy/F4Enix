@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "migjorn >= 0.4.0, < 0.5",
+    "aci-tallies >= 0.1.3, < 0.2",
     "pyvista >= 0.39.1, < 0.50",
     "pandas < 4",
     "polars < 2",

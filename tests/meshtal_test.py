@@ -11,7 +11,6 @@ import tests.resources.meshtal.tests as res
 from f4enix.core.constants import TIME_UNITS
 from f4enix.input.d1suned import IrradiationFile
 from f4enix.input.MCNPinput import Input
-from f4enix.output.meshtal.aux_meshtal_functions import _to_float
 from f4enix.output.meshtal.meshtal import Meshtal
 
 resources_write = files(res)
@@ -361,6 +360,69 @@ class TestMeshtal:
         meshtal.readMesh()
         meshtal.mesh[1].write(tmpdir)
 
+    def test_unsupported_sections(self):
+        # D1SUNED source importance meshes are listed but cannot be read
+        with as_file(RESOURCES.joinpath("test_srcimp")) as inp:
+            meshtal = Meshtal(inp)
+        assert meshtal.mesh_ids == [114, 5114, 8114]
+        with pytest.raises(ValueError, match="cannot be read"):
+            meshtal.readMesh(5114)
+
+    def test_cdgs_values(self):
+        with as_file(RESOURCES.joinpath("cdgs_test")) as inp:
+            meshtal = Meshtal(inp, filetype="CDGS")
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[1]
+        assert fmesh.type == "CDGS" and fmesh.particle is None
+        assert fmesh.cooling_time == 0.0
+        assert fmesh.strength == pytest.approx(2.0416e-3)
+        assert list(fmesh.ebin) == [0, 5, 10]
+        # the voxel totals add up to the mesh source
+        assert fmesh.data[0, -1, ..., 0].sum() == pytest.approx(2.0416e-3, rel=1e-4)
+        # voxel 1 (x, y, z indices 0, 0, 0): its two energy bins and Total
+        assert fmesh.data[0, :, 0, 0, 0, 0] == pytest.approx(
+            [8.81932e-04, 0.0, 8.81932e-04]
+        )
+
+    def test_negative_value_run_into_coordinate(self):
+        # "112.500-1.57688E-11": the value fills its field
+        with as_file(RESOURCES.joinpath("meshtal_bug")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh(114)
+        data = meshtal.mesh[114].data
+        assert not np.isnan(data).any()
+        assert (data[..., 0] < 0).any()
+
+    def test_d1s_discrete_bins(self):
+        with as_file(RESOURCES.joinpath("assembly_meshtal_test")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh([44, 9044, 9944])
+        assert meshtal.mesh[44].ebin.type == "nuc"
+        assert list(meshtal.mesh[44].ebin) == pytest.approx(
+            [0.001, 26059.002, 27060.003]
+        )
+        assert meshtal.mesh[9044].ebin.type == "nuc"  # parent nuclides
+        assert meshtal.mesh[9944].ebin.type == "cel"
+        assert list(meshtal.mesh[9944].ebin) == pytest.approx([0.001, 10.002, 20.003])
+        # 3 nuclides and their total
+        assert meshtal.mesh[44].data.shape == (1, 4, 2, 2, 2, 2)
+        assert "Value - Total_eTot" in meshtal.mesh[44].grid.array_names
+
+    def test_cylinder_grid_and_1d(self):
+        # a full-revolution theta bin is kept as one bin in the data; the grid
+        # is the exact cylinder (theta split in 5 degree cells)
+        with as_file(RESOURCES.joinpath("1D_mesh")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh(214)
+        fmesh = meshtal.mesh[214]
+        assert fmesh.geom == "cyl"
+        assert fmesh.data.shape == (1, 1, 1, 1, 79, 2)
+        assert list(fmesh.x3bin) == [0, 1]
+        assert fmesh.grid.n_cells == 79 * 72
+        _, df, _ = fmesh.convert2tally()
+        assert list(df.columns) == ["Cor A", "Value", "Error"]
+        assert list(df["Value"]) == pytest.approx(fmesh.data[0, 0, 0, 0, :, 0])
+
     @pytest.mark.parametrize("out", ["col", "cf"])
     def test_three_digit_exponent(self, tmp_path, out):
         # Fortran writes exponents with three digits without the "E"
@@ -439,17 +501,3 @@ class TestMeshtal:
                 ]
             )
         )
-
-
-@pytest.mark.parametrize(
-    ["text", "value"],
-    [
-        ("1.0E-03", 1e-3),
-        ("2", 2.0),
-        ("1.77613-306", 1.77613e-306),
-        ("-3.5+100", -3.5e100),
-        ("4.-120", 4e-120),
-    ],
-)
-def test_to_float(text, value):
-    assert _to_float(text) == pytest.approx(value)

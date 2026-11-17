@@ -19,12 +19,11 @@ and limitations under the Licence.
 
 import logging
 import os
-from math import prod
 
+import aci_tallies
 import numpy as np
 import pandas as pd
-
-from f4enix.core.constants import PAT_MISSING_EXP
+from aci_tallies import mctal as aci_mctal
 
 TOTAL = "total"
 # Dataframe column order (the order of the VALS array is given by Tally.axes)
@@ -41,9 +40,6 @@ COLUMNS = [
     "Cor B",
     "Cor A",
 ]
-_CARD_KEYS = frozenset(
-    [f"{letter}{flag}" for letter in "fdusmcet" for flag in ("", "t", "c")] + ["vals"]
-)
 
 # (column name, labels, size); labels is None for axes that are not binned
 Axis = tuple[str, "list | None", int]
@@ -171,9 +167,7 @@ class Mctal:
         self.thereAreNaNs = False
 
         logging.info("Parsing file: %s", self.mctalFileName)
-        with open(filepath, "r") as infile:
-            lines = infile.read().splitlines()
-        self.tallies = self._read(lines)
+        self.tallies = self._read(filepath)
 
         if self.thereAreNaNs:
             logging.warning(
@@ -288,102 +282,47 @@ class Mctal:
 
         self.tallydata[tally_number] = df
 
-    def _read(self, lines: list[str]) -> list[Tally]:
-        i = self._parse_header(lines)
+    def _read(self, filepath: os.PathLike | str) -> list[Tally]:
+        file = aci_mctal.open(filepath)
+        if file.failed:
+            id, why = file.failed[0]
+            raise ValueError(
+                f"Tally {id} of the MCTAL file {self.mctalFileName} could not be "
+                f"read: {why}"
+            )
+        self._read_header(file)
         tallies = []
-        n_lines = len(lines)
-        while i < n_lines:
-            key = lines[i][:5].lower()
-            if key == "tally":
-                tally, i = self._parse_tally(lines, i)
-                tallies.append(tally)
-            elif key == "kcode":
-                break
-            else:
-                # TFC block, not stored
-                i += 1
+        for aci_tally in file.read_all():
+            for warning in aci_tally.warnings:
+                logging.warning(
+                    "MCTAL file %s, tally %s: %s",
+                    self.mctalFileName,
+                    aci_tally.id,
+                    warning,
+                )
+            tally = _tally_from_aci(aci_tally)
+            if np.isnan(tally.values).any():
+                self.thereAreNaNs = True
+            tallies.append(tally)
         return tallies
 
-    def _parse_header(self, lines: list[str]) -> int:
+    def _read_header(self, file: aci_mctal.MctalFile) -> None:
         header = self.header
-        tokens = lines[0].split()
-        # kod, ver and probid are optional, knod nps rnr are always present
-        if len(tokens) >= 3:
-            header.knod, header.nps, header.rnr = (int(t) for t in tokens[-3:])
-            head = tokens[:-3]
-            if len(head) >= 2:
-                header.kod, header.ver = head[0], head[1]
-                header.probid = " ".join(head[2:])
-        header.title = lines[1].strip()
-
-        tokens = lines[2].split()
-        header.ntal = int(tokens[1])
-        if len(tokens) >= 4:
-            header.npert = int(tokens[3])
+        header.kod, header.ver = file.code
+        header.probid = file.probid
+        header.knod = file.dump
+        header.nps = file.histories
+        header.rnr = file.randoms
+        header.title = file.title
+        header.ntals = np.array(file.declared_ids, dtype=int)
+        header.ntal = len(header.ntals)
+        header.npert = file.perturbations
         if header.ntal == 0:
             raise ValueError(f"No tallies in the MCTAL file {self.mctalFileName}")
         if header.npert != 0:
             raise NotImplementedError(
                 "MCTAL files with perturbation cards are not supported"
             )
-
-        i = 3
-        ids = []
-        while i < len(lines) and lines[i][:5].lower() != "tally":
-            ids.extend(lines[i].split())
-            i += 1
-        header.ntals = np.array(ids, dtype=int)
-        return i
-
-    def _parse_tally(self, lines: list[str], i: int) -> tuple[Tally, int]:
-        tokens = lines[i].split()
-        tally = Tally(int(tokens[1]))
-        tally.typeNumber = int(tokens[2])
-        if len(tokens) > 3:
-            tally.detectorType = int(tokens[3])
-        tally.mesh = tally.detectorType <= -1
-        tally.radiograph = tally.detectorType >= 3
-        i += 1
-
-        if tally.typeNumber < 0:
-            tally.tallyParticles = np.array(lines[i].split(), dtype=int)
-            i += 1
-
-        while not _is_card(lines[i]):
-            tally.tallyComment.append(lines[i][5:].rstrip())
-            i += 1
-
-        # {letter: (card tokens, total/cumulative flag, listed values)}
-        cards: dict[str, tuple[list[str], str, list[str]]] = {}
-        while True:
-            tokens = lines[i].split()
-            key = tokens[0].lower()
-            i += 1
-            if key == "vals":
-                break
-            values = []
-            while not _is_card(lines[i]):
-                values.extend(lines[i].split())
-                i += 1
-            cards[key[0]] = (tokens, key[1:], values)
-
-        tally.axes = _build_axes(tally, cards)
-        n_tokens = 2 * prod(size for _, _, size in tally.axes)
-
-        tokens = []
-        while len(tokens) < n_tokens:
-            tokens.extend(lines[i].split())
-            i += 1
-        if len(tokens) != n_tokens:
-            raise ValueError(
-                f"Unexpected number of values in tally {tally.tallyNumber} of "
-                f"{self.mctalFileName}: expected {n_tokens}, found {len(tokens)}"
-            )
-        tally.values = _to_floats(tokens).reshape(-1, 2)
-        if np.isnan(tally.values).any():
-            self.thereAreNaNs = True
-
-        return tally, i
 
     def _get_dfs(
         self,
@@ -422,20 +361,6 @@ class Mctal:
         return tallydata, totalbin
 
 
-def _is_card(line: str) -> bool:
-    # card keywords start at column 1, comments and values are indented
-    if not line or line[0] == " ":
-        return False
-    return line.split(maxsplit=1)[0].lower() in _CARD_KEYS
-
-
-def _to_floats(tokens: list[str]) -> np.ndarray:
-    try:
-        return np.array(tokens, dtype=float)
-    except ValueError:
-        return np.array([PAT_MISSING_EXP.sub(r"E\1", t) for t in tokens], dtype=float)
-
-
 def _to_label_array(labels: list) -> np.ndarray:
     types = {type(label) for label in labels}
     if types <= {int}:
@@ -447,82 +372,122 @@ def _to_label_array(labels: list) -> np.ndarray:
     return array
 
 
-def _build_axes(
-    tally: Tally, cards: dict[str, tuple[list[str], str, list[str]]]
-) -> list[Axis]:
-    def card(letter: str) -> tuple[int, str, list[str], list[str]]:
-        tokens, flag, values = cards.get(letter, ([letter, "0"], "", []))
-        return int(tokens[1]), flag, values, tokens
+# MCTAL detector codes and MCNP 6 particles, in the order of the flags line
+_DETECTOR = {
+    None: 0,
+    "point": 1,
+    "ring": 2,
+    "pinhole image": 3,
+    "rectangular image": 4,
+    "cylindrical image": 5,
+}
+_PARTICLES = "npe|quvfhl+-xyo!<>g/zk%^b_~cw@dtsa*?#"
+# MCNP writes FC comments in lines of 75 columns
+_COMMENT_WIDTH = 75
 
+
+def _tally_from_aci(aci_tally: aci_mctal.Tally) -> Tally:
+    tally = Tally(aci_tally.id)
+    # MCNP 6 form: minus the number of particles, which the flags line gives
+    tally.typeNumber = -len(aci_tally.particles)
+    tally.tallyParticles = np.array(
+        [int(p in aci_tally.particles) for p in _PARTICLES], dtype=int
+    )
+    mesh = aci_tally.mesh
+    # negative for a TMESH mesh tally: minus its geometry (1 rec, 2 cyl, 3 sph)
+    tally.detectorType = -mesh["geometry"] if mesh else _DETECTOR[aci_tally.detector]
+    tally.mesh = tally.detectorType <= -1
+    tally.radiograph = tally.detectorType >= 3
+    comment = aci_tally.comment or ""
+    tally.tallyComment = [
+        comment[i : i + _COMMENT_WIDTH].rstrip()
+        for i in range(0, len(comment), _COMMENT_WIDTH)
+    ]
+    tally.axes = _build_axes(tally, aci_tally)
+    # aci-tallies keeps MCNP's eight axes in the order of the VALS array
+    tally.values = np.column_stack(
+        [aci_tally.result.reshape(-1), aci_tally.rel_error.reshape(-1)]
+    )
+    return tally
+
+
+def _listed(axis: aci_tallies.Axis) -> list[float]:
+    """The values listed on a bin line of the MCTAL file."""
+    if axis.bounds is not None:
+        return axis.bounds.tolist()
+    if axis.upper is not None:
+        return axis.upper.tolist()
+    return []
+
+
+def _build_axes(tally: Tally, aci_tally: aci_mctal.Tally) -> list[Axis]:
+    aci_axes = aci_tally.axes
     axes: list[Axis] = []
 
-    n, _, values, tokens = card("f")
     if tally.mesh:
-        # f card: n_bins, unknown, n_cora, n_corb, n_corc; values are the
-        # concatenated bin boundaries of the three axes
-        dims = [int(t) for t in tokens[3:6]]
-        coords = _to_floats(values).tolist()
-        edges = []
-        start = 0
-        for dim in dims:
-            # lower edges are used as labels
-            edges.append(coords[start : start + dim])
-            start += dim + 1
+        grid = aci_tally.mesh
+        if grid is None:
+            raise ValueError(f"Tally {tally.tallyNumber}: unreadable TMESH grid")
+        # the lower edges of the three axes are used as labels
+        edges = [bounds[:-1].tolist() for bounds in grid["bounds"]]
         for name, labels in zip(("Cor C", "Cor B", "Cor A"), edges[::-1]):
             axes.append((name, labels, len(labels)))
     else:
-        size = max(n, 1)
-        if values:
-            labels = [_cell_label(value, idx) for idx, value in enumerate(values)]
+        size = len(aci_axes["f"])
+        numbers = aci_tally.numbers
+        if numbers:
+            facets = aci_tally.facets or [None] * len(numbers)
+            labels = [
+                _cell_label(number, facet, idx)
+                for idx, (number, facet) in enumerate(zip(numbers, facets))
+            ]
         else:
             # e.g. detectors, where the cells are not listed
             labels = list(range(1, size + 1))
         _check_size(tally, "Cells", labels, size)
         axes.append(("Cells", labels, size))
 
-    n, _, _, _ = card("d")
-    axes.append(("Dir", list(range(n)) if n > 0 else None, max(n, 1)))
+    n = len(aci_axes["d"])
+    axes.append(("Dir", list(range(n)), n))
 
-    n, flag, values, _ = card("u")
-    axes.append(_listed_axis(tally, "User", n, flag, values))
+    axes.append(_listed_axis(tally, "User", aci_axes["u"]))
 
-    n, flag, _, _ = card("s")
-    size = max(n, 1)
-    n_real = size - 1 if flag == "t" else size
+    axis = aci_axes["s"]
+    size = len(axis)
+    n_real = size - 1 if axis.total else size
     labels = list(range(1, n_real + 1)) + [TOTAL] * (size - n_real)
     axes.append(("Segments", labels, size))
 
-    n, flag, _, _ = card("m")
-    if n > 0:
-        n_real = n - 1 if flag == "t" else n
+    axis = aci_axes["m"]
+    n = len(axis)
+    # a single multiplier bin (no FM card) is not binned
+    if n > 1 or axis.total:
+        n_real = n - 1 if axis.total else n
         labels = list(range(n_real)) + [TOTAL] * (n - n_real)
         axes.append(("Multiplier", labels, n))
     else:
         axes.append(("Multiplier", None, 1))
 
-    n, flag, values, _ = card("c")
+    axis = aci_axes["c"]
     if tally.radiograph:
         # the listed values are the n+1 boundaries of the t-axis grid
-        size = max(n, 1)
-        labels = _to_floats(values[:size]).tolist() or None
+        size = len(axis)
+        labels = _listed(axis)[:size] or None
         axes.append(("Cosine", labels, size))
     else:
-        axes.append(_listed_axis(tally, "Cosine", n, flag, values))
+        axes.append(_listed_axis(tally, "Cosine", axis))
 
-    n, flag, values, _ = card("e")
-    axes.append(_listed_axis(tally, "Energy", n, flag, values))
-
-    n, flag, values, _ = card("t")
-    axes.append(_listed_axis(tally, "Time", n, flag, values))
+    axes.append(_listed_axis(tally, "Energy", aci_axes["e"]))
+    axes.append(_listed_axis(tally, "Time", aci_axes["t"]))
 
     return axes
 
 
-def _listed_axis(tally: Tally, name: str, n: int, flag: str, values: list[str]) -> Axis:
-    size = max(n, 1)
-    labels = _to_floats(values).tolist()
+def _listed_axis(tally: Tally, name: str, axis: aci_tallies.Axis) -> Axis:
+    size = len(axis)
+    labels: list = _listed(axis)
     # the total bin has no listed boundary
-    if flag == "t" and len(labels) == size - 1:
+    if axis.total and len(labels) == size - 1:
         labels.append(TOTAL)
     if not labels:
         return (name, None, 1) if size == 1 else (name, list(range(size)), size)
@@ -530,13 +495,13 @@ def _listed_axis(tally: Tally, name: str, n: int, flag: str, values: list[str]) 
     return (name, labels, size)
 
 
-def _cell_label(value: str, idx: int) -> int | float | str:
-    number = float(value)
-    if number == 0:
+def _cell_label(number: int | None, facet: int | None, idx: int) -> int | float | str:
+    if number is None:
         # a zero stands for a union of cells/surfaces
         return f"Input {idx + 1}"
-    if number.is_integer():
-        return int(number)
+    if facet is not None:
+        # macrobody facet, e.g. 2.2
+        return float(f"{number}.{facet}")
     return number
 
 
