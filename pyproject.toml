@@ -24,7 +24,6 @@ dependencies = [
     "pandas < 4",
     "polars < 2",
     "numba < 0.68",
-    "tqdm < 5",
     "python-docx < 2",
     "openpyxl < 4",
     "tables < 4",

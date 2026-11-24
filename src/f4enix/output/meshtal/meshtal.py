@@ -9,27 +9,16 @@ import migjorn
 
 from f4enix.core.constants import PathLike
 from f4enix.input.MCNPinput import Input
-from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
-from f4enix.output.meshtal.fmesh import Fmesh
-from f4enix.output.meshtal.mesh_parser import (
-    AciCDGSMeshParser,
-    AciCUVMeshParser,
-    AciMeshtalParser,
-    Parser,
-)
-
-PARSER_SELECTOR: dict[str, type[Parser]] = {
-    "MCNP": AciMeshtalParser,
-    "CDGS": AciCDGSMeshParser,
-    "CUV": AciCUVMeshParser,
-}
+from f4enix.output.meshtal.fmesh import COLUMN_LABELS, Fmesh
 
 if TYPE_CHECKING:
     import pyvista as pv
 
 
 class Meshtal:
-    def __init__(self, filename: PathLike, filetype: str = "MCNP"):
+    def __init__(
+        self, filename: PathLike, filetype: str = "MCNP", inp: Input | None = None
+    ):
         """Meshtal class to read and handle meshtal files.
 
         Parameters
@@ -38,6 +27,8 @@ class Meshtal:
             path to the meshtal file to be read.
         filetype : str, optional
             Output type of the file, by default "MCNP". Other options are "CDGS" and "CUV".
+        inp : Input | None, optional
+            MCNP input of a "MCNP" meshtal, see `from_d1s_meshtal`. Default is None.
 
         Attributes
         ----------
@@ -46,13 +37,29 @@ class Meshtal:
         mesh : dict[int, Fmesh]
             Dictionary containing Fmesh objects indexed by their mesh ID.
         """
+        self.filename = filename
         self.filetype = filetype
-
-        self._meshtal_parser: Parser = PARSER_SELECTOR[self.filetype](filename)
         self.mesh: dict[int, Fmesh] = {}
+        if filetype == "MCNP":
+            if inp is not None:
+                inp = aci_tallies.Input.from_text(inp._model.to_source())
+            self._file = aci_tallies.meshtal.open(filename, input=inp)
+        elif filetype == "CUV":
+            self._file = aci_tallies.cuv.open(filename)
+        elif filetype == "CDGS":
+            self._file = aci_tallies.cdgs.open(filename)
+        else:
+            raise KeyError(f"Unknown filetype {filetype!r}: use MCNP, CUV or CDGS")
+
+    def __deepcopy__(self, memo: dict) -> Meshtal:
+        # the file only reads: it cannot be copied, nor needs to
+        memo[id(self._file)] = self._file
+        memo[id(self)] = new = self.__class__.__new__(self.__class__)
+        new.__dict__.update(deepcopy(self.__dict__, memo))
+        return new
 
     @classmethod
-    def from_d1s_meshtal(cls, filename: PathLike, inp: Input) -> "Meshtal":
+    def from_d1s_meshtal(cls, filename: PathLike, inp: Input) -> Meshtal:
         """Read a D1SUNED meshtal binned by nuclide.
 
         D1SUNED writes the nuclide lists of the meshtal header (daughter or parent
@@ -82,12 +89,7 @@ class Meshtal:
         >>> meshtal = Meshtal.from_d1s_meshtal("meshtal", inp)
         >>> meshtal.readMesh()
         """
-        meshtal = cls.__new__(cls)
-        meshtal.filetype = "MCNP"
-        aci_input = aci_tallies.Input.from_text(inp._model.to_source())
-        meshtal._meshtal_parser = AciMeshtalParser(filename, input=aci_input)
-        meshtal.mesh = {}
-        return meshtal
+        return cls(filename, inp=inp)
 
     def create_filtered_mesh(
         self,
@@ -139,20 +141,35 @@ class Meshtal:
 
         """
         if not mesh:
-            mesh_dict = {}
-            for mesh_id in self._meshtal_parser.get_meshlist():
-                mesh_dict[int(mesh_id)] = self._meshtal_parser.get_FMesh(
-                    mesh_id,
-                    norm,
-                    cell_filters,
-                )
-            self.mesh = mesh_dict
+            mesh = self.mesh_ids
         elif isinstance(mesh, int):
-            self.mesh = {mesh: self._meshtal_parser.get_FMesh(mesh, norm, cell_filters)}
-        elif isinstance(mesh, list):
-            self.mesh = {
-                m: self._meshtal_parser.get_FMesh(m, norm, cell_filters) for m in mesh
-            }
+            mesh = [mesh]
+        self.mesh = {id: self._read(id, norm, cell_filters) for id in mesh}
+
+    def _read(self, id: int, norm: str | None, cells: list[int] | None) -> Fmesh:
+        """Read a mesh, see `readMesh`"""
+        if id not in self.mesh_ids:
+            raise KeyError("bad tally entry")
+        if self.filetype == "MCNP":
+            if id in (failed := dict(self._file.failed)):
+                raise ValueError(
+                    f"Mesh tally {id} of {self.filename} cannot be read: {failed[id]}"
+                )
+            return Fmesh.from_aci(self._file[id], type="meshtal")
+        if self.filetype == "CUV":
+            # unknown options are ignored
+            norm = norm if norm in ("ctot", "celf") else None
+            tally = self._file.to_mesh(id, cells=cells, norm=norm)
+            return Fmesh.from_aci(tally, type="CUV")
+        info = self._file.info(id)
+        return Fmesh.from_aci(
+            self._file[id],
+            type="CDGS",
+            particle=None,
+            comments=info.comment,
+            cooling_time=info.cooling_time,
+            strength=info.strength,
+        )
 
     def write_all(self, outpath: PathLike, out_format: str = "vtk") -> None:
         """write all fmeshes to the outfolder in the specified format.
@@ -198,41 +215,16 @@ class Meshtal:
             if the fmeshes have different geometry if they do not contain
             only the default fields ['Value - Total', 'Error - Total'].
         """
-        try:
-            # check that the collapse is doable
-            for i, key in enumerate(list(name_dict.keys())):
-                fmesh = self.mesh[key]
-                # Check they are all same size
-                if i == 0:
-                    try:
-                        comparison = fmesh
-                    except AttributeError:
-                        # it means that the mesh has not been read
-                        raise AttributeError(
-                            "Please read the meshtal file first using readMesh()"
-                        )
-                else:
-                    assert comparison.sameMesh(fmesh)
-        except AssertionError:
+        fmeshes = [self.mesh[key] for key in name_dict]
+        if not all(fmeshes[0].sameMesh(fmesh) for fmesh in fmeshes):
             raise RuntimeError("the different fmeshes geom are not compatible")
-        try:
-            # check that the collapse is doable
-            for i, key in enumerate(list(name_dict.keys())):
-                fmesh = self.mesh[key]
-                # check that there are only the two usual values, no binning
-                assert tuple(fmesh.grid.array_names) == COLUMN_LABELS
-        except AssertionError:
+        if any(tuple(fmesh.grid.array_names) != COLUMN_LABELS for fmesh in fmeshes):
             raise RuntimeError("no binning allowed for the collapse")
-        for i, key in enumerate(list(name_dict.keys())):
-            fmesh = self.mesh[key]
-            if i == 0:
-                grid = deepcopy(fmesh.grid)
-                for old_name, new_name in zip(grid.array_names, name_dict[key]):
-                    grid.rename_array(old_name, new_name)
-            else:
-                # results just have to be added for the other fmeshes
-                for array_name, id in zip(name_dict[key], COLUMN_LABELS):
-                    grid[array_name] = fmesh.grid[id]
+        grid = fmeshes[0].grid.copy()
+        grid.clear_cell_data()
+        for fmesh, names in zip(fmeshes, name_dict.values()):
+            for new_name, name in zip(names, COLUMN_LABELS):
+                grid[new_name] = fmesh.grid[name].copy()
         return grid
 
     def transform_fmesh(self, inp: Input) -> None:
@@ -273,4 +265,5 @@ class Meshtal:
     @property
     def mesh_ids(self) -> list[int]:
         """Returns the list of mesh IDs."""
-        return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
+        failed = [] if self.filetype == "CUV" else self._file.failed
+        return sorted({*self._file.ids, *(id for id, _ in failed)})
