@@ -3,13 +3,15 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
+import numpy as np
 
 import aci_tallies
 import migjorn
 
-from f4enix.core.constants import PathLike
+# from os import PathLike
+from f4enix.core.constants import PathLike # why not from os ?
 from f4enix.input.MCNPinput import Input
-from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS
+from f4enix.output.meshtal.aux_meshtal_functions import COLUMN_LABELS, opt_merge_arrays, init_meshtal # meshtal_to_ndarray
 from f4enix.output.meshtal.fmesh import Fmesh
 from f4enix.output.meshtal.mesh_parser import (
     AciCDGSMeshParser,
@@ -274,3 +276,150 @@ class Meshtal:
     def mesh_ids(self) -> list[int]:
         """Returns the list of mesh IDs."""
         return sorted(int(x) for x in self._meshtal_parser.get_meshlist())
+
+    @staticmethod
+    def merge(files: list[PathLike, "Meshtal"], filetype: str = "MCNP",
+              method: str = 'optimal', weights : np.ndarray = None,
+              save_memory : bool = False, _level_of_recursion : int = 0):
+        """Merge meshtally files.
+        
+        Returns a `Meshtal` object.
+
+        Parameters
+        ----------
+        files : list of PathLike or list of Meshtal
+            paths to the meshtal file to be read OR `Meshtal` objects
+        filetype : str, optional
+            Output type of the file, by default "MCNP". Other options are "CDGS" and "CUV".
+        method : str, optional
+            Method for merging meshtallies. "optimal" is weighted average, where uncertianaties
+            are considered, "average" is uniform average, "weights" is weighted average
+            whith NDarray of user specified weights.
+        weights : np.ndarray, optional
+            When "method = `weights` the averaging will weight from user specified weights."
+        save_memory : bool, optional
+            If temporary merged files should be made. False by default. This should only be used
+            for large meshtallies or if many meshtallies are being merged.
+        _level_of_recursion : int, do not use -- for debugging
+
+        Example:
+        >>> import os
+        >>> files = os.listdir('folder_with_meshtallies')
+        >>> merged = Meshtal.merged(files=files)
+
+        Example:
+        >>> mt_A = Meshtal('meshtal_A.txt')
+        >>> mt_A.readMesh()
+        >>> mt_B = Meshtal('meshtal_B.txt')
+        >>> mt_B.readMesh()
+        >>> merged = Meshtal.merge([mt_A, mt_B])
+        """
+        if method != 'optimal':
+            raise NotImplementedError(f'Non-optimal merging has not yet been implemented. You provided {method=}.')
+        if np.any(weights):
+            raise NotImplementedError(f'Weighted merging has not yet been implemented. You provided {weights=}.')
+        if save_memory:
+            raise NotImplementedError(f'Exporting temporary files has not yet been implemented. You provided {save_memory=}.')
+
+        print('| '*_level_of_recursion + f'{files=}')
+
+        if len(files) == 0:
+            raise ValueError("Meshtal.merge() function takes a list of multiple meshtally files as input")
+        
+        elif len(files) == 1:
+            mt = init_meshtal(files[0], filetype=filetype)
+            return mt
+
+        elif len(files) > 2:
+            # DO RECURSION tree
+            N = len(files)
+            print('| '*_level_of_recursion + f'first half: {files[:N//2]}')
+            print('| '*_level_of_recursion + f'second half: {files[N//2:]}')
+            first_half = Meshtal.merge(files[:N//2], filetype=filetype, _level_of_recursion=_level_of_recursion+1)
+            second_half = Meshtal.merge(files[N//2:], filetype=filetype, _level_of_recursion=_level_of_recursion+1)
+            return Meshtal.merge(files=[first_half, second_half], filetype=filetype, _level_of_recursion=_level_of_recursion+1)
+            # raise NotImplementedError(f'Merging more than 2 meshtallies has not yet been implemented. You provided {len(files)=}.')
+        
+        elif len(files) == 2:
+            #_# THIS USES A FUNCTION IN aux_meshtal_functions TO CONVERT PYVISTA MESH OBJECTS TO NDARRAYS
+            #_#            mt_A = init_meshtal(files[0], filetype=filetype)
+            #_#            A_dict = meshtal_to_ndarray(mt_A)
+            #_#            mt_B = init_meshtal(files[1], filetype=filetype)
+            #_#            B_dict = meshtal_to_ndarray(mt_B)
+            #_#
+            #_#            A_std_dev = np.multiply(A_dict['Value'], A_dict['Error']) # WARNING! This depends on aux_meshtal_functions.VALUE_LABEL
+            #_#            B_std_dev = np.multiply(B_dict['Value'], B_dict['Error']) # and aux_meshtal_functions.ERROR_LABEL
+            #_#
+            #_#            M, M_std_dev = opt_merge_arrays(
+            #_#                A_dict['Value'], B_dict['Value'],
+            #_#                A_std_dev, B_std_dev)
+            #_#            
+            #_#            M_rel_unc = np.zeros(shape=M.shape)
+            #_#            np.divide(
+            #_#                M_std_dev, M,
+            #_#                where=np.not_equal(M, 0),
+            #_#                out=M_rel_unc
+            #_#            )
+
+            mt_A = init_meshtal(meshtal=files[0], filetype=filetype)
+            mt_B = init_meshtal(meshtal=files[1], filetype=filetype)
+
+            # mt_opt = deepcopy(mt_A)
+            mt_opt = mt_A
+            #   STATIC METHOD OR CLASS METHOD ?
+            #   WE WOULD NEED TO BUILD A NEW Meshtal instance from scratch with a class method
+            #       meshtal = cls.__new__(cls)
+            #       meshtal.filetype = "MCNP"
+
+            # Loop over all tallies
+            for tally_id in mt_A.mesh.keys():
+                # print(f'Working on {tally_id=} ...')
+
+                #
+                #   FIRST WE HAVE TO CHECK IF MESHTALLY HAS
+                #   NON-SPATIAL DIMENSIONS ....
+                #     eg.: 'Total', 'Total_e001', ...
+                #
+                
+                VL, EL = COLUMN_LABELS
+            
+                bin_matches = [re.match(rf'{VL}(.*)', k) for k in
+                           mt_A.mesh[tally_id].grid.cell_data.keys()]
+                bins = np.unique([m.group(1) for m in bin_matches if m]) # bins can also be array ['']
+                # print(f'{bins = }')
+                # print(f'{COLUMN_LABELS = }')
+
+                A = np.array(
+                    [mt_A.mesh[tally_id].grid.cell_data[f'{VL}{b}']
+                        for b in bins]
+                )
+                B = np.array(
+                    [mt_B.mesh[tally_id].grid.cell_data[f'{VL}{b}']
+                        for b in bins]
+                )
+                A_rel_unc = np.array(
+                    [mt_A.mesh[tally_id].grid.cell_data[f'{EL}{b}']
+                        for b in bins]
+                )
+                B_rel_unc = np.array(
+                    [mt_B.mesh[tally_id].grid.cell_data[f'{EL}{b}']
+                        for b in bins]
+                )
+                A_std_dev = np.multiply(A, A_rel_unc)
+                B_std_dev = np.multiply(B, B_rel_unc)
+
+                M, M_std_dev = opt_merge_arrays(A,B,A_std_dev,B_std_dev)
+
+                M_rel_unc = np.zeros(shape=M.shape)
+                np.divide(
+                    M_std_dev, M,
+                    where=np.not_equal(M, 0),
+                    out=M_rel_unc
+                )
+
+                # MODIFIY THE CELL DATA ON THE NEW MESHTALLY
+                for i, b in enumerate(bins):
+                    mt_opt.mesh[tally_id].grid.cell_data[f'{VL}{b}'] = M[i,:]
+                    mt_opt.mesh[tally_id].grid.cell_data[f'{EL}{b}'] = M_rel_unc[i,:]
+
+            return mt_opt
