@@ -29,6 +29,8 @@ _VTK_EXTENSIONS = {
 }
 # the digits MCNP prints
 _VALUE_FORMAT = "%.5e"
+# rows of a csv file written at once
+_CSV_ROWS = 100_000
 # types of the discrete bins of aci-tallies axes
 _LABEL_TYPES = {
     "nuclide": "nuc",
@@ -51,31 +53,30 @@ class Bins:
         boundaries of the bins ("erg", "tme"), or the discrete values.
     type : str
         "erg", "tme", or of discrete values "dtme", "nuc", "cel", "line".
+    totalbin : bool
+        True if there is a Total bin, after the others.
     """
 
     values: np.ndarray
     type: str
+    totalbin: bool = False
 
     @classmethod
     def from_aci(cls, axis: aci_tallies.Axis, type: str) -> Bins:
         """The bins of an aci-tallies axis: `type` ("erg" or "tme"), unless discrete."""
+        values = axis.bounds
         if axis.labels is not None:
-            return cls(np.asarray(axis.labels, dtype=float), _LABEL_TYPES[axis.kind])
-        if axis.bounds is None:
+            values, type = axis.labels, _LABEL_TYPES[axis.kind]
+        elif values is None:
             raise ValueError(f"Unsupported {type} bins: {axis!r}")
-        if type == "tme" and tuple(axis.bounds) == _NO_TMESH:
-            return cls(np.array([0.0, 1e20]), type)
-        return cls(np.asarray(axis.bounds, dtype=float), type)
+        elif type == "tme" and tuple(values) == _NO_TMESH:
+            values = (0.0, 1e20)
+        return cls(np.asarray(values, dtype=float), type, axis.total)
 
     @property
     def binbound(self) -> bool:
         """True if the values are bin boundaries"""
         return self.type in ("erg", "tme")
-
-    @property
-    def totalbin(self) -> bool:
-        """True if there is a Total bin, after the others"""
-        return self.type != "dtme" and len(self) > (2 if self.binbound else 1)
 
     @property
     def n(self) -> int:
@@ -112,6 +113,9 @@ class Bins:
         return self.values[key]
 
     def __array__(self, dtype=None, copy=None) -> np.ndarray:
+        if copy is None:
+            # numpy < 2 doesn't accept it
+            return np.asarray(self.values, dtype=dtype)
         return np.array(self.values, dtype=dtype, copy=copy)
 
 
@@ -177,6 +181,12 @@ class Fmesh:
     cooling_time: float | None = None
     binlabels: tuple[str, str] = COLUMN_LABELS
     theta_cells: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        if self.binlabels[0] == self.binlabels[1]:
+            raise ValueError(
+                f"values and errors cannot have the same name, {self.binlabels[0]!r}"
+            )
 
     @classmethod
     def from_aci(cls, tally: aci_tallies.meshtal.MeshTally, **attributes) -> Fmesh:
@@ -359,9 +369,15 @@ class Fmesh:
         # copy everything but the arrays of the grid
         grid = self.grid.copy(deep=False)
         grid.clear_data()
-        new = deepcopy(replace(self, grid=grid))
-        new.ebin, new.tbin = new_ebin, new_tbin
-        new.binlabels = binlabels or COLUMN_LABELS
+        new = deepcopy(
+            replace(
+                self,
+                grid=grid,
+                ebin=new_ebin,
+                tbin=new_tbin,
+                binlabels=binlabels or COLUMN_LABELS,
+            )
+        )
         for (it, ie, _, i), name in new._arrays():
             old_name = self.array_name(times[it], energies[ie], bool(i))
             new.grid.cell_data[name] = self._cells(old_name).copy()
@@ -407,7 +423,7 @@ class Fmesh:
             )
         if not axes and len(self.ebin) > 2:
             col, bins = "Energy", self.ebin
-            data = self.data[0, :-1, 0, 0, 0]
+            data = self.data[0, : self.ne - self.ebin.totalbin, 0, 0, 0]
         elif self.ne > 1 or self.nt > 1:
             raise RuntimeError(
                 "convert2tally can only be used for 1D meshes without energy or time "
@@ -463,9 +479,9 @@ class Fmesh:
         if names is None:
             names = list(self.grid.array_names)
         if all(name in self.grid.cell_data for name in names):
-            points = self.grid.cell_centers().points
+            points, arrays = self.grid.cell_centers().points, self.grid.cell_data
         elif all(name in self.grid.point_data for name in names):
-            points = self.grid.points
+            points, arrays = self.grid.points, self.grid.point_data
         else:
             raise ValueError(
                 "mix between cell and point data is only supported for vtk"
@@ -473,10 +489,14 @@ class Fmesh:
 
         if out_format == "csv":
             path += ".csv"
-            table = np.column_stack([points, *(self.grid[name] for name in names)])
+            columns = [points, *(arrays[name] for name in names)]
             fmt = ["%.3f", " %.3f", " %.3f"] + [f" {_VALUE_FORMAT}"] * len(names)
             with open(path, "w", newline="") as stream:
-                np.savetxt(stream, table, fmt, delimiter=",", newline="\r\n")
+                # in blocks, not to hold a copy of all the arrays
+                for start in range(0, len(points), _CSV_ROWS):
+                    rows = slice(start, start + _CSV_ROWS)
+                    table = np.column_stack([column[rows] for column in columns])
+                    np.savetxt(stream, table, fmt, delimiter=",", newline="\r\n")
             logging.info(f"{path} created successfully!")
             return
 
@@ -485,14 +505,14 @@ class Fmesh:
             with open(file, "w") as stream:
                 if out_format == "point_cloud":
                     stream.write("x, y, z, value\n")
-                    table = np.column_stack([points, self.grid[name]])
+                    table = np.column_stack([points, arrays[name]])
                     fmt = ["%.3f"] * 3 + [_VALUE_FORMAT]
                     np.savetxt(stream, table, fmt, delimiter=",")
                 else:
                     # fluent: the size, then each coordinate and the values in brackets
                     stream.write(f"3\n{points.shape[1]}\n{len(points)}\n1\nuds-0\n")
                     columns = [(column, "%.3f") for column in points.T]
-                    for column, fmt in [*columns, (self.grid[name], _VALUE_FORMAT)]:
+                    for column, fmt in [*columns, (arrays[name], _VALUE_FORMAT)]:
                         stream.write("(")
                         np.savetxt(stream, column, fmt)
                         stream.write(")\n")
