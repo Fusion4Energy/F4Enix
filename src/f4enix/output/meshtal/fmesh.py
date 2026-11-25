@@ -1,35 +1,38 @@
 from __future__ import annotations
 
-import csv
 import logging
-import os
 import re
+import warnings
+from collections.abc import Iterator
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, NamedTuple
 
 import migjorn
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from f4enix.core.constants import PathLike
-from f4enix.output.meshtal.aux_meshtal_functions import (
-    COLUMN_LABELS,
-    CustomTuple,
-    ExtraBin,
-    _get_labels,
-    _get_rotation_matrix,
-    _rectilinear_grid,
-    _structured_grid,
-)
 
 if TYPE_CHECKING:
     import aci_tallies
     import pyvista as pv
 
+COLUMN_LABELS = ("Value - Total", "Error - Total")
 PARTICLES = ("neutron", "photon", "electron", "proton", "deuteron")
-# ExtraBin tags of the discrete bins of aci-tallies axes
-_LABEL_TAGS = {
+ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
+_VTK_EXTENSIONS = {
+    "StructuredGrid": ".vts",
+    "UnstructuredGrid": ".vtu",
+    "RectilinearGrid": ".vtr",
+}
+# the digits MCNP prints
+_VALUE_FORMAT = "%.5e"
+# rows of a csv file written at once
+_CSV_ROWS = 100_000
+# types of the discrete bins of aci-tallies axes
+_LABEL_TYPES = {
     "nuclide": "nuc",
     "parent": "nuc",
     "cell": "cel",
@@ -39,335 +42,312 @@ _LABEL_TAGS = {
 # MCNP's default time bin, when there is no TMESH
 _NO_TMESH = (0.0, 1e36)
 
-ALLOWED_OUTPUT_FORMATS = ["point_cloud", "ip_fluent", "csv", "vtk"]
 
+@dataclass(frozen=True, eq=False)
+class Bins:
+    """The energy or time bins of a mesh (or the user bins in their place).
 
-class MeshData:
-    """class storing mesh and data information (value + error) from MC simulation"""
+    Attributes
+    ----------
+    values : np.ndarray
+        boundaries of the bins ("erg", "tme"), or the discrete values.
+    type : str
+        "erg", "tme", or of discrete values "dtme", "nuc", "cel", "line".
+    totalbin : bool
+        True if there is a Total bin, after the others.
+    """
 
-    def __init__(
-        self,
-        geom: str,
-        x1bin: np.ndarray,
-        x2bin: np.ndarray,
-        x3bin: np.ndarray,
-        ebin: ExtraBin | None = None,
-        tbin: ExtraBin | None = None,
-        data: np.ndarray | None = None,
-    ):
-        if geom not in ("rec", "cyl"):
-            raise ValueError("bad geometry label")
-        self._geom = geom
-        self._x1bin = x1bin
-        self._x2bin = x2bin
-        self._x3bin = x3bin
-
-        self._nx1 = len(x1bin) - 1
-        self._nx2 = len(x2bin) - 1
-        self._nx3 = len(x3bin) - 1
-
-        if ebin is None:
-            self._ebin = ExtraBin(np.array((0, 100)), "erg")
-        else:
-            self._ebin = ebin
-        self._ne = len(self._ebin) - 1 if self._ebin.binbound else len(self._ebin)
-        if self._ebin.totalbin:
-            self._ne += 1
-
-        if tbin is None:
-            self._tbin = ExtraBin(np.array((0, 1e20)), "tme")
-        else:
-            self._tbin = tbin
-        self._nt = len(self._tbin) - 1 if self._tbin.binbound else len(self._tbin)
-        if self._tbin.totalbin:
-            self._nt += 1
-
-        shape = (self._nt, self._ne, self._nx3, self._nx2, self._nx1, 2)
-        self._data = np.ndarray(shape)
-
-        if data is not None:
-            if self._data.shape == data.shape:
-                self._data = data[:, :, :, :, :, :]
-            else:
-                raise TypeError("Data dimension doesn't match expected dimension")
-
-    @property
-    def geom(self) -> str:
-        """
-        Mesh geometry ('rec', 'cyl')
-        """
-        return self._geom
-
-    @property
-    def x1bin(self) -> np.ndarray:
-        """
-        X/R bins data (rec or cyl geometry)
-        """
-        return self._x1bin
-
-    @property
-    def x2bin(self) -> np.ndarray:
-        """
-        Y/Z bins data (rec or cyl geometry)
-        """
-        return self._x2bin
-
-    @property
-    def x3bin(self) -> np.ndarray:
-        """
-        Z/T bins data (rec or cyl geometry)
-        """
-        return self._x3bin
-
-    @property
-    def ebin(self) -> ExtraBin:
-        """
-        mcnp energy bin (or user bin assingned to mcnp energy bin)
-        """
-        return self._ebin
-
-    @property
-    def tbin(self) -> ExtraBin:
-        """
-        mcnp timebin (or user bin assingned to mcnp time bin)
-        """
-        return self._tbin
-
-    @property
-    def nx1(self) -> int:
-        """
-        number of intervals on X/R axis
-        """
-        return self._nx1
-
-    @property
-    def nx2(self) -> int:
-        """
-        number of intervals on Y/Z axis
-        """
-        return self._nx2
-
-    @property
-    def nx3(self) -> int:
-        """
-        number of intervals on Z/T axis
-        """
-        return self._nx3
-
-    @property
-    def ne(self) -> int:
-        """
-        number of energy intervals (or energy values if discrete) on energy grid (or defined user bin)
-        """
-        return self._ne
-
-    @property
-    def nt(self) -> int:
-        """
-        number of time intervals (or time values if discrete) on time grid (or defined user bin)
-        """
-        return self._nt
-
-    @property
-    def data(self) -> np.ndarray:
-        """
-        array with mesh values and statistical error
-        """
-        return self._data
-
-    def get_etbin_data(
-        self, ebin: int | None = None, tbin: int | None = None
-    ) -> "MeshData":
-        """Return a sub mesh with only data of selected energy and time bins"""
-
-        if ebin is None:
-            ebin = 0
-            new_earray = self._ebin
-        else:
-            if ebin < 0:
-                if -ebin < self._ne + 1:
-                    ebin += self._ne
-                else:
-                    raise TypeError("get_etbin_data: energy bin out of range")
-
-            if ebin < self._ne:
-                if self._ebin.totalbin and ebin == self._ne - 1:
-                    if self._ebin.binbound:
-                        new_earray = ExtraBin(
-                            np.array((self._ebin[0], self._ebin[-1])),
-                            self._ebin.type,
-                        )
-                    else:
-                        new_earray = ExtraBin(np.array((-1,)), self._ebin.type)
-                else:
-                    if self._ebin.binbound:
-                        new_earray = ExtraBin(
-                            self._ebin[ebin : ebin + 2], self._ebin.type
-                        )
-                    else:
-                        new_earray = ExtraBin(
-                            self._ebin[ebin : ebin + 1], self._ebin.type
-                        )
-            else:
-                raise TypeError("get_etbin_data: energy bin out of range")
-
-        if tbin is None:
-            tbin = 0
-            new_tarray = self._tbin
-        else:
-            if tbin < 0:
-                if -tbin < self._nt + 1:
-                    tbin += self._nt
-                else:
-                    raise TypeError("get_etbin_data: time bin out of range")
-
-            if tbin < self._nt:
-                if self._tbin.totalbin and tbin == self._nt - 1:
-                    if self._tbin.binbound:
-                        new_tarray = ExtraBin(
-                            np.array((self._tbin[0], self._tbin[-1])),
-                            self._tbin.type,
-                        )
-                    else:
-                        new_tarray = ExtraBin(np.array((-1,)), self._tbin.type)
-                else:
-                    if self._tbin.binbound:
-                        new_tarray = ExtraBin(
-                            self._tbin[tbin : tbin + 2], self._tbin.type
-                        )
-                    else:
-                        new_tarray = ExtraBin(
-                            self._tbin[tbin : tbin + 1], self._tbin.type
-                        )
-            else:
-                raise TypeError("get_etbin_data: time bin out of range")
-
-        bin_mesh = MeshData(
-            self._geom, self._x1bin, self._x2bin, self._x3bin, new_earray, new_tarray
-        )
-
-        if bin_mesh.ne == 1 and bin_mesh.nt == 1:
-            bin_mesh.data[0, 0, :, :, :, :] = self._data[tbin, ebin, :, :, :, :]
-        elif bin_mesh.ne == 1:
-            bin_mesh.data[:, 0, :, :, :, :] = self._data[:, ebin, :, :, :, :]
-        elif bin_mesh.nt == 1:
-            bin_mesh.data[0, :, :, :, :, :] = self._data[tbin, :, :, :, :, :]
-        else:
-            bin_mesh.data[:, :, :, :, :, :] = self._data[:, :, :, :, :, :]
-
-        return bin_mesh
-
-
-class Fmesh(MeshData):
-    def __init__(
-        self,
-        mesh: MeshData,
-        meshLabel: str,
-        trsf: None | tuple = None,
-        binlabels: tuple[str] | None = None,
-        grid: pv.DataSet | None = None,
-    ):
-        super().__init__(
-            mesh.geom,
-            mesh.x1bin,
-            mesh.x2bin,
-            mesh.x3bin,
-            mesh.ebin,
-            mesh.tbin,
-            mesh.data,
-        )
-        """""Class storing all kind of mesh Fmesh, CuV, CDGS.
-
-        Parameters
-        ----------
-        mesh : MeshData
-            MeshData object containing the mesh geometry, bins, and data.
-        meshLabel : str
-            Label for the mesh, typically the tally number.
-        trsf : tuple | None
-            Mesh transformation, if any. It can be a tuple of transformation parameters
-            (Origin vector, rotation matrix) or None if no transformation is applied.
-        binlabels : tuple[str] | None, optional
-            Labels for the bins in the mesh. If None, default labels are used.
-            Default is None.
-        grid : pv.DataSet | None, optional
-            Grid to use instead of building one from the mesh data. Default is
-            None.
-
-        
-        Attributes
-        ----------
-        grid : pv.DataSet
-            PyVista grid object wrapping the mesh data.
-
-        """
-
-        self._trsf = trsf
-        self._tally = meshLabel
-        self._type = None
-        self._comments = None
-        self._particle = None
-        if grid is None:
-            grid = self._create_grid(binlabels=binlabels)
-        self.grid: pv.DataSet = grid
-        self._strength = None
-        self._cooling_time = None
-        self._aci: aci_tallies.meshtal.MeshTally | None = None
+    values: np.ndarray
+    type: str
+    totalbin: bool = False
 
     @classmethod
-    def from_aci(
-        cls,
-        tally: aci_tallies.meshtal.MeshTally,
-        binlabels: tuple[str] | None = None,
-        tags: tuple[str, str] | None = None,
-    ) -> Fmesh:
-        """Build an Fmesh from a mesh tally read by aci-tallies.
+    def from_aci(cls, axis: aci_tallies.Axis, type: str) -> Bins:
+        """The bins of an aci-tallies axis: `type` ("erg" or "tme"), unless discrete."""
+        values = axis.bounds
+        if axis.labels is not None:
+            values, type = axis.labels, _LABEL_TYPES[axis.kind]
+        elif values is None:
+            raise ValueError(f"Unsupported {type} bins: {axis!r}")
+        elif type == "tme" and tuple(values) == _NO_TMESH:
+            values = (0.0, 1e20)
+        return cls(np.asarray(values, dtype=float), type, axis.total)
+
+    @property
+    def binbound(self) -> bool:
+        """True if the values are bin boundaries"""
+        return self.type in ("erg", "tme")
+
+    @property
+    def n(self) -> int:
+        """Number of bins, Total included"""
+        return len(self) - self.binbound + self.totalbin
+
+    def select(self, index: int | None) -> tuple[Bins, range]:
+        """Bin `index` (None: all of them), and the indices selected."""
+        if index is None or (self.n == 1 and index in (0, -1)):
+            return self, range(self.n)
+        if not -self.n <= index < self.n:
+            raise IndexError(f"bin {index} out of {self.n}")
+        index %= self.n
+        if self.totalbin and index == self.n - 1:
+            # the Total of discrete bins is a bin of -1
+            values = np.array([self[0], self[-1]] if self.binbound else [-1.0])
+        else:
+            values = self[index : index + 1 + self.binbound]
+        return Bins(values, self.type), range(index, index + 1)
+
+    def suffix(self, letter: str, index: int) -> str:
+        """Suffix of the arrays of bin `index`"""
+        if self.n == 1:
+            return ""
+        if self.totalbin and index == self.n - 1:
+            return f"_{letter}Tot"
+        return f"_{letter}{index + 1:03d}"
+
+    # as an array of its values
+    def __len__(self) -> int:
+        return len(self.values)
+
+    def __getitem__(self, key):
+        return self.values[key]
+
+    def __array__(self, dtype=None, copy=None) -> np.ndarray:
+        if copy is None:
+            # numpy < 2 doesn't accept it
+            return np.asarray(self.values, dtype=dtype)
+        return np.array(self.values, dtype=dtype, copy=copy)
+
+
+class Cylinder(NamedTuple):
+    """Where a cylindrical mesh is"""
+
+    origin: np.ndarray
+    axis: np.ndarray
+    vec: np.ndarray | None
+
+
+@dataclass(eq=False, repr=False)
+class Fmesh:
+    """A mesh of any kind: FMESH, CuV, CDGS.
+
+    Attributes
+    ----------
+    grid : pv.DataSet
+        PyVista grid of the mesh. Its cell arrays are the values and errors of the
+        mesh, the only copy of them.
+    tally : str
+        mesh label, typically the tally number.
+    geom : str
+        "rec" or "cyl".
+    x1bin, x2bin, x3bin : np.ndarray
+        bounds along X, Y, Z or R, Z, theta (in revolutions).
+    ebin, tbin : Bins
+        energy and time bins, or the user bins in their place.
+    trsf : Cylinder | None
+        origin, axis and vec of a cylindrical mesh.
+    type : str | None
+        type of mesh (meshtal, CDGS, CUV).
+    particle, comments : str | None
+        transported particle and comments of the mesh.
+    strength, cooling_time : float | None
+        of a CDGS mesh.
+    binlabels : tuple[str, str]
+        names of the value and error arrays of the grid (without bin suffixes).
+    theta_cells : np.ndarray | None
+        number of cells that draw each theta bin of a cylindrical mesh.
+
+    Notes
+    -----
+    Everything uses the arrays of `grid`: modify them, or assign `data`, to change the
+    values. Total bins are not recomputed, nor are errors propagated. The arrays must
+    keep their names and the grid its cells, and the cells that draw a same voxel of a
+    cylindrical mesh must have the same value.
+    """
+
+    grid: pv.DataSet
+    tally: str
+    geom: str
+    x1bin: np.ndarray
+    x2bin: np.ndarray
+    x3bin: np.ndarray
+    ebin: Bins
+    tbin: Bins
+    trsf: Cylinder | None = None
+    type: str | None = None
+    particle: str | None = None
+    comments: str | None = None
+    strength: float | None = None
+    cooling_time: float | None = None
+    binlabels: tuple[str, str] = COLUMN_LABELS
+    theta_cells: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        if self.binlabels[0] == self.binlabels[1]:
+            raise ValueError(
+                f"values and errors cannot have the same name, {self.binlabels[0]!r}"
+            )
+
+    @classmethod
+    def from_aci(cls, tally: aci_tallies.meshtal.MeshTally, **attributes) -> Fmesh:
+        """Build an Fmesh from a mesh tally read by aci-tallies, which is not kept.
 
         Parameters
         ----------
         tally : aci_tallies.meshtal.MeshTally
             the mesh tally.
-        binlabels : tuple[str] | None, optional
-            labels of the value and error arrays of the grid, by default
-            ("Value - Total", "Error - Total").
-        tags : tuple[str, str] | None, optional
-            ExtraBin tags of the energy and time bins of a mesh the tally was
-            selected from (what a selected Total of discrete bins was), by default
-            None.
-
-        Returns
-        -------
-        Fmesh
-            the mesh, its data, and a PyVista grid of it (the exact geometry of
-            the mesh, cylinders included).
+        **attributes
+            attributes of the Fmesh that are not the ones of the tally.
         """
         geometry = tally.geometry
-        geom = "cyl" if geometry.kind == "cylindrical" else "rec"
-        x1bin, x2bin, x3bin = (np.asarray(b, dtype=float) for b in geometry.bounds)
-        etag, ttag = tags or ("erg", "tme")
-        ebin = _extra_bin(tally.energy, "erg", etag)
-        tbin = _extra_bin(tally.time, "tme", ttag)
-        # aci-tallies: (energy, time, i, j, k); F4Enix: (time, energy, k, j, i, 2)
-        data = np.stack([tally.result, tally.rel_error], axis=-1)
-        data = np.ascontiguousarray(data.transpose(1, 0, 4, 3, 2, 5))
-        mesh = MeshData(geom, x1bin, x2bin, x3bin, ebin, tbin, data)
-
-        trsf = None
-        if geom == "cyl":
-            trsf = _cyl_transformation(geometry.origin, geometry.axis, geometry.vec)
-        grid = _aci_grid(tally, binlabels or COLUMN_LABELS)
-        fmesh = cls(mesh, str(tally.id), trsf=trsf, grid=grid)
-        fmesh._comments = tally.comment
-        fmesh._particle = next((p for p in PARTICLES if p in tally.particle), "")
-        fmesh._aci = tally
+        kwargs = {
+            "particle": next((p for p in PARTICLES if p in tally.particle), ""),
+            "comments": tally.comment,
+        }
+        if geometry.kind == "cylindrical":
+            vec = None if geometry.vec is None else np.asarray(geometry.vec, float)
+            kwargs["trsf"] = Cylinder(
+                np.asarray(geometry.origin, float),
+                np.asarray(geometry.axis, float),
+                vec,
+            )
+            # aci-tallies draws a coarse theta bin with several cells
+            ray = tally.isel(energy=0, time=0, i=0, j=0)
+            kwargs["theta_cells"] = np.array(
+                [ray.isel(k=k).to_pyvista().n_cells for k in range(tally.shape[4])]
+            )
+        fmesh = cls(
+            tally.to_pyvista(energy=0, time=0, fields=["result"]),
+            str(tally.id),
+            "cyl" if geometry.kind == "cylindrical" else "rec",
+            *(np.asarray(b, dtype=float) for b in geometry.bounds),
+            Bins.from_aci(tally.energy, "erg"),
+            Bins.from_aci(tally.time, "tme"),
+            **(kwargs | attributes),
+        )
+        fmesh.grid.clear_cell_data()
+        values = (tally.result, tally.rel_error)
+        for (it, ie, _, i), name in fmesh._arrays():
+            # (energy, time, x1, x2, x3) in aci-tallies
+            fmesh.grid.cell_data[name] = fmesh._to_cells(values[i][ie, it].T)
+        fmesh._check_cells()
         return fmesh
 
+    @property
+    def nx1(self) -> int:
+        """number of intervals on X/R axis"""
+        return len(self.x1bin) - 1
+
+    @property
+    def nx2(self) -> int:
+        """number of intervals on Y/Z axis"""
+        return len(self.x2bin) - 1
+
+    @property
+    def nx3(self) -> int:
+        """number of intervals on Z/T axis"""
+        return len(self.x3bin) - 1
+
+    @property
+    def ne(self) -> int:
+        """number of energy bins, Total included"""
+        return self.ebin.n
+
+    @property
+    def nt(self) -> int:
+        """number of time bins, Total included"""
+        return self.tbin.n
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """shape of `data`: (time, energy, x3, x2, x1, value or error)"""
+        return (self.nt, self.ne, self.nx3, self.nx2, self.nx1, 2)
+
+    def array_name(self, time: int, energy: int, error: bool = False) -> str:
+        """Name of the array of the grid with the values (or errors) of a bin."""
+        suffixes = self.tbin.suffix("t", time) + self.ebin.suffix("e", energy)
+        return self.binlabels[error] + suffixes
+
+    def _arrays(self) -> Iterator[tuple[tuple, str]]:
+        """Index in `data`, and name, of each array of the grid"""
+        for it, ie, i in np.ndindex(self.nt, self.ne, 2):
+            yield (it, ie, ..., i), self.array_name(it, ie, bool(i))
+
+    def _to_cells(self, voxels: np.ndarray) -> np.ndarray:
+        """Cell array of the grid from an array of the voxels, (x3, x2, x1). A copy."""
+        if self.theta_cells is not None:
+            # the cells go along r, then theta, then z
+            voxels = np.repeat(voxels, self.theta_cells, axis=0).transpose(1, 0, 2)
+        return voxels.flatten()
+
+    def _to_voxels(self, name: str) -> np.ndarray:
+        """Cell array `name` of the grid as an array of the voxels, (x3, x2, x1)."""
+        cells = self._cells(name)
+        if self.theta_cells is None:
+            return cells.reshape(self.nx3, self.nx2, self.nx1)
+        first = np.cumsum(self.theta_cells) - self.theta_cells
+        voxels = cells.reshape(self.nx2, -1, self.nx1)[:, first].transpose(1, 0, 2)
+        if not np.array_equal(self._to_cells(voxels), cells, equal_nan=True):
+            raise ValueError(
+                f"array {name!r} of mesh {self.tally} has different values in the cells "
+                "of a same voxel"
+            )
+        return voxels
+
+    def _cells(self, name: str) -> np.ndarray:
+        if name not in self.grid.cell_data:
+            raise ValueError(
+                f"the grid of mesh {self.tally} has no cell array {name!r}: it was "
+                "renamed or removed"
+            )
+        return np.asarray(self.grid.cell_data[name])
+
+    def _check_cells(self) -> None:
+        n_theta = self.nx3 if self.theta_cells is None else self.theta_cells.sum()
+        n_cells = n_theta * self.nx2 * self.nx1
+        if self.grid.n_cells != n_cells:
+            raise ValueError(
+                f"the grid of mesh {self.tally} has {self.grid.n_cells} cells instead "
+                f"of {n_cells}: it is not a grid of this mesh anymore"
+            )
+
+    @property
+    def data(self) -> np.ndarray:
+        """Values and relative errors, shape (time, energy, x3, x2, x1, 2).
+
+        It is a read-only copy of the arrays of `grid`, made each time. Assign a new
+        array to change them all.
+
+        Examples
+        --------
+        >>> data = fmesh.data.copy()
+        >>> data[..., 0] *= 2  # values, errors are data[..., 1]
+        >>> fmesh.data = data
+        """
+        self._check_cells()
+        data = np.empty(self.shape)
+        for index, name in self._arrays():
+            data[index] = self._to_voxels(name)
+        data.flags.writeable = False
+        return data
+
+    @data.setter
+    def data(self, data: np.ndarray) -> None:
+        data = np.asarray(data, dtype=float)
+        if data.shape != self.shape:
+            raise ValueError(f"data has shape {data.shape}, it must be {self.shape}")
+        self._check_cells()
+        for index, name in self._arrays():
+            self.grid.cell_data[name] = self._to_cells(data[index])
+
     def select_bins(
-        self, ebin: int | None = None, tbin: int | None = None, binlabels=None
+        self,
+        ebin: int | None = None,
+        tbin: int | None = None,
+        binlabels: tuple[str, str] | None = None,
     ) -> Fmesh:
         """A new Fmesh with only energy bin `ebin` and time bin `tbin` (None: all of
-        them). Indices count the Total bin, last: -1 is the Total, when there is
-        one.
+        them). Indices count the Total bin, last: -1 is the Total, when there is one.
 
         Parameters
         ----------
@@ -375,139 +355,54 @@ class Fmesh(MeshData):
             energy bin, by default None
         tbin : int | None, optional
             time bin, by default None
-        binlabels : tuple[str] | None, optional
-            labels of the value and error arrays of the grid, by default None
+        binlabels : tuple[str, str] | None, optional
+            names of the value and error arrays of the grid, by default None
 
         Returns
         -------
         Fmesh
-            the selected bins of this mesh.
+            the selected bins of this mesh, with its own grid.
         """
-        if self._aci is None:
-            data = self.get_etbin_data(ebin=ebin, tbin=tbin)
-            return Fmesh(data, self.tally, trsf=None, binlabels=binlabels)
-        tally = self._aci
-        selection = {}
-        for name, index, axis in (
-            ("energy", ebin, tally.energy),
-            ("time", tbin, tally.time),
-        ):
-            if index is None:
-                continue
-            index = index + len(axis) if index < 0 else index
-            if not 0 <= index < len(axis):
-                raise IndexError(f"{name} bin {index} out of {len(axis)}")
-            selection[name] = "total" if index == axis.total_index else index
-        selected = tally.isel(**selection)
-        fmesh = Fmesh.from_aci(
-            selected, binlabels=binlabels, tags=(self.ebin.type, self.tbin.type)
-        )
-        for attr in ("_type", "_strength", "_cooling_time"):
-            setattr(fmesh, attr, getattr(self, attr))
-        return fmesh
-
-    @property
-    def trsf(self):
-        """
-        Mesh transformation
-        """
-        return self._trsf
-
-    @property
-    def tally(self) -> str:
-        """
-        Mesh label
-        """
-        return self._tally
-
-    @property
-    def type(self) -> str | None:
-        """
-        Mesh type (meshtal, CDGS, CUV, ...)
-        """
-        return self._type
-
-    @type.setter
-    def type(self, value: str | None):
-        if not isinstance(value, (str, type(None))):
-            raise TypeError(f"type should be string type not {type(value)}")
-        self._type = value
-
-    @property
-    def comments(self) -> str | None:
-        """
-        Mesh comments
-        """
-        return self._comments
-
-    @comments.setter
-    def comments(self, value: str | None):
-        if not isinstance(value, (str, type(None))):
-            raise TypeError(f"comments should be string type not {type(value)}")
-        self._comments = value
-
-    @property
-    def particle(self) -> str | None:
-        """
-        Transported particle
-        """
-        return self._particle
-
-    @particle.setter
-    def particle(self, value: str | None):
-        if not isinstance(value, (str, type(None))):
-            raise TypeError(f"particle should be string type not {type(value)}")
-        self._particle = value
-
-    @property
-    def strength(self) -> float | None:
-        """
-        Mesh strength (e.g. for CDGS mesh)
-        """
-        return self._strength
-
-    @strength.setter
-    def strength(self, value: float | None):
-        if value is not None and not isinstance(value, (float, int)):
-            raise TypeError(f"strength should be float type or None not {type(value)}")
-        self._strength = value
-
-    @property
-    def cooling_time(self) -> float | None:
-        """
-        Mesh cooling time (e.g. for CDGS mesh)
-        """
-        return self._cooling_time
-
-    @cooling_time.setter
-    def cooling_time(self, value: float | None):
-        if value is not None and not isinstance(value, (float, int)):
-            raise TypeError(
-                f"cooling_time should be float type or None not {type(value)}"
+        self._check_cells()
+        new_ebin, energies = self.ebin.select(ebin)
+        new_tbin, times = self.tbin.select(tbin)
+        # copy everything but the arrays of the grid
+        grid = self.grid.copy(deep=False)
+        grid.clear_data()
+        new = deepcopy(
+            replace(
+                self,
+                grid=grid,
+                ebin=new_ebin,
+                tbin=new_tbin,
+                binlabels=binlabels or COLUMN_LABELS,
             )
-        self._cooling_time = value
+        )
+        for (it, ie, _, i), name in new._arrays():
+            old_name = self.array_name(times[it], energies[ie], bool(i))
+            new.grid.cell_data[name] = self._cells(old_name).copy()
+        return new
+
+    def get_etbin_data(self, ebin: int | None = None, tbin: int | None = None) -> Fmesh:
+        """Deprecated, use `select_bins`."""
+        warnings.warn(
+            "get_etbin_data is deprecated, use select_bins",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.select_bins(ebin=ebin, tbin=tbin)
 
     def print_info(self) -> dict:
-        """Print mesh information in a dictionary format.
+        """Mesh information in a dictionary format.
 
         Returns
         -------
         dict
             fmesh infos
         """
-        info = {
-            "tally": self.tally,
-            "type": self.type,
-            "comments": self.comments,
-            "particle": self.particle,
-            "x1bin": self.x1bin,
-            "x2bin": self.x1bin,
-            "x3bin": self.x1bin,
-            "ebin": self.ebin,
-            "tbin": self.tbin,
-            "geometry": self.geom,
-        }
-        return info
+        names = ("tally", "type", "comments", "particle", "x1bin", "x2bin", "x3bin")
+        info = {name: getattr(self, name) for name in (*names, "ebin", "tbin")}
+        return info | {"geometry": self.geom}
 
     def convert2tally(self) -> tuple[int, pd.DataFrame, str]:
         """In case the mesh is 1D (only one spatial binning is higher than 1), convert
@@ -519,77 +414,26 @@ class Fmesh(MeshData):
             A tuple containing the tally number, a pandas DataFrame with the
             converted data, and a comment string.
         """
-        val = None
-        err = None
-        # Check if the mesh is 1D
-        if (
-            self.nx1 == 1 and self.nx2 == 1 and self.nx3 == 1 and len(self.ebin) > 2
-        ):  # 1D Energy mesh
-            col = "Energy"
-            idx_vals = self.ebin[1:]
-            val = self.data[0, : self.ne - 1, 0, 0, 0, 0]
-            err = self.data[0, : self.ne - 1, 0, 0, 0, 1]
-        elif self.nx1 == self.nx2 == 1:  # z axis
-            col = "Cor C"
-            idx = self.nx3
-            idx_vals = self.x3bin[1:]
-        elif self.nx1 == self.nx3 == 1:  # y axis
-            col = "Cor B"
-            idx = self.nx2
-            idx_vals = self.x2bin[1:]
-        elif self.nx2 == self.nx3 == 1:  # x axis
-            col = "Cor A"
-            idx = self.nx1
-            idx_vals = self.x1bin[1:]
-        elif self.nx1 == 1 and self.nx3 == 2 and self.geom == "cyl":  # y axis
-            col = "Cor B"
-            idx = self.nx2
-            idx_vals = self.x2bin[1:]
-        elif self.nx2 == 1 and self.nx3 == 2 and self.geom == "cyl":  # x axis
-            col = "Cor A"
-            idx = self.nx1
-            idx_vals = self.x1bin[1:]
-        else:
+        axes = {"Cor A": self.x1bin, "Cor B": self.x2bin, "Cor C": self.x3bin}
+        axes = {name: bins for name, bins in axes.items() if len(bins) > 2}
+        if len(axes) > 1:
             raise RuntimeError(
-                (
-                    "convert2tally can only be used for 1D meshes",
-                    f"Axis lengths x:{len(self.x1bin)}, y:{len(self.x2bin)}, z:{len(self.x3bin)}",
-                )
+                "convert2tally can only be used for 1D meshes, this one has shape "
+                f"{self.shape[4:1:-1]}"
             )
-        if val is None:
-            if self.ne > 1 or self.nt > 1:
-                raise RuntimeError(
-                    "convert2tally can only be used for 1D meshes without energy "
-                    "or time bins"
-                )
-            # one spatial axis: the voxels in order along it
-            val = self.data[0, 0, :, :, :, 0].reshape(-1)[:idx]
-            err = self.data[0, 0, :, :, :, 1].reshape(-1)[:idx]
-        data = {
-            col: idx_vals,
-            "Value": val,
-            "Error": err,
-        }
-        df = pd.DataFrame(data)
-
-        return int(self.tally), df, str(self.comments)
-
-    def _create_grid(self, binlabels=None) -> pv.PolyData:
-        import pyvista as pv
-
-        if self._geom == "rec" and self._trsf is None:
-            if binlabels:
-                gd = _rectilinear_grid(self, labels=binlabels)
-            else:
-                gd = _rectilinear_grid(self)
-        elif binlabels:
-            gd = _structured_grid(self, trsf=self._trsf, labels=binlabels)
+        if not axes and len(self.ebin) > 2:
+            col, bins = "Energy", self.ebin
+            data = self.data[0, : self.ne - self.ebin.totalbin, 0, 0, 0]
+        elif self.ne > 1 or self.nt > 1:
+            raise RuntimeError(
+                "convert2tally can only be used for 1D meshes without energy or time "
+                "bins"
+            )
         else:
-            gd = _structured_grid(self, trsf=self._trsf)
-
-        pv_grid = pv.wrap(gd)
-        assert isinstance(pv_grid, pv.DataSet), "Could not generate PyVista object..."
-        return pv_grid
+            col, bins = next(iter(axes.items()), ("Cor C", self.x3bin))
+            data = self.data.reshape(-1, 2)
+        df = pd.DataFrame({col: bins[1:], "Value": data[:, 0], "Error": data[:, 1]})
+        return int(self.tally), df, str(self.comments)
 
     def write(
         self,
@@ -620,141 +464,67 @@ class Fmesh(MeshData):
         KeyError
             raises KeyError if the output format is not allowed.
         """
-        if list_array_names is None:
-            list_array_names = list(self.grid.array_names)
-
-        if outfile is None:
-            file_name = f"Tally_{self.tally}_{out_format}"
-        else:
-            file_name = outfile
-
-        # TODO either all cells or all point data are supported if not a vtk
-        if out_format != "vtk":
-            len_data = len(self.grid.cell_data)
-            len_point = len(self.grid.point_data)
-            if len_data > 0 and len_point == 0:
-                f_points = self.grid.cell_centers().points
-            elif len_point > 0:
-                f_points = self.grid.points
-            else:
-                raise ValueError(
-                    "mix between cell and point data is only supported for vtk"
-                )
-
-        filepath = os.path.join(outpath, file_name)
-        mesh_type = str(type(self.grid)).split(".")[-1][:-2]
-
-        if out_format == "vtk":
-            self._write_vtk(filepath, mesh_type)
-        elif out_format == "csv":
-            self._write_csv(filepath, f_points, list_array_names)
-        elif out_format == "point_cloud":
-            self._write_point_cloud(filepath, list_array_names, f_points)
-        elif out_format == "ip_fluent":
-            self._write_fluent(filepath, list_array_names, f_points)
-        else:
+        if out_format not in ALLOWED_OUTPUT_FORMATS:
             raise KeyError(
                 f"Invalid format, these are the ones allowed: {ALLOWED_OUTPUT_FORMATS}"
             )
+        path = str(Path(outpath, outfile or f"Tally_{self.tally}_{out_format}"))
+        if out_format == "vtk":
+            path += _VTK_EXTENSIONS.get(type(self.grid).__name__, ".vtk")
+            self.grid.save(path)
+            logging.info(f"{path} created successfully!")
+            return
 
-    def _write_vtk(self, filepath: PathLike, mesh_type: str) -> None:
-        if mesh_type == "StructuredGrid":
-            ext = ".vts"
-        elif mesh_type == "UnstructuredGrid":
-            ext = ".vtu"
-        elif mesh_type == "RectilinearGrid":
-            ext = ".vtr"
+        names = list_array_names
+        if names is None:
+            names = list(self.grid.array_names)
+        if all(name in self.grid.cell_data for name in names):
+            points, arrays = self.grid.cell_centers().points, self.grid.cell_data
+        elif all(name in self.grid.point_data for name in names):
+            points, arrays = self.grid.points, self.grid.point_data
         else:
-            ext = ".vtk"
+            raise ValueError(
+                "mix between cell and point data is only supported for vtk"
+            )
 
-        self.grid.save(str(filepath) + ext)
+        if out_format == "csv":
+            path += ".csv"
+            columns = [points, *(arrays[name] for name in names)]
+            fmt = ["%.3f", " %.3f", " %.3f"] + [f" {_VALUE_FORMAT}"] * len(names)
+            with open(path, "w", newline="") as stream:
+                # in blocks, not to hold a copy of all the arrays
+                for start in range(0, len(points), _CSV_ROWS):
+                    rows = slice(start, start + _CSV_ROWS)
+                    table = np.column_stack([column[rows] for column in columns])
+                    np.savetxt(stream, table, fmt, delimiter=",", newline="\r\n")
+            logging.info(f"{path} created successfully!")
+            return
 
-    def _write_csv(
-        self, filepath: PathLike, f_points: np.ndarray, list_array_names: list[str]
-    ) -> None:
-        new_name = str(filepath) + ".csv"
+        for name in names:
+            file = path + "_" + _clean_path(name) + ".txt"
+            with open(file, "w") as stream:
+                if out_format == "point_cloud":
+                    stream.write("x, y, z, value\n")
+                    table = np.column_stack([points, arrays[name]])
+                    fmt = ["%.3f"] * 3 + [_VALUE_FORMAT]
+                    np.savetxt(stream, table, fmt, delimiter=",")
+                else:
+                    # fluent: the size, then each coordinate and the values in brackets
+                    stream.write(f"3\n{points.shape[1]}\n{len(points)}\n1\nuds-0\n")
+                    columns = [(column, "%.3f") for column in points.T]
+                    for column, fmt in [*columns, (arrays[name], _VALUE_FORMAT)]:
+                        stream.write("(")
+                        np.savetxt(stream, column, fmt)
+                        stream.write(")\n")
+            logging.info(f"{file} created successfully!")
 
-        with open(new_name, "w", newline="") as outfile:
-            writer = csv.writer(outfile)
-
-            # # TODO This may create some issues...
-            # values_type = self.get_array_type(list_array_names[0])
-            # if values_type == "cells":  # Take points or centers
-            #     f_points = self.centers
-            # else:  # Points
-            #     f_points = self.points
-
-            for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
-                csv_points = [
-                    f"{f_points[i][0]:.3f}",
-                    f" {f_points[i][1]:.3f}",
-                    f" {f_points[i][2]:.3f}",
-                ]
-                for array_name in list_array_names:
-                    csv_points.append(f" {self.grid[array_name][i]:.3f}")
-                writer.writerow(csv_points)
-
-            logging.info(f"{new_name} created successfully!")
-
-    def _write_point_cloud(
-        self, filepath: PathLike, list_array_names: list[str], f_points: np.ndarray
-    ) -> None:
-        for array_name in list_array_names:
-            values = self.grid[array_name]
-            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
-            with open(new_name, "w") as outfile:
-                outfile.write("x, y, z, value\n")
-                # TODO this can probably be optmized using
-                # outfile.writeline()
-                for i in tqdm(range(len(f_points)), unit=" Points", desc="Writing"):
-                    outfile.write(f"{f_points[i][0]:.3f},")
-                    outfile.write(f"{f_points[i][1]:.3f},")
-                    outfile.write(f"{f_points[i][2]:.3f},")
-                    outfile.write(f"{values[i]:.3f}\n")
-            logging.info(f"{new_name} created successfully!")
-
-    def _write_fluent(
-        self, filepath: PathLike, list_array_names: list[str], f_points: np.ndarray
-    ) -> None:
-        for array_name in list_array_names:
-            values = self.grid[array_name]
-            new_name = str(filepath) + f"_{_clean_path(array_name)}.txt"
-            with open(new_name, "w") as outfile:
-                guion1 = "3"
-                n_coord = f_points.shape[1]  # self.n_coordinates
-                n_values = str(len(f_points))
-                guion2 = "1"
-                uds = "uds-0"
-                beginning = f"{guion1}\n{n_coord}\n{n_values}\n{guion2}\n{uds}\n"
-                outfile.write(beginning)
-                outfile.write("(")
-                for i in tqdm(range(len(f_points)), unit=" x points", desc="Writing x"):
-                    outfile.write(f"{f_points[i][0]:.3f}\n")
-
-                outfile.write(")\n")
-                outfile.write("(")
-
-                for i in tqdm(range(len(f_points)), unit=" y points", desc="Writing y"):
-                    outfile.write(f"{f_points[i][1]:.3f}\n")
-                outfile.write(")\n")
-                outfile.write("(")
-                for i in tqdm(range(len(f_points)), unit=" z points", desc="Writing z"):
-                    outfile.write(f"{f_points[i][2]:.3f}\n")
-                outfile.write(")\n")
-                outfile.write("(")
-                for i in tqdm(
-                    range(len(f_points)), unit=" values", desc="Writing values"
-                ):
-                    outfile.write(f"{values[i]:.3f}\n")
-                outfile.write(")\n")
-            logging.info(f"{new_name} created successfully!")
-
-    def sameMesh(self, other_mesh: MeshData) -> bool:
-        """Check if two meshes are the same based on their geometry and bins.
+    def sameMesh(self, other_mesh: Fmesh) -> bool:
+        """Check if two meshes are the same: same geometry, in the same position, and
+        same number of energy and time bins.
 
         Parameters
         ----------
-        other_mesh : MeshData
+        other_mesh : Fmesh
             The other mesh to compare with.
 
         Returns
@@ -762,26 +532,12 @@ class Fmesh(MeshData):
         bool
             True if the meshes are the same, False otherwise.
         """
-        if self.geom != other_mesh.geom:
-            return False
-        if self.data.shape != other_mesh.data.shape:
-            return False
-
-        mesh1_xbins = (self.x1bin, self.x2bin, self.x3bin)
-        mesh2_xbins = (other_mesh.x1bin, other_mesh.x2bin, other_mesh.x3bin)
-
-        for bin1, bin2 in zip(mesh1_xbins, mesh2_xbins):
-            if np.any(abs(bin1 - bin2) > 1e-12):
-                return False
-
-        return True
-
-    def _read_from_vtk(self, vtk_file: os.PathLike) -> None:
-        # This is mostly used for quicker testing
-        import pyvista as pv
-
-        grid = pv.read(vtk_file)
-        self.grid = grid
+        return (
+            self.geom == other_mesh.geom
+            and self.shape == other_mesh.shape
+            and self.grid.n_points == other_mesh.grid.n_points
+            and np.allclose(self.grid.points, other_mesh.grid.points, rtol=1e-9)
+        )
 
     def apply_transformation(self, tr: migjorn.Transform) -> None:
         """Apply a transformation to the mesh object.
@@ -799,46 +555,18 @@ class Fmesh(MeshData):
         migjorn.ReadError
             If the transformation card is not one MCNP would accept
         """
-        affine = tr.affine
-        transform_matrix = np.eye(4)
-        transform_matrix[:3, :3] = affine.rotation
-        transform_matrix[:3, 3] = affine.translation
         import pyvista as pv
 
+        matrix = np.eye(4)
+        matrix[:3, :3] = tr.affine.rotation
+        matrix[:3, 3] = tr.affine.translation
         if isinstance(self.grid, pv.RectilinearGrid):
-            # If the grid is a RectilinearGrid, cast it to StructuredGrid to avoid
-            # a bug regarding rotation
+            # to avoid a bug regarding rotation
             self.grid = self.grid.cast_to_structured_grid()
-        self.grid = self.grid.transform(transform_matrix, inplace=False)
-
-    def _get_mesh_bin_daughters(self, bin_type: str) -> tuple[dict, str]:
-        # Select bin type and array prefix based on user input
-        if bin_type == "ebin":
-            bins = self.ebin
-            arr_prefix = "Value - Total_e"
-        elif bin_type == "tbin":
-            bins = self.tbin
-            arr_prefix = "Value - Total_t"
-        else:
-            raise ValueError("bin_type must be 'ebin' or 'tbin'")
-
-        daughter_to_array = {}
-        for b in bins[1:]:  # skip the first bin (all other nuclides)
-            b_str = str(b)
-            d_str, arr_str = b_str.split(".")
-            daughter = int(d_str)
-
-            arr_token = arr_str.ljust(3, "0")[:3]
-            arr_num = int(arr_token)
-
-            daughter_to_array[daughter] = arr_num
-
-        return daughter_to_array, arr_prefix
+        self.grid = self.grid.transform(matrix, inplace=False)
 
     def rescale_dose_map(
-        self,
-        scaling_factors_df: pd.DataFrame,
-        cooling_time_col: str,
+        self, scaling_factors_df: pd.DataFrame, cooling_time_col: str
     ) -> pv.DataSet:
         """Rescale the dose map in the mesh using scaling factors for a chosen cooling time.
 
@@ -855,13 +583,14 @@ class Fmesh(MeshData):
         pv.DataSet
             new PyVista grid with rescaled arrays and a new total array
         """
-        daughter_to_array, arr_prefix = self._get_mesh_bin_daughters("ebin")
+        # the first bin is all the other nuclides
+        daughters = {int(b): i + 1 for i, b in enumerate(self.ebin) if i > 0}
         return rescale_dose_map_vtk(
             grid=self.grid,
             scaling_factors_df=scaling_factors_df,
             cooling_time_col=cooling_time_col,
-            daughter_to_array=daughter_to_array,
-            arr_prefix=arr_prefix,
+            daughter_to_array=daughters,
+            arr_prefix=f"{self.binlabels[0]}_e",
         )
 
 
@@ -905,77 +634,6 @@ def rescale_dose_map_vtk(
     return new_grid
 
 
-def _extra_bin(axis: aci_tallies.Axis, tag: str, discrete_tag: str) -> ExtraBin:
-    """An aci-tallies energy or time axis as an F4Enix ExtraBin. `discrete_tag` is
-    the tag of a selected Total of discrete bins (a bin of -1, as F4Enix has it)."""
-    if axis.labels is not None:
-        return ExtraBin(np.asarray(axis.labels, dtype=float), _LABEL_TAGS[axis.kind])
-    bounds = axis.bounds
-    if bounds is None:
-        if axis.n_bins == 1 and discrete_tag not in ("erg", "tme"):
-            return ExtraBin(np.array([-1.0]), discrete_tag)
-        raise ValueError(f"Unsupported {tag} bins: {axis!r}")
-    if tag == "tme" and tuple(bounds) == _NO_TMESH:
-        # no time bins: F4Enix's default one
-        return ExtraBin(np.array([0.0, 1e20]), "tme", explicitbin=False)
-    return ExtraBin(np.asarray(bounds, dtype=float), tag)
-
-
-def _cyl_transformation(origin, axis, vec) -> CustomTuple | None:
-    """The transformation of a cylindrical mesh, as F4Enix gives it: None for a
-    mesh at the origin along Z (with X as its theta reference)."""
-    origin = np.asarray(origin, dtype=float)
-    axis = np.asarray(axis, dtype=float)
-    vec = None if vec is None else np.asarray(vec, dtype=float)
-    axis_z = abs(axis.dot(np.array((0, 0, 1.0))) - 1.0) < 1e-12
-    # as F4Enix's header parser did (it tests the axis, not VEC, against X), so
-    # that a cylinder with a VEC always has its transformation (used by ww_gvr)
-    axis_x = None if vec is None else abs(axis.dot(np.array((1.0, 0, 0))) - 1.0) < 1e-12
-    if axis_z and (axis_x is None or axis_x):
-        rotmat = None
-    else:
-        rotmat = _get_rotation_matrix(axis, vec)
-    if np.linalg.norm(origin) < 1e-12 and rotmat is None:
-        return None
-    if rotmat is None:
-        rotmat = np.identity(3)
-    result = CustomTuple(origin, rotmat)
-    result.origin = origin
-    result.vec = vec
-    result.axis = axis
-    return result
-
-
-def _aci_grid(
-    tally: aci_tallies.meshtal.MeshTally, labels: tuple[str, str]
-) -> pv.DataSet:
-    """The PyVista grid of an aci-tallies mesh tally, with F4Enix's array names
-    (`Value - Total`, `Value - Total_e001`, ..., `Error - Total_tTot_eTot`) in
-    F4Enix's order, as float32."""
-    grid = tally.to_pyvista(fields=["result", "rel_error"])
-    ne, nt = len(tally.energy), len(tally.time)
-    f4e_labels = _get_labels(nt, ne, labels)
-    arrays = {}
-
-    def suffix(axis, idx: int, name: str) -> str:
-        if len(axis) == 1:
-            return ""
-        return f"_{name}{'total' if idx == axis.total_index else idx}"
-
-    for it in range(nt):
-        for ie in range(ne):
-            aci = suffix(tally.energy, ie, "e") + suffix(tally.time, it, "t")
-            val_label, err_label = f4e_labels[it][ie]
-            arrays[val_label] = grid.cell_data[f"result{aci}"].astype(np.float32)
-            arrays[err_label] = grid.cell_data[f"rel_error{aci}"].astype(np.float32)
-    grid.clear_cell_data()
-    for name, values in arrays.items():
-        grid.cell_data[name] = values
-    return grid
-
-
 def _clean_path(name: str) -> str:
     """Remove special characters from the path to make it a valid file name."""
-    pat_wrong_file_char = re.compile(r"[\[\]\\\/]")
-    fixed_name = pat_wrong_file_char.sub("", name)
-    return fixed_name
+    return re.sub(r"[\[\]\\\/]", "", name)

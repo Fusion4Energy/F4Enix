@@ -1,8 +1,12 @@
 import os
+import pickle
+from copy import copy, deepcopy
 from importlib.resources import as_file, files
 
+import aci_tallies
 import numpy as np
 import pytest
+import pyvista as pv
 
 import tests.resources.irradiation as res_irr
 import tests.resources.meshtal as resources
@@ -11,6 +15,9 @@ import tests.resources.meshtal.tests as res
 from f4enix.core.constants import TIME_UNITS
 from f4enix.input.d1suned import IrradiationFile
 from f4enix.input.MCNPinput import Input
+from f4enix.input.ww_gvr.weight_window import WW
+from f4enix.output.meshtal import fmesh as fmesh_module
+from f4enix.output.meshtal.fmesh import Bins, Fmesh
 from f4enix.output.meshtal.meshtal import Meshtal
 
 resources_write = files(res)
@@ -64,7 +71,7 @@ class TestMeshtal:
 
         meshtally.readMesh(norm=norm)
         meshtally.readMesh(cell_filters=[1, 2], norm=norm)
-        assert meshtally._meshtal_parser.get_meshlist() == ("44",)
+        assert meshtally.mesh_ids == [44]
         bound = meshtally.mesh[44].grid.bounds
         expected = 5.0
         assert bound[-1] == expected
@@ -97,6 +104,20 @@ class TestMeshtal:
                 "csv",
                 "Tally_124_csv.csv",
                 "example_['Values']_csv.csv",
+            ],
+            [
+                "example.vts",
+                ["Values"],
+                "ip_fluent",
+                "Tally_124_ip_fluent_Values.txt",
+                "example_Values_ip_fluent.txt",
+            ],
+            [
+                "example.vts",
+                ["Values"],
+                "point_cloud",
+                "Tally_124_point_cloud_Values.txt",
+                "example_Values_point_cloud.txt",
             ],
             [
                 "test_VTK_CUBE_SQUARE.vtr",
@@ -152,7 +173,7 @@ class TestMeshtal:
         fmesh = meshtally.mesh[124]
 
         with as_file(resources_write.joinpath(file_read)) as inp:
-            fmesh._read_from_vtk(inp)
+            fmesh.grid = pv.read(inp)
 
         outpath = tmpdir.mkdir("sub_csv")
         fmesh.write(outpath, out_format=out_format, list_array_names=list_array_names)
@@ -160,11 +181,82 @@ class TestMeshtal:
 
         with as_file(expected.joinpath(file_exp)) as exp:
             with open(outfile) as test, open(exp) as exp_file:
-                for line1, line2 in zip(test, exp_file):
-                    assert line1 == line2
+                assert test.readlines() == exp_file.readlines()
 
         # Also always test the .vtk writing
         fmesh.write(outpath)
+
+    @pytest.mark.parametrize("out_format", ["csv", "point_cloud", "ip_fluent"])
+    def test_write_small_values(self, tmp_path, out_format):
+        with as_file(RESOURCES.joinpath("cdgs_test")) as inp:
+            meshtal = Meshtal(inp, filetype="CDGS")
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[1]
+        fmesh.grid["Value - Total_eTot"][0] = 1.23456e-20
+        fmesh.write(tmp_path, ["Value - Total_eTot"], out_format=out_format)
+        (file,) = tmp_path.iterdir()
+        assert "1.23456e-20" in file.read_text()
+
+    def test_write_errors(self, tmp_path):
+        with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[124]
+        with pytest.raises(KeyError, match="Invalid format"):
+            fmesh.write(tmp_path, out_format="xls")
+        fmesh.grid.point_data["points"] = np.zeros(fmesh.grid.n_points)
+        with pytest.raises(ValueError, match="mix between cell and point data"):
+            fmesh.write(tmp_path, out_format="csv")
+        # either is fine
+        fmesh.write(tmp_path, ["points"], out_format="csv", outfile="points")
+        fmesh.write(tmp_path, ["Value - Total"], out_format="csv", outfile="cells")
+        assert len((tmp_path / "points.csv").read_text().splitlines()) == 18
+        assert len((tmp_path / "cells.csv").read_text().splitlines()) == 4
+
+    @pytest.mark.parametrize("out_format", ["csv", "point_cloud", "ip_fluent"])
+    def test_write_name_of_cells_and_points(self, tmp_path, out_format):
+        """The values must be of the points that are written"""
+        with as_file(RESOURCES.joinpath("meshtal_CUBE_SQUARE")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[124]
+        values = np.arange(fmesh.grid.n_points, dtype=float)
+        assert fmesh.grid.n_points != fmesh.grid.n_cells
+        fmesh.grid.cell_data["flux"] = np.full(fmesh.grid.n_cells, -1.0)
+        fmesh.grid.point_data["flux"] = values
+        fmesh.grid.point_data["temperature"] = 10 * values
+        names = ["flux", "temperature"]
+        fmesh.write(tmp_path, names, out_format=out_format, outfile="test")
+        if out_format == "csv":
+            table = np.loadtxt(tmp_path / "test.csv", delimiter=",")
+            np.testing.assert_allclose(table[:, :3], fmesh.grid.points, atol=1e-3)
+            written = table[:, 3:].T
+        else:
+            texts = [(tmp_path / f"test_{name}.txt").read_text() for name in names]
+            if out_format == "ip_fluent":
+                rows = [text.split("(")[-1].split()[:-1] for text in texts]
+            else:
+                rows = [
+                    [line.split(",")[-1] for line in text.splitlines()[1:]]
+                    for text in texts
+                ]
+            written = np.array(rows, dtype=float)
+        np.testing.assert_array_equal(written, [values, 10 * values])
+
+    def test_write_csv_in_blocks(self, tmp_path, monkeypatch):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[124]
+        fmesh.write(tmp_path, out_format="csv", outfile="whole")
+        n_cells = fmesh.grid.n_cells
+        whole = (tmp_path / "whole.csv").read_bytes()
+        assert whole.count(b"\r\n") == n_cells
+        # a last block that is full, and one that is not
+        for rows in (n_cells // 2, n_cells // 2 + 1, 1):
+            monkeypatch.setattr(fmesh_module, "_CSV_ROWS", rows)
+            fmesh.write(tmp_path, out_format="csv", outfile="blocks")
+            assert (tmp_path / "blocks.csv").read_bytes() == whole
 
     def test_write_outfile(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
@@ -198,6 +290,46 @@ class TestMeshtal:
             meshtally = Meshtal(inp)
         meshtally.readMesh([4, 14])
         meshtally.write_all(tmpdir)
+
+        meshtally.readMesh((4, 14))
+        assert list(meshtally.mesh) == [4, 14]
+        meshtally.readMesh(14)
+        assert list(meshtally.mesh) == [14]
+        with pytest.raises(KeyError, match="bad tally entry"):
+            meshtally.readMesh(5)
+
+    def test_unknown_filetype(self):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            with pytest.raises(KeyError, match="Unknown filetype"):
+                Meshtal(inp, filetype="VTK")
+
+    def test_print_info(self):
+        with as_file(RESOURCES.joinpath("meshtal_transform")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh(2024)
+        fmesh = meshtal.mesh[2024]
+        info = fmesh.print_info()
+        for name in ("x1bin", "x2bin", "x3bin", "tally", "ebin"):
+            assert info[name] is getattr(fmesh, name)
+        assert info["geometry"] == "rec"
+
+    def test_same_mesh_position(self):
+        with as_file(RESOURCES.joinpath("meshtal_collapse")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        names = {4: ["A", "B"], 14: ["C", "D"]}
+        assert meshtal.mesh[4].sameMesh(meshtal.mesh[14])
+        meshtal.mesh[14].grid = meshtal.mesh[14].grid.translate((1000, 0, 0))
+        assert not meshtal.mesh[4].sameMesh(meshtal.mesh[14])
+        with pytest.raises(RuntimeError, match="not compatible"):
+            meshtal.collapse_grids(names)
+
+    def test_collapse_binned(self):
+        with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh()
+        with pytest.raises(RuntimeError, match="no binning"):
+            meshtal.collapse_grids({54: ["A", "B"]})
 
     def test_write_all(self, tmpdir):
         with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
@@ -444,9 +576,56 @@ class TestMeshtal:
         meshtal = Meshtal(modified)
         meshtal.readMesh()
         grid = meshtal.mesh[list(meshtal.mesh)[0]].grid
-        # the grid is stored in single precision, so these tiny values become 0
-        assert list(grid.cell_data["Value - Total"]) == [1, 9, 0, 16]
-        assert list(grid.cell_data["Error - Total"]) == [0, 0, 0, 0]
+        # the grid is stored in double precision, so these tiny values are kept
+        assert list(grid.cell_data["Value - Total"]) == [1, 9, 1.77613e-306, 16]
+        assert list(grid.cell_data["Error - Total"]) == [0, 0, 2e-101, 0]
+
+    def test_decay_time_bins_have_no_total(self):
+        with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
+            meshtal = Meshtal(inp)
+        meshtal.readMesh(64)
+        fmesh = meshtal.mesh[64]
+        assert fmesh.tbin.type == "dtme" and not fmesh.tbin.totalbin
+        names = fmesh.grid.array_names
+        assert "Value - Total_t003_eTot" in names
+        assert not any("tTot" in name for name in names)
+        with pytest.warns(DeprecationWarning, match="select_bins"):
+            selected = fmesh.get_etbin_data(ebin=-1, tbin=2)
+        np.testing.assert_array_equal(selected.data[0, 0], fmesh.data[2, -1])
+
+    def test_convert2tally_theta(self):
+        with as_file(RESOURCES.joinpath("meshtal_cyl")) as inp:
+            tally = aci_tallies.meshtal.open(inp)[4]
+        # one axis only: all its voxels
+        for selection, column, n in (
+            ({"i": 0, "j": 0}, "Cor C", 10),
+            ({"i": 0, "k": 0}, "Cor B", 10),
+            ({"j": 0, "k": 0}, "Cor A", 3),
+        ):
+            _, df, _ = Fmesh.from_aci(tally.isel(**selection)).convert2tally()
+            assert list(df.columns) == [column, "Value", "Error"]
+            assert len(df) == n
+        # two theta bins are a second axis
+        fmesh = Fmesh.from_aci(tally.isel(i=0, k=slice(0, 2)))
+        with pytest.raises(RuntimeError, match="only be used for 1D meshes"):
+            fmesh.convert2tally()
+
+    def test_gvr_of_cylinder_at_origin(self, tmp_path):
+        # as MCNP5 writes it, without the VEC
+        text = RESOURCES.joinpath("1D_mesh").read_text()
+        text = text.replace(
+            "origin at   0.00E+00  0.00E+00 -1.00E+03",
+            "origin at   0.00E+00  0.00E+00  0.00E+00",
+        )
+        text = text.replace(", VEC direction   1.00E+00  0.00E+00  0.00E+00", "")
+        file = tmp_path / "meshtal"
+        file.write_text(text)
+        meshtal = Meshtal(file)
+        meshtal.readMesh(214)
+        assert meshtal.mesh[214].trsf.origin.tolist() == [0, 0, 0]
+        assert meshtal.mesh[214].trsf.axis.tolist() == [0, 0, 1]
+        ww = WW.create_gvr_from_meshtally_file(file, tally_num=214)
+        assert ww.geometry.director_1[:2] == [0, 0]
 
     def test_rescale_dose_mesh(self):
         with as_file(RESOURCES.joinpath("meshtal_time_energy_bins")) as inp:
@@ -501,3 +680,385 @@ class TestMeshtal:
                 ]
             )
         )
+
+
+class TestMeshtalDeepcopy:
+    """deepcopy copies the meshes and shares the reader of the file"""
+
+    @staticmethod
+    def _check_copy(meshtal: Meshtal) -> None:
+        new = deepcopy(meshtal)
+        assert new.mesh_ids == meshtal.mesh_ids
+        assert new.mesh.keys() == meshtal.mesh.keys()
+        for key, fmesh in meshtal.mesh.items():
+            copied = new.mesh[key]
+            assert copied is not fmesh
+            assert copied.grid is not fmesh.grid
+            assert (copied.trsf is None) == (fmesh.trsf is None)
+            if fmesh.trsf is not None:
+                np.testing.assert_array_equal(copied.trsf.axis, fmesh.trsf.axis)
+            name = fmesh.grid.array_names[0]
+            np.testing.assert_array_equal(copied.grid[name], fmesh.grid[name])
+            np.testing.assert_array_equal(copied.data, fmesh.data)
+            # changing the copy leaves the original as it was
+            original = fmesh.grid[name].copy()
+            data = fmesh.data
+            copied.data = copied.data + 1
+            assert not np.array_equal(copied.grid[name], original)
+            np.testing.assert_array_equal(fmesh.grid[name], original)
+            np.testing.assert_array_equal(fmesh.data, data)
+            copied.grid[name][:] = -1
+            np.testing.assert_array_equal(fmesh.grid[name], original)
+            assert copied.select_bins(ebin=0).tally == fmesh.tally
+            # a shallow copy shares the grid
+            assert copy(fmesh).grid is fmesh.grid
+            # pickled
+            loaded = pickle.loads(pickle.dumps(fmesh))
+            np.testing.assert_array_equal(loaded.data, fmesh.data)
+            assert loaded.ebin.type == fmesh.ebin.type
+        # the copy can read the file
+        new.readMesh(norm="ctot")
+        for key, fmesh in meshtal.mesh.items():
+            np.testing.assert_array_equal(new.mesh[key].data, fmesh.data)
+
+    @pytest.mark.parametrize(
+        ["input_meshtal", "filetype"],
+        [
+            ("meshtal_CUBE_SQUARE", "MCNP"),
+            ("meshtal_cyl", "MCNP"),
+            ("meshtal_cuv", "CUV"),
+            ("cdgs_test", "CDGS"),
+        ],
+    )
+    def test_deepcopy(self, input_meshtal, filetype):
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtal = Meshtal(inp, filetype=filetype)
+            meshtal.readMesh(norm="ctot")
+        self._check_copy(meshtal)
+
+    def test_deepcopy_from_d1s_meshtal(self):
+        with (
+            as_file(RESOURCES.joinpath("meshtal_d1s_overflow")) as meshtal_file,
+            as_file(RESOURCES.joinpath("input_d1s_overflow")) as input_file,
+        ):
+            inp = Input.from_input(input_file)
+            meshtal = Meshtal.from_d1s_meshtal(meshtal_file, inp)
+            meshtal.readMesh()
+        self._check_copy(meshtal)
+
+
+class TestFmeshValues:
+    """The values of a mesh are the arrays of its grid"""
+
+    FILES = [
+        ("meshtal_CUBE_SQUARE", "MCNP"),
+        ("meshtal_rect_VV", "MCNP"),
+        ("meshtal_cyl", "MCNP"),
+        ("1D_mesh", "MCNP"),
+        ("meshtal_time_energy_bins", "MCNP"),
+        ("meshtal_transform", "MCNP"),
+        ("meshtal_cuv", "CUV"),
+        ("cdgs_test", "CDGS"),
+    ]
+
+    @staticmethod
+    def _read(input_meshtal: str, filetype: str = "MCNP") -> Meshtal:
+        with as_file(RESOURCES.joinpath(input_meshtal)) as inp:
+            meshtal = Meshtal(inp, filetype=filetype)
+            meshtal.readMesh(norm="ctot")
+        return meshtal
+
+    @staticmethod
+    def _new_data(fmesh: Fmesh) -> np.ndarray:
+        """Different in every bin and voxel, so that a wrong order shows."""
+        return np.arange(np.prod(fmesh.shape), dtype=float).reshape(fmesh.shape)
+
+    @pytest.mark.parametrize(["input_meshtal", "filetype"], FILES)
+    def test_data_as_read(self, input_meshtal, filetype):
+        meshtal = self._read(input_meshtal, filetype)
+        for key, fmesh in meshtal.mesh.items():
+            file = meshtal._file
+            tally = file.to_mesh(key, norm="ctot") if filetype == "CUV" else file[key]
+            # aci-tallies: (energy, time, i, j, k)
+            for i, array in enumerate((tally.result, tally.rel_error)):
+                np.testing.assert_array_equal(
+                    fmesh.data[..., i], array.transpose(1, 0, 4, 3, 2)
+                )
+
+    @pytest.mark.parametrize(["input_meshtal", "filetype"], FILES)
+    def test_assign_data(self, input_meshtal, filetype):
+        for fmesh in self._read(input_meshtal, filetype).mesh.values():
+            names = fmesh.grid.array_names
+            data = self._new_data(fmesh)
+            fmesh.data = data
+            np.testing.assert_array_equal(fmesh.data, data)
+            assert fmesh.grid.array_names == names
+            for it in range(fmesh.nt):
+                for ie in range(fmesh.ne):
+                    selected = fmesh.select_bins(ebin=ie, tbin=it)
+                    np.testing.assert_array_equal(
+                        selected.data[0, 0], fmesh.data[it, ie]
+                    )
+
+    @pytest.mark.parametrize(["input_meshtal", "filetype"], FILES)
+    def test_grid_edits_are_used(self, input_meshtal, filetype):
+        for fmesh in self._read(input_meshtal, filetype).mesh.values():
+            original = fmesh.data
+            for it in range(fmesh.nt):
+                for ie in range(fmesh.ne):
+                    fmesh.grid[fmesh.array_name(it, ie)] *= 2
+            np.testing.assert_array_equal(fmesh.data[..., 0], 2 * original[..., 0])
+            np.testing.assert_array_equal(fmesh.data[..., 1], original[..., 1])
+            np.testing.assert_array_equal(
+                fmesh.select_bins(ebin=-1, tbin=-1).data[0, 0], fmesh.data[-1, -1]
+            )
+
+    def test_grid_edits_in_convert2tally(self):
+        fmesh = self._read("1D_mesh").mesh[214]
+        _, before, _ = fmesh.convert2tally()
+        fmesh.grid["Value - Total"] *= 2
+        _, after, _ = fmesh.convert2tally()
+        np.testing.assert_array_equal(after["Value"], 2 * before["Value"])
+        np.testing.assert_array_equal(after["Error"], before["Error"])
+
+    def test_cylinder_cells(self):
+        """Voxels split in several cells along theta"""
+        fmesh = self._read("meshtal_cyl").mesh[4]
+        data = self._new_data(fmesh)
+        fmesh.data = data
+        assert list(fmesh.theta_cells) == [8] * 10
+        assert fmesh.grid.n_cells == 8 * data[..., 0].size
+        self._assert_cells_where_voxels_are(fmesh)
+
+        fmesh.grid["Value - Total"][0] = -1
+        with pytest.raises(ValueError, match="cells of a same voxel"):
+            _ = fmesh.data
+
+    def test_theta_bins_of_different_width(self, tmp_path):
+        r, z, theta = [0, 1, 3], [0, 2, 5, 6], [0, 0.05, 0.25, 1]
+        lines = []
+        for i in range(2):
+            for j in range(3):
+                for k in range(3):
+                    center = [
+                        sum(b[n : n + 2]) / 2 for b, n in ((r, i), (z, j), (theta, k))
+                    ]
+                    row = "".join(f"{c:10.3f}" for c in center)
+                    lines.append(f"{row} {100 * k + 10 * j + i:.5E} 1.00000E-01")
+        bounds = [" ".join(f"{b:.3f}" for b in bins) for bins in (r, z, theta)]
+        file = tmp_path / "meshtal"
+        file.write_text(
+            "mcnp   version 6     ld=02/20/18  probid =  11/18/19 14:41:20\n"
+            " TEST\n"
+            " Number of histories used for normalizing tallies =             1.00\n\n"
+            " Mesh Tally Number         4\n neutron  mesh tally.\n\n"
+            " Tally bin boundaries:\n"
+            "               origin at  1.00E+00  0.00E+00  0.00E+00 axis in   0.00E+00  "
+            "0.00E+00  1.00E+00 direction, VEC direction   1.00E+00  0.00E+00  0.00E+00\n"
+            f"    R direction: {bounds[0]}\n"
+            f"    Z direction: {bounds[1]}\n"
+            f"    Theta direction (revolutions): {bounds[2]}\n"
+            "    Energy bin boundaries: 0.00E+00 1.00E+36\n\n"
+            "        R         Z         Th    Result     Rel Error\n"
+            + "\n".join(lines)
+            + "\n"
+        )
+        meshtal = Meshtal(file)
+        meshtal.readMesh()
+        fmesh = meshtal.mesh[4]
+        # 5 degrees at most: 18, 72 and 270 degrees
+        assert list(fmesh.theta_cells) == [4, 15, 54]
+        k, j, i = np.indices((3, 3, 2))
+        np.testing.assert_array_equal(fmesh.data[0, 0, ..., 0], 100 * k + 10 * j + i)
+        self._assert_cells_where_voxels_are(fmesh)
+
+    @staticmethod
+    def _assert_cells_where_voxels_are(fmesh: Fmesh) -> None:
+        """Each cell has the value of the voxel where its middle is"""
+        points = fmesh.grid.cell_centers().points - fmesh.trsf.origin
+        axis, vec = fmesh.trsf.axis, fmesh.trsf.vec
+        x, y, z = points @ vec, points @ np.cross(axis, vec), points @ axis
+        k = np.searchsorted(fmesh.x3bin, (np.arctan2(y, x) / (2 * np.pi)) % 1) - 1
+        j = np.searchsorted(fmesh.x2bin, z) - 1
+        i = np.searchsorted(fmesh.x1bin, np.hypot(x, y)) - 1
+        assert len(set(zip(k, j, i))) == fmesh.nx1 * fmesh.nx2 * fmesh.nx3
+        for error, name in enumerate(("Value - Total", "Error - Total")):
+            np.testing.assert_array_equal(
+                fmesh.grid[name], fmesh.data[0, 0, ..., error][k, j, i]
+            )
+
+    def test_rectangular_cells(self):
+        fmesh = self._read("meshtal_transform").mesh[2024]
+        fmesh.data = data = self._new_data(fmesh)
+        points = fmesh.grid.cell_centers().points
+        i, j, k = (
+            np.searchsorted(bins, points[:, n]) - 1
+            for n, bins in enumerate((fmesh.x1bin, fmesh.x2bin, fmesh.x3bin))
+        )
+        assert len(set(zip(i, j, k))) == fmesh.grid.n_cells
+        np.testing.assert_array_equal(
+            fmesh.grid["Value - Total"], data[0, 0, ..., 0][k, j, i]
+        )
+
+    def test_select_bins(self):
+        fmesh = self._read("meshtal_time_energy_bins").mesh[54]
+        selected = fmesh.select_bins(ebin=0, tbin=0, binlabels=("flux", "err"))
+        assert selected.grid.array_names == ["flux", "err"]
+        # it has its own values and grid
+        original = fmesh.data
+        selected.data = self._new_data(selected)
+        assert selected.grid["flux"].max() == selected.data[..., 0].max()
+        selected.grid = selected.grid.cast_to_structured_grid()
+        selected.grid.points += 1
+        np.testing.assert_array_equal(fmesh.data, original)
+        # selecting nothing is a copy
+        whole = fmesh.select_bins()
+        assert whole.grid.array_names == fmesh.grid.array_names
+        np.testing.assert_array_equal(whole.data, original)
+        whole.grid["Value - Total_t001_e001"][:] = -1
+        np.testing.assert_array_equal(fmesh.data, original)
+        with pytest.raises(IndexError):
+            fmesh.select_bins(ebin=fmesh.ne)
+        with pytest.raises(IndexError):
+            fmesh.select_bins(tbin=-fmesh.nt - 1)
+
+    def test_select_bins_has_its_own_bins(self):
+        fmesh = self._read("meshtal_time_energy_bins").mesh[54]
+        for index in (None, 0, -1):
+            selected = fmesh.select_bins(ebin=index, tbin=index)
+            for name in ("ebin", "tbin"):
+                bins, original = getattr(selected, name), getattr(fmesh, name)
+                assert not np.shares_memory(bins.values, original.values)
+
+    def test_same_name_for_values_and_errors(self):
+        meshtal = self._read("meshtal_time_energy_bins")
+        with pytest.raises(ValueError, match="same name, 'flux'"):
+            meshtal.mesh[54].select_bins(ebin=0, binlabels=("flux", "flux"))
+        with pytest.raises(ValueError, match="same name, 'flux'"):
+            Fmesh.from_aci(meshtal._file[54], binlabels=("flux", "flux"))
+
+    def test_transformed_stays_transformed(self):
+        meshtal = self._read("meshtal_transform")
+        untouched = deepcopy(meshtal)
+        with as_file(RESOURCES.joinpath("transforms.i")) as input_file:
+            meshtal.transform_fmesh(Input.from_input(input_file))
+        moved = 0
+        for key, fmesh in meshtal.mesh.items():
+            points = np.array(fmesh.grid.points)
+            moved += not fmesh.sameMesh(untouched.mesh[key])
+            data = self._new_data(fmesh)
+            fmesh.data = data
+            np.testing.assert_array_equal(fmesh.data, data)
+            np.testing.assert_array_equal(fmesh.grid.points, points)
+            selected = fmesh.select_bins(ebin=0, tbin=0)
+            np.testing.assert_array_equal(selected.grid.points, points)
+        assert moved
+
+    def test_bad_data_changes_nothing(self):
+        fmesh = self._read("meshtal_CUBE_SQUARE").mesh[124]
+        original = fmesh.data
+        for bad in (original[..., 0], original[:, :, :, :1]):
+            with pytest.raises(ValueError, match="it must be"):
+                fmesh.data = bad
+        np.testing.assert_array_equal(fmesh.data, original)
+
+    def test_data_is_read_only(self):
+        fmesh = self._read("meshtal_CUBE_SQUARE").mesh[124]
+        with pytest.raises(ValueError, match="read-only"):
+            fmesh.data[..., 0] = 7
+
+    def test_grid_of_another_mesh(self):
+        fmesh = self._read("meshtal_CUBE_SQUARE").mesh[124]
+        original = fmesh.grid.copy()
+        data = fmesh.data
+        fmesh.grid.rename_array("Error - Total", "other")
+        for use in (lambda: fmesh.data, lambda: fmesh.select_bins(ebin=0)):
+            with pytest.raises(ValueError, match="no cell array 'Error - Total'"):
+                use()
+        fmesh.grid = original.threshold(5, scalars="Value - Total")
+        for use in (
+            lambda: fmesh.data,
+            lambda: fmesh.select_bins(ebin=0),
+            lambda: setattr(fmesh, "data", data),
+        ):
+            with pytest.raises(ValueError, match="cells instead of"):
+                use()
+
+    def test_collapsed_grid_has_its_own_values(self):
+        meshtal = self._read("meshtal_collapse")
+        grid = meshtal.collapse_grids({4: ["v4", "e4"], 14: ["v14", "e14"]})
+        for key in (4, 14):
+            before = meshtal.mesh[key].data
+            np.testing.assert_array_equal(
+                grid[f"v{key}"], meshtal.mesh[key].grid["Value - Total"]
+            )
+            grid[f"v{key}"][:] = -1
+            np.testing.assert_array_equal(meshtal.mesh[key].data, before)
+
+
+class TestBins:
+    @pytest.mark.parametrize(
+        ["values", "type", "total", "suffixes"],
+        [
+            ([0, 100], "erg", False, [""]),
+            ([0, 1, 20], "erg", True, ["_e001", "_e002", "_eTot"]),
+            ([0, 1, 20], "erg", False, ["_e001", "_e002"]),
+            ([0, 1e20], "tme", False, [""]),
+            ([0.001, 10.002], "cel", True, ["_e001", "_e002", "_eTot"]),
+            ([-1], "nuc", False, [""]),
+            ([1, 2, 3], "line", True, ["_e001", "_e002", "_e003", "_eTot"]),
+            ([1, 2, 3], "dtme", False, ["_e001", "_e002", "_e003"]),
+        ],
+    )
+    def test_bins(self, values, type, total, suffixes):
+        bins = Bins(np.array(values, dtype=float), type, total)
+        n = len(suffixes)
+        assert bins.n == n
+        assert [bins.suffix("e", i) for i in range(n)] == suffixes
+        # as an array
+        assert list(bins) == list(np.asarray(bins)) == values
+        assert bins[-1] == values[-1] and len(bins) == len(values)
+
+    @pytest.mark.parametrize(
+        ["values", "type", "total", "index", "expected", "indices"],
+        [
+            ([0, 1, 20], "erg", True, None, [0, 1, 20], [0, 1, 2]),
+            ([0, 1, 20], "erg", True, 1, [1, 20], [1]),
+            ([0, 1, 20], "erg", True, -1, [0, 20], [2]),
+            ([0, 1, 20], "erg", False, -1, [1, 20], [1]),
+            ([0, 100], "erg", False, -1, [0, 100], [0]),
+            ([1, 2], "nuc", True, 0, [1], [0]),
+            ([1, 2], "nuc", True, 2, [-1], [2]),
+            ([1, 2], "dtme", False, -1, [2], [1]),
+        ],
+    )
+    def test_select(self, values, type, total, index, expected, indices):
+        bins, selected = Bins(np.array(values, dtype=float), type, total).select(index)
+        assert list(bins) == expected and list(selected) == indices
+        assert bins.type == type and bins.n == len(indices)
+
+    @pytest.mark.parametrize("index", [3, -4])
+    def test_select_out_of_range(self, index):
+        with pytest.raises(IndexError):
+            Bins(np.array([0.0, 1.0, 20.0]), "erg", True).select(index)
+
+    def test_bins_without_total(self):
+        """Some energy bins of a tally, so without its Total"""
+        with as_file(RESOURCES.joinpath("1D_mesh_energyonly")) as file:
+            mesh_file = aci_tallies.meshtal.open(file)
+        tally = mesh_file[mesh_file.ids[0]]
+        whole = Fmesh.from_aci(tally)
+        fmesh = Fmesh.from_aci(tally.isel(energy=slice(0, 2)))
+        assert whole.ebin.totalbin and not fmesh.ebin.totalbin
+        assert fmesh.grid.array_names == [
+            "Value - Total_e001",
+            "Error - Total_e001",
+            "Value - Total_e002",
+            "Error - Total_e002",
+        ]
+        np.testing.assert_array_equal(fmesh.data, whole.data[:, :2])
+        # all the bins, where there is no Total to leave out
+        _, df, _ = fmesh.convert2tally()
+        _, df_whole, _ = whole.convert2tally()
+        assert len(df_whole) == whole.ne - 1
+        np.testing.assert_array_equal(df, df_whole[:2])
